@@ -31,11 +31,39 @@ export default {
           }
         );
 
+        const responseBody = await cloudinaryResponse.text();
+        let sanitizedBody = responseBody
+          .replace(/(authorization|api[_-]?key|api[_-]?secret|password|secret|token|credential)(\\s*[=:]\\s*)[^,;\\s}]+/gi, "$1$2[REDACTED]")
+          .replace(/Basic\\s+[A-Za-z0-9+/=]+|Bearer\\s+[^\\s,}]+/gi, "[REDACTED]")
+          .slice(0, 2000);
+
+        try {
+          const parsedBody = JSON.parse(responseBody);
+          const redactSensitiveFields = (value) => {
+            if (Array.isArray(value)) return value.map(redactSensitiveFields);
+            if (value && typeof value === "object") {
+              return Object.fromEntries(
+                Object.entries(value).map(([key, item]) =>
+                  /(authorization|api[_-]?key|api[_-]?secret|password|secret|token|credential)/i.test(key)
+                    ? [key, "[REDACTED]"]
+                    : [key, redactSensitiveFields(item)]
+                )
+              );
+            }
+            return value;
+          };
+          sanitizedBody = JSON.stringify(redactSensitiveFields(parsedBody)).slice(0, 2000);
+        } catch (error) {
+          // Keep the safely redacted text for non-JSON responses.
+        }
+
         if (!cloudinaryResponse.ok) {
           return new Response(
             JSON.stringify({
               success: false,
-              message: "Cloudinary authentication failed."
+              message: "Cloudinary authentication failed.",
+              cloudinaryStatus: cloudinaryResponse.status,
+              cloudinaryResponse: sanitizedBody
             }),
             {
               status: 502,
