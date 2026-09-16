@@ -21,15 +21,31 @@ export default {
       }
 
       try {
-        const credentials = btoa(`${apiKey}:${apiSecret}`);
-        const cloudinaryResponse = await fetch(
-          `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/resources/image/upload?max_results=1`,
-          {
+        let cloudinaryResponse;
+        try {
+          const credentials = btoa(`${apiKey}:${apiSecret}`);
+          const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/resources/image/upload?max_results=1`;
+          cloudinaryResponse = await fetch(cloudinaryUrl, {
             headers: {
               Authorization: `Basic ${credentials}`
             }
-          }
-        );
+          });
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              stage: "cloudinary_fetch",
+              error: {
+                name: error instanceof Error ? error.name : "Error",
+                message: error instanceof Error ? error.message : "Cloudinary request failed."
+              }
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json" }
+            }
+          );
+        }
 
         const responseBody = await cloudinaryResponse.text();
         let sanitizedBody = responseBody
