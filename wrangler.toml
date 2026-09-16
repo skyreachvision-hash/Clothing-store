@@ -7,3 +7,7 @@ main = "src/index.js"
 binding = "DB"
 database_name = "clothing-store-db"
 database_id = "32a4cbbf-2994-433e-a34b-349912434a39"
+
+[vars]
+CLOUDINARY_CLOUD_NAME = "f5jirxsl"
+CLOUDINARY_API_KEY = "994725522715656"
