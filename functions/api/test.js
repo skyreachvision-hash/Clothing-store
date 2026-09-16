@@ -1,7 +1,7 @@
 export async function onRequest(context) {
   try {
     // Call the Worker via the "API" Service Binding
-    const workerResponse = await context.env.API.fetch(new Request("http://clothing-store-api/"));
+    const workerResponse = await context.env.API.fetch(new Request("http://clothing-store-api/cloudinary-test"));
     
     // Check if the Worker response is successful
     if (!workerResponse.ok) {
