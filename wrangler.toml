@@ -1,3 +1,5 @@
+compatibility_date = "2026-09-15"
+
 name = "clothing-store-api"
 main = "src/index.js"
 
