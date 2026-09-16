@@ -1,0 +1,7 @@
+name = "clothing-store-api"
+main = "src/index.js"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "clothing-store-db"
+database_id = "32a4cbbf-2994-433e-a34b-349912434a39"
