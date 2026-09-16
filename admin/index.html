@@ -17,18 +17,8 @@
     <div class="admin-sections">
       <section class="admin-panel" id="products"><div class="panel-icon">01</div><div><h2>Products</h2><p class="muted">Add, edit, organize, and manage inventory for your products.</p></div><button class="button button-outline" type="button" disabled>Manage products</button></section>
       <section class="admin-panel" id="orders"><div class="panel-icon">02</div><div><h2>Orders</h2><p class="muted">Review customer orders and keep fulfillment details up to date.</p></div><button class="button button-outline" type="button" disabled>View orders</button></section>
+      <section class="admin-panel" id="settings"><div class="panel-icon">03</div><div><h2>Store settings</h2><p class="muted">Configure store details, social links, and future integrations.</p></div><a class="button button-outline" href="settings/">Open settings</a></section>
     </div>
-
-    <section class="settings-panel" id="settings" aria-labelledby="settings-title">
-      <div class="settings-heading"><div><p class="eyebrow">Store configuration</p><h2 id="settings-title">Store settings</h2><p class="muted">Manage the business information that will appear across your public storefront.</p></div><span class="settings-readonly">Read-only preview</span></div>
-      <div class="settings-notice" role="status"><strong>Saving is not enabled yet.</strong><span>Authenticated admin access will be required before changes can be written to the store.</span></div>
-      <form class="settings-form" data-settings-form>
-        <fieldset class="settings-group"><legend>Store identity</legend><div class="settings-fields settings-fields-two"><label class="field"><span>Store / brand name</span><input name="store_name" type="text" autocomplete="organization" placeholder="Your store name"></label><label class="field"><span>Tagline</span><input name="tagline" type="text" placeholder="A short line about your store"></label><label class="field field-wide"><span>Store description</span><textarea name="description" rows="4" placeholder="Describe the store and its point of view"></textarea></label><label class="field field-wide"><span>Logo URL</span><input name="logo_url" type="url" placeholder="https://..." autocomplete="url"><small>Cloudinary image URL/reference will be connected here later. Uploads are not enabled.</small></label></div></fieldset>
-        <fieldset class="settings-group"><legend>Contact information</legend><div class="settings-fields settings-fields-two"><label class="field"><span>Email</span><input name="contact_email" type="email" autocomplete="email" placeholder="hello@example.com"></label><label class="field"><span>Phone</span><input name="contact_phone" type="tel" autocomplete="tel" placeholder="+1 000 000 0000"></label><label class="field"><span>WhatsApp URL</span><input name="whatsapp_url" type="url" placeholder="https://wa.me/..." autocomplete="url"></label><label class="field"><span>Address</span><input name="address" type="text" autocomplete="street-address" placeholder="Store address"></label></div></fieldset>
-        <fieldset class="settings-group"><legend>Social media</legend><p class="group-help muted">Enable only the platforms your business uses. Enabled links can appear in the public storefront later.</p><div class="social-list" data-social-list></div></fieldset>
-        <div class="settings-actions"><span class="settings-load-status" data-settings-status aria-live="polite">Loading current settings…</span><button class="button button-primary" type="submit" disabled>Save settings</button></div>
-      </form>
-    </section>
   </div></main>
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../index.html">View storefront</a></div></footer>
 </body>
