@@ -1,7 +1,7 @@
 export async function onRequest(context) {
   try {
-    // Call the Worker via the "API" Service Binding to the /d1-test route
-    const workerResponse = await context.env.API.fetch(new Request("http://clothing-store-api/d1-test"));
+    // Call the Worker via the "API" Service Binding
+    const workerResponse = await context.env.API.fetch(new Request("http://clothing-store-api/"));
     
     // Check if the Worker response is successful
     if (!workerResponse.ok) {
@@ -29,7 +29,6 @@ export async function onRequest(context) {
         success: true,
         message: "Clothing Store Pages Function successfully reached the Worker via Service Binding.",
         bindingName: "API",
-        workerRoute: "/d1-test",
         workerResponse: workerData
       }),
       {
