@@ -32,26 +32,24 @@ const adminLoginPath = "/admin/login/";
 const adminPath = "/admin/";
 const adminAuthCheckPath = "/api/admin-auth-check";
 
+async function getAdminIdToken() {
+  const user = auth.currentUser;
+  if (!user) throw new Error("No authenticated admin session.");
+  return user.getIdToken();
+}
+
+window.getAdminIdToken = getAdminIdToken;
+
 async function verifyAdminSession(user) {
   const idToken = await user.getIdToken();
   const response = await fetch(adminAuthCheckPath, {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-      Accept: "application/json"
-    },
+    headers: { Authorization: `Bearer ${idToken}`, Accept: "application/json" },
     cache: "no-store"
   });
-
-  if (!response.ok) {
-    throw new Error("Backend authentication check failed.");
-  }
-
+  if (!response.ok) throw new Error("Backend authentication check failed.");
   const result = await response.json();
-  if (!result?.success || result?.data?.authenticated !== true) {
-    throw new Error("Backend authentication check failed.");
-  }
-
+  if (!result?.success || result?.data?.authenticated !== true) throw new Error("Backend authentication check failed.");
   return result.data;
 }
 
@@ -61,7 +59,6 @@ if (loginForm) {
     const email = loginForm.elements.namedItem("email")?.value.trim() || "";
     const password = loginForm.elements.namedItem("password")?.value || "";
     const submitButton = loginForm.querySelector("button[type=submit]");
-
     if (submitButton) submitButton.disabled = true;
     setLoginStatus("Signing in…");
 
@@ -70,9 +67,7 @@ if (loginForm) {
       setLoginStatus("Signed in. Opening admin dashboard…");
       window.location.assign(adminPath);
     } catch (error) {
-      const message = error?.code === "auth/invalid-credential"
-        ? "The email or password is incorrect."
-        : "Unable to sign in. Check your details and try again.";
+      const message = error?.code === "auth/invalid-credential" ? "The email or password is incorrect." : "Unable to sign in. Check your details and try again.";
       setLoginStatus(message);
       if (submitButton) submitButton.disabled = false;
     }
@@ -93,15 +88,11 @@ logoutButtons.forEach((button) => {
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    accountLabels.forEach((element) => {
-      element.textContent = user.email || "Admin account";
-    });
-
+    accountLabels.forEach((element) => { element.textContent = user.email || "Admin account"; });
     if (isLoginPage) {
       window.location.assign(adminPath);
       return;
     }
-
     try {
       await verifyAdminSession(user);
     } catch {
@@ -110,8 +101,5 @@ onAuthStateChanged(auth, async (user) => {
     }
     return;
   }
-
-  if (!isLoginPage) {
-    window.location.replace(adminLoginPath);
-  }
+  if (!isLoginPage) window.location.replace(adminLoginPath);
 });
