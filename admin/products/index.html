@@ -20,7 +20,7 @@
     </div>
 
     <section class="settings-panel" aria-labelledby="product-form-title">
-      <div class="settings-heading"><div><h2 id="product-form-title">Add product</h2><p class="muted">Start with the core product information. Images and Cloudinary uploads will be connected separately.</p></div><span class="settings-readonly">Admin access</span></div>
+      <div class="settings-heading"><div><h2 id="product-form-title">Add product</h2><p class="muted">Add the product details and one or more pictures. Images are stored securely through Cloudinary.</p></div><span class="settings-readonly">Admin access</span></div>
       <form class="settings-form" data-product-form>
         <input type="hidden" name="id">
         <fieldset class="settings-group"><legend>Product details</legend>
@@ -34,6 +34,8 @@
             <label class="field"><span>Sort order</span><input name="sort_order" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
             <label class="field"><span><input name="track_stock" type="checkbox" checked> Track stock</span></label>
             <label class="field field-wide"><span>Description</span><textarea name="description" rows="5" maxlength="5000" placeholder="Describe the product"></textarea></label>
+            <label class="field field-wide"><span>Product pictures</span><input name="images" type="file" accept="image/*" multiple><small class="muted">You can select multiple pictures. Maximum 10 MB per picture.</small></label>
+            <div class="field field-wide"><span>Selected pictures</span><p class="muted" data-image-selection>No pictures selected.</p></div>
           </div>
         </fieldset>
         <div class="settings-actions"><span class="settings-load-status" data-form-status aria-live="polite">Ready to add a product.</span><div><button class="button button-outline" type="button" data-cancel-edit hidden>Cancel edit</button> <button class="button button-primary" type="submit" data-save-product>Save product</button></div></div>
@@ -55,9 +57,12 @@
     const listStatus = document.querySelector('[data-list-status]');
     const list = document.querySelector('[data-products-list]');
     const categorySelect = form.elements.category_id;
+    const imageInput = form.elements.images;
+    const imageSelection = document.querySelector('[data-image-selection]');
     const cancelButton = document.querySelector('[data-cancel-edit]');
     const saveButton = document.querySelector('[data-save-product]');
     let products = [];
+    let existingImages = [];
 
     function setFormStatus(message) { formStatus.textContent = message; }
 
@@ -72,7 +77,7 @@
       const token = await getToken();
       const headers = new Headers(options.headers || {});
       headers.set('Authorization', `Bearer ${token}`);
-      if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+      if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
       const response = await fetch(url, { ...options, headers });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
@@ -111,18 +116,68 @@
       for (const product of products) {
         const panel = document.createElement('section');
         panel.className = 'admin-panel';
+        const imageCount = Array.isArray(product.images) ? product.images.length : 0;
         panel.innerHTML = `
           <div class="panel-icon">${escapeHtml(String(product.id).padStart(2, '0'))}</div>
           <div>
             <h2>${escapeHtml(product.name)}</h2>
             <p class="muted">${escapeHtml(product.category_name || 'Uncategorized')} · ${escapeHtml(product.status)} · ${escapeHtml(product.currency)} ${Number(product.price).toFixed(2)}</p>
-            <p class="muted">${product.track_stock ? `Stock: ${escapeHtml(product.stock_quantity)}` : 'Stock tracking off'}${product.sku ? ` · SKU: ${escapeHtml(product.sku)}` : ''}</p>
+            <p class="muted">${product.track_stock ? `Stock: ${escapeHtml(product.stock_quantity)}` : 'Stock tracking off'}${product.sku ? ` · SKU: ${escapeHtml(product.sku)}` : ''} · ${imageCount} picture${imageCount === 1 ? '' : 's'}</p>
           </div>
           <div>
             <button class="button button-outline" type="button" data-edit="${product.id}">Edit</button>
             <button class="button button-outline" type="button" data-delete="${product.id}">Delete</button>
           </div>`;
         list.append(panel);
+      }
+    }
+
+    function updateImageSelectionText() {
+      const files = Array.from(imageInput.files || []);
+      if (!files.length) {
+        imageSelection.textContent = existingImages.length ? `${existingImages.length} existing picture${existingImages.length === 1 ? '' : 's'} will be kept.` : 'No pictures selected.';
+        return;
+      }
+      const names = files.map((file) => file.name).join(', ');
+      imageSelection.textContent = `${files.length} new picture${files.length === 1 ? '' : 's'} selected: ${names}`;
+    }
+
+    async function uploadImage(file) {
+      const data = new FormData();
+      data.append('file', file, file.name);
+      const payload = await apiFetch('/api/upload-image', { method: 'POST', body: data });
+      return payload.data;
+    }
+
+    async function saveProductImages(productId, files) {
+      let images = [...existingImages];
+      for (let index = 0; index < files.length; index += 1) {
+        setFormStatus(`Uploading picture ${index + 1} of ${files.length}…`);
+        const uploaded = await uploadImage(files[index]);
+        images.push({
+          image_url: uploaded.image_url,
+          cloudinary_public_id: uploaded.cloudinary_public_id,
+          alt_text: form.elements.name.value.trim(),
+          sort_order: images.length,
+          is_primary: images.length === 0
+        });
+      }
+      if (files.length) {
+        await apiFetch(`/api/products?id=${encodeURIComponent(productId)}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: form.elements.name.value.trim(),
+            sku: form.elements.sku.value.trim(),
+            category_id: form.elements.category_id.value || null,
+            status: form.elements.status.value,
+            price: Number(form.elements.price.value || 0),
+            stock_quantity: Number(form.elements.stock_quantity.value || 0),
+            sort_order: Number(form.elements.sort_order.value || 0),
+            track_stock: form.elements.track_stock.checked,
+            description: form.elements.description.value.trim(),
+            images
+          })
+        });
       }
     }
 
@@ -134,6 +189,8 @@
       form.elements.sort_order.value = '0';
       form.elements.status.value = 'draft';
       form.elements.track_stock.checked = true;
+      existingImages = [];
+      updateImageSelectionText();
       document.querySelector('#product-form-title').textContent = 'Add product';
       cancelButton.hidden = true;
       saveButton.textContent = 'Save product';
@@ -151,6 +208,9 @@
       form.elements.sort_order.value = product.sort_order ?? 0;
       form.elements.track_stock.checked = Boolean(product.track_stock);
       form.elements.description.value = product.description || '';
+      existingImages = Array.isArray(product.images) ? product.images.map((image, index) => ({ ...image, sort_order: index, is_primary: index === 0 })) : [];
+      imageInput.value = '';
+      updateImageSelectionText();
       document.querySelector('#product-form-title').textContent = `Edit: ${product.name}`;
       cancelButton.hidden = false;
       saveButton.textContent = 'Update product';
@@ -158,9 +218,12 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    imageInput.addEventListener('change', updateImageSelectionText);
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const id = form.elements.id.value;
+      const files = Array.from(imageInput.files || []);
       const data = {
         name: form.elements.name.value.trim(),
         sku: form.elements.sku.value.trim(),
@@ -177,7 +240,9 @@
       saveButton.disabled = true;
       setFormStatus(id ? 'Updating product…' : 'Creating product…');
       try {
-        await apiFetch(id ? `/api/products?id=${encodeURIComponent(id)}` : '/api/products', { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
+        const saved = await apiFetch(id ? `/api/products?id=${encodeURIComponent(id)}` : '/api/products', { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
+        const productId = id || saved.data.id;
+        await saveProductImages(productId, files);
         resetForm();
         await loadProducts();
         setFormStatus(id ? 'Product updated successfully.' : 'Product created successfully.');
