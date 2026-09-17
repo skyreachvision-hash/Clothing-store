@@ -51,6 +51,58 @@ async function getFirebaseKeys() {
   return firebaseKeyCache;
 }
 
+function readDerElement(bytes, offset) {
+  if (offset >= bytes.length) throw new Error("Invalid certificate.");
+  const tag = bytes[offset];
+  let length = bytes[offset + 1];
+  let headerLength = 2;
+
+  if (length === undefined) throw new Error("Invalid certificate length.");
+  if (length & 0x80) {
+    const lengthBytes = length & 0x7f;
+    if (!lengthBytes || lengthBytes > 4 || offset + 2 + lengthBytes > bytes.length) {
+      throw new Error("Invalid certificate length.");
+    }
+    length = 0;
+    for (let index = 0; index < lengthBytes; index += 1) {
+      length = length * 256 + bytes[offset + 2 + index];
+    }
+    headerLength += lengthBytes;
+  }
+
+  const start = offset + headerLength;
+  const end = start + length;
+  if (end > bytes.length) throw new Error("Invalid certificate bounds.");
+  return { tag, start, end, next: end };
+}
+
+function extractSubjectPublicKeyInfoFromCertificate(certificateBytes) {
+  const certificate = readDerElement(certificateBytes, 0);
+  if (certificate.tag !== 0x30) throw new Error("Invalid certificate.");
+
+  const tbs = readDerElement(certificateBytes, certificate.start);
+  if (tbs.tag !== 0x30) throw new Error("Invalid certificate TBS.");
+
+  let offset = tbs.start;
+  let element = readDerElement(certificateBytes, offset);
+  if (element.tag === 0xa0) offset = element.next;
+
+  for (let index = 0; index < 5; index += 1) {
+    element = readDerElement(certificateBytes, offset);
+    offset = element.next;
+  }
+
+  const subjectPublicKeyInfo = readDerElement(certificateBytes, offset);
+  if (subjectPublicKeyInfo.tag !== 0x30) throw new Error("Invalid certificate public key.");
+
+  return certificateBytes.slice(subjectPublicKeyInfoStart(certificateBytes, offset), subjectPublicKeyInfo.end);
+}
+
+function subjectPublicKeyInfoStart(bytes, offset) {
+  const element = readDerElement(bytes, offset);
+  return offset;
+}
+
 async function verifyFirebaseIdToken(request) {
   const authorization = request.headers.get("Authorization") || "";
   if (!authorization.startsWith("Bearer ")) throw new Error("Missing bearer token.");
@@ -84,9 +136,10 @@ async function verifyFirebaseIdToken(request) {
 
   const pem = certificate.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s/g, "");
   const der = Uint8Array.from(atob(pem), (character) => character.charCodeAt(0));
+  const spki = extractSubjectPublicKeyInfoFromCertificate(der);
   const key = await crypto.subtle.importKey(
     "spki",
-    der,
+    spki,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["verify"]
