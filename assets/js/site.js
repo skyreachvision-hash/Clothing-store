@@ -48,6 +48,8 @@ const setSettingsStatus = (message) => {
   if (settingsStatus) settingsStatus.textContent = message;
 };
 
+const escapeAttribute = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
+
 const renderSocialLinks = (links = []) => {
   if (!socialList) return;
   const configured = new Map(links.map((link) => [link.platform, link]));
@@ -62,8 +64,6 @@ const renderSocialLinks = (links = []) => {
   }).join('');
 };
 
-const escapeAttribute = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
-
 const populateSettings = (store = {}) => {
   if (!settingsForm) return;
   ['store_name', 'logo_url', 'tagline', 'description', 'contact_email', 'contact_phone', 'whatsapp_url', 'address'].forEach((name) => {
@@ -72,7 +72,23 @@ const populateSettings = (store = {}) => {
   });
 };
 
+const collectSettings = () => {
+  const data = {};
+  ['store_name', 'logo_url', 'tagline', 'description', 'contact_email', 'contact_phone', 'whatsapp_url', 'address'].forEach((name) => {
+    data[name] = String(settingsForm.elements.namedItem(name)?.value || '').trim();
+  });
+  data.social_links = supportedPlatforms.map(({ platform }) => ({
+    platform,
+    label: String(settingsForm.elements.namedItem(`social_label_${platform}`)?.value || '').trim(),
+    url: String(settingsForm.elements.namedItem(`social_url_${platform}`)?.value || '').trim(),
+    sort_order: Number(settingsForm.elements.namedItem(`social_order_${platform}`)?.value || 0),
+    is_enabled: Boolean(settingsForm.elements.namedItem(`social_enabled_${platform}`)?.checked)
+  }));
+  return data;
+};
+
 if (settingsForm) {
+  const saveButton = settingsForm.querySelector('button[type="submit"]');
   renderSocialLinks();
   fetch('/api/store-settings', { headers: { Accept: 'application/json' } })
     .then((response) => {
@@ -82,12 +98,42 @@ if (settingsForm) {
     .then((payload) => {
       populateSettings(payload.data?.store || {});
       renderSocialLinks(payload.data?.social_links || []);
-      setSettingsStatus('Current settings loaded. Saving will be enabled after authentication.');
+      if (saveButton) saveButton.disabled = false;
+      setSettingsStatus('Current settings loaded. Changes are ready to save.');
     })
     .catch(() => setSettingsStatus('Unable to load settings. Check the API connection and try again.'));
 
-  settingsForm.addEventListener('submit', (event) => {
+  settingsForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    setSettingsStatus('Saving is reserved for the authenticated admin flow.');
+    if (!window.getAdminIdToken) {
+      setSettingsStatus('Your admin session is not ready. Please sign in again.');
+      return;
+    }
+
+    const confirmed = window.confirm('Are you sure you want to update the store settings?');
+    if (!confirmed) return;
+
+    if (saveButton) saveButton.disabled = true;
+    setSettingsStatus('Saving changes…');
+
+    try {
+      const idToken = await window.getAdminIdToken();
+      const response = await fetch('/api/store-settings', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify(collectSettings())
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || 'Save failed');
+      setSettingsStatus('Settings saved successfully.');
+    } catch (error) {
+      setSettingsStatus(error?.message === 'Authentication required.' ? 'Your admin session has expired. Please sign in again.' : 'Unable to save settings. Please try again.');
+    } finally {
+      if (saveButton) saveButton.disabled = false;
+    }
   });
 }
