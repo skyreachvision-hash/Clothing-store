@@ -54,6 +54,7 @@ const socialIconColors = {
 const applyPublicStoreSettings = (store = {}, socialLinks = []) => {
   const storeNameElements = document.querySelectorAll('[data-store-name]');
   const taglineElements = document.querySelectorAll('[data-store-tagline]');
+  const heroHeadlineElements = document.querySelectorAll('[data-store-hero-headline]');
   const descriptionElements = document.querySelectorAll('[data-store-description]');
   const secondaryDescriptionElements = document.querySelectorAll('[data-store-description-secondary]');
   const metaDescription = document.querySelector('[data-store-meta-description]');
@@ -69,6 +70,12 @@ const applyPublicStoreSettings = (store = {}, socialLinks = []) => {
   if (store.tagline) {
     taglineElements.forEach((element) => {
       element.textContent = store.tagline;
+    });
+  }
+
+  if (store.additional_settings?.hero_headline) {
+    heroHeadlineElements.forEach((element) => {
+      element.textContent = store.additional_settings.hero_headline;
     });
   }
 
@@ -107,7 +114,7 @@ const readCachedPublicStoreSettings = () => {
 };
 
 const loadPublicStoreSettings = async () => {
-  const hasPublicSettingsElements = document.querySelector('[data-store-name], [data-store-tagline], [data-store-description], [data-store-description-secondary], [data-social-links]');
+  const hasPublicSettingsElements = document.querySelector('[data-store-name], [data-store-tagline], [data-store-hero-headline], [data-store-description], [data-store-description-secondary], [data-social-links]');
   if (!hasPublicSettingsElements) return;
 
   readCachedPublicStoreSettings();
@@ -173,6 +180,8 @@ const populateSettings = (store = {}) => {
     const field = settingsForm.elements.namedItem(name);
     if (field) field.value = store[name] || '';
   });
+  const heroHeadlineField = settingsForm.elements.namedItem('hero_headline');
+  if (heroHeadlineField) heroHeadlineField.value = store.additional_settings?.hero_headline || '';
 };
 
 const collectSettings = () => {
@@ -180,6 +189,7 @@ const collectSettings = () => {
   ['store_name', 'logo_url', 'tagline', 'description', 'contact_email', 'contact_phone', 'whatsapp_url', 'address'].forEach((name) => {
     data[name] = String(settingsForm.elements.namedItem(name)?.value || '').trim();
   });
+  data.hero_headline = String(settingsForm.elements.namedItem('hero_headline')?.value || '').trim();
   data.social_links = supportedPlatforms.map(({ platform }) => ({
     platform,
     label: String(settingsForm.elements.namedItem(`social_label_${platform}`)?.value || '').trim(),
