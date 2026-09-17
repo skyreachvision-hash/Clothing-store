@@ -58,10 +58,16 @@ async function loadMainCategoriesWithProducts() {
     if (!productResponse.ok || !productPayload.success) throw new Error(productPayload.error || 'Unable to load products.');
 
     const categories = Array.isArray(categoryPayload.data) ? categoryPayload.data : [];
-    const products = Array.isArray(productPayload.data?.products) ? productPayload.data.products : [];
+    const products = Array.isArray(productPayload.data?.products)
+      ? productPayload.data.products
+      : Array.isArray(productPayload.data)
+        ? productPayload.data
+        : [];
 
+    // Every enabled Main Category is a real storefront section. The optional
+    // homepage flag is not required for the main category to appear here.
     const mainCategories = categories
-      .filter((category) => Number(category.is_enabled) === 1 && Number(category.is_main_category) === 1 && Number(category.show_on_homepage) === 1)
+      .filter((category) => Number(category.is_enabled) === 1 && Number(category.is_main_category) === 1)
       .sort(sortByStoreOrder);
 
     const sections = mainCategories.map((mainCategory) => {
@@ -71,7 +77,7 @@ async function loadMainCategoriesWithProducts() {
 
       const subcategoryBlocks = subcategories.map((subcategory) => {
         const subcategoryProducts = products
-          .filter((product) => Number(product.category_id) === Number(subcategory.id))
+          .filter((product) => Number(product.category_id) === Number(subcategory.id) && String(product.status || 'active').toLowerCase() === 'active')
           .slice(0, 4);
 
         return `<div class="category-product-section">
@@ -96,7 +102,7 @@ async function loadMainCategoriesWithProducts() {
 
     categorySections.innerHTML = sections.length
       ? sections.join('')
-      : '<p class="muted">No main categories are currently featured.</p>';
+      : '<p class="muted">No enabled main categories are currently configured.</p>';
   } catch (error) {
     categorySections.innerHTML = '<p class="muted">Store categories are temporarily unavailable.</p>';
     if (categoryStatus) categoryStatus.textContent = error?.message || 'Unable to load categories.';
