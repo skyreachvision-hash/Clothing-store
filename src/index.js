@@ -296,12 +296,362 @@ async function handleStoreSettings(request, env) {
   }
 }
 
+function normalizeSlug(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+}
+
+function parseOptionalId(value) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function parseNonNegativeInteger(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : fallback;
+}
+
+function parseNonNegativeNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
+function parseEnabled(value, fallback = 1) {
+  if (value === undefined || value === null) return fallback;
+  return value ? 1 : 0;
+}
+
+function parseProductStatus(value, fallback = "draft") {
+  const status = String(value ?? fallback).trim().toLowerCase();
+  return ["draft", "active", "archived"].includes(status) ? status : null;
+}
+
+async function getCategories(env, includeDisabled = false) {
+  const query = includeDisabled
+    ? `SELECT id, name, slug, description, sort_order, is_enabled, created_at, updated_at FROM categories ORDER BY sort_order ASC, id ASC`
+    : `SELECT id, name, slug, description, sort_order, is_enabled, created_at, updated_at FROM categories WHERE is_enabled = 1 ORDER BY sort_order ASC, id ASC`;
+  const result = await env.DB.prepare(query).all();
+  return result.results ?? [];
+}
+
+async function handleCategories(request, env) {
+  if (request.method === "GET") {
+    try {
+      const includeDisabled = new URL(request.url).searchParams.get("include_disabled") === "1";
+      if (includeDisabled) {
+        try {
+          await verifyFirebaseIdToken(request);
+        } catch {
+          return jsonResponse({ success: false, error: "Authentication required." }, 401);
+        }
+      }
+      return jsonResponse({ success: true, data: await getCategories(env, includeDisabled) });
+    } catch {
+      return jsonResponse({ success: false, error: "Unable to load categories." }, 500);
+    }
+  }
+
+  try {
+    const token = await verifyFirebaseIdToken(request);
+    if (!["POST", "PUT", "DELETE"].includes(request.method)) {
+      return jsonResponse({ success: false, error: "Method not allowed." }, 405);
+    }
+
+    if (request.method === "POST") {
+      const body = await request.json();
+      const name = String(body?.name ?? "").trim();
+      const slug = normalizeSlug(body?.slug || name);
+      if (!name || !slug) return jsonResponse({ success: false, error: "Category name is required." }, 400);
+
+      const result = await env.DB.prepare(`
+        INSERT INTO categories (name, slug, description, sort_order, is_enabled)
+        VALUES (?, ?, ?, ?, ?)
+        RETURNING id
+      `).bind(
+        name,
+        slug,
+        String(body?.description ?? "").trim(),
+        parseNonNegativeInteger(body?.sort_order),
+        parseEnabled(body?.is_enabled)
+      ).first();
+
+      return jsonResponse({ success: true, data: { id: result.id, uid: token.sub } }, 201);
+    }
+
+    const url = new URL(request.url);
+    const id = parseOptionalId(url.searchParams.get("id"));
+    if (!id) return jsonResponse({ success: false, error: "A valid category id is required." }, 400);
+
+    if (request.method === "DELETE") {
+      await env.DB.prepare(`DELETE FROM categories WHERE id = ?`).bind(id).run();
+      return jsonResponse({ success: true, data: { id, uid: token.sub } });
+    }
+
+    const body = await request.json();
+    const existing = await env.DB.prepare(`SELECT id, name, slug, description, sort_order, is_enabled FROM categories WHERE id = ?`).bind(id).first();
+    if (!existing) return jsonResponse({ success: false, error: "Category not found." }, 404);
+
+    const name = String(body?.name ?? existing.name).trim();
+    const slug = normalizeSlug(body?.slug || name || existing.slug);
+    if (!name || !slug) return jsonResponse({ success: false, error: "Category name is required." }, 400);
+
+    await env.DB.prepare(`
+      UPDATE categories
+      SET name = ?, slug = ?, description = ?, sort_order = ?, is_enabled = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(
+      name,
+      slug,
+      String(body?.description ?? existing.description).trim(),
+      parseNonNegativeInteger(body?.sort_order, existing.sort_order),
+      parseEnabled(body?.is_enabled, existing.is_enabled),
+      id
+    ).run();
+
+    return jsonResponse({ success: true, data: { id, uid: token.sub } });
+  } catch (error) {
+    if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401);
+    if (String(error?.message || "").includes("UNIQUE constraint failed")) {
+      return jsonResponse({ success: false, error: "A category with that slug already exists." }, 409);
+    }
+    return jsonResponse({ success: false, error: "Unable to save category." }, 500);
+  }
+}
+
+async function getProducts(env, request) {
+  const params = new URL(request.url).searchParams;
+  const status = params.get("status");
+  const categoryId = parseOptionalId(params.get("category_id"));
+  const search = String(params.get("search") || "").trim();
+  const page = Math.max(1, parseNonNegativeInteger(params.get("page"), 1));
+  const limit = Math.min(100, Math.max(1, parseNonNegativeInteger(params.get("limit"), 24)));
+  const offset = (page - 1) * limit;
+  const publicOnly = status === null;
+
+  let sql = `
+    SELECT
+      p.id, p.category_id, p.name, p.slug, p.description, p.sku,
+      p.price, p.currency, p.status, p.stock_quantity, p.track_stock,
+      p.sort_order, p.created_at, p.updated_at,
+      c.name AS category_name, c.slug AS category_slug
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    WHERE 1 = 1
+  `;
+  const bindings = [];
+
+  if (publicOnly) {
+    sql += ` AND p.status = 'active'`;
+  } else if (!["draft", "active", "archived"].includes(status)) {
+    return { error: "Invalid product status.", status: 400 };
+  } else {
+    sql += ` AND p.status = ?`;
+    bindings.push(status);
+  }
+
+  if (categoryId) {
+    sql += ` AND p.category_id = ?`;
+    bindings.push(categoryId);
+  }
+
+  if (search) {
+    sql += ` AND (p.name LIKE ? OR p.sku LIKE ? OR p.description LIKE ?)`;
+    const term = `%${search}%`;
+    bindings.push(term, term, term);
+  }
+
+  const countSql = sql.replace(/SELECT[\s\S]*?FROM products p/, "SELECT COUNT(*) AS total FROM products p");
+  const count = await env.DB.prepare(countSql).bind(...bindings).first();
+
+  sql += ` ORDER BY p.sort_order ASC, p.id DESC LIMIT ? OFFSET ?`;
+  bindings.push(limit, offset);
+  const productsResult = await env.DB.prepare(sql).bind(...bindings).all();
+  const products = productsResult.results ?? [];
+
+  if (products.length) {
+    const ids = products.map((product) => product.id);
+    const placeholders = ids.map(() => "?").join(", ");
+    const [imagesResult, variantsResult] = await Promise.all([
+      env.DB.prepare(`SELECT id, product_id, image_url, cloudinary_public_id, alt_text, sort_order, is_primary, created_at FROM product_images WHERE product_id IN (${placeholders}) ORDER BY sort_order ASC, id ASC`).bind(...ids).all(),
+      env.DB.prepare(`SELECT id, product_id, name, sku, option_values, price_override, stock_quantity, is_enabled, sort_order, created_at, updated_at FROM product_variants WHERE product_id IN (${placeholders}) ORDER BY sort_order ASC, id ASC`).bind(...ids).all()
+    ]);
+
+    const imagesByProduct = new Map();
+    const variantsByProduct = new Map();
+    for (const image of imagesResult.results ?? []) {
+      if (!imagesByProduct.has(image.product_id)) imagesByProduct.set(image.product_id, []);
+      imagesByProduct.get(image.product_id).push(image);
+    }
+    for (const variant of variantsResult.results ?? []) {
+      let optionValues = {};
+      try { optionValues = JSON.parse(variant.option_values || "{}"); } catch { optionValues = {}; }
+      const normalizedVariant = { ...variant, option_values: optionValues };
+      if (!variantsByProduct.has(variant.product_id)) variantsByProduct.set(variant.product_id, []);
+      variantsByProduct.get(variant.product_id).push(normalizedVariant);
+    }
+
+    for (const product of products) {
+      product.images = imagesByProduct.get(product.id) ?? [];
+      product.variants = variantsByProduct.get(product.id) ?? [];
+    }
+  }
+
+  return {
+    data: {
+      products,
+      pagination: {
+        page,
+        limit,
+        total: Number(count?.total || 0),
+        total_pages: Math.ceil(Number(count?.total || 0) / limit)
+      }
+    }
+  };
+}
+
+async function handleProducts(request, env) {
+  if (request.method === "GET") {
+    try {
+      const result = await getProducts(env, request);
+      if (result.error) return jsonResponse({ success: false, error: result.error }, result.status);
+      return jsonResponse({ success: true, data: result.data });
+    } catch {
+      return jsonResponse({ success: false, error: "Unable to load products." }, 500);
+    }
+  }
+
+  try {
+    const token = await verifyFirebaseIdToken(request);
+    if (!["POST", "PUT", "DELETE"].includes(request.method)) {
+      return jsonResponse({ success: false, error: "Method not allowed." }, 405);
+    }
+
+    const url = new URL(request.url);
+    const id = parseOptionalId(url.searchParams.get("id"));
+
+    if (request.method === "DELETE") {
+      if (!id) return jsonResponse({ success: false, error: "A valid product id is required." }, 400);
+      const existing = await env.DB.prepare(`SELECT id FROM products WHERE id = ?`).bind(id).first();
+      if (!existing) return jsonResponse({ success: false, error: "Product not found." }, 404);
+      await env.DB.prepare(`DELETE FROM products WHERE id = ?`).bind(id).run();
+      return jsonResponse({ success: true, data: { id, uid: token.sub } });
+    }
+
+    const body = await request.json();
+    let existing = null;
+    if (request.method === "PUT") {
+      if (!id) return jsonResponse({ success: false, error: "A valid product id is required." }, 400);
+      existing = await env.DB.prepare(`SELECT id, category_id, name, slug, description, sku, price, currency, status, stock_quantity, track_stock, sort_order FROM products WHERE id = ?`).bind(id).first();
+      if (!existing) return jsonResponse({ success: false, error: "Product not found." }, 404);
+    }
+
+    const name = String(body?.name ?? existing?.name ?? "").trim();
+    const slug = normalizeSlug(body?.slug || name || existing?.slug);
+    if (!name || !slug) return jsonResponse({ success: false, error: "Product name is required." }, 400);
+
+    const status = parseProductStatus(body?.status, existing?.status || "draft");
+    if (!status) return jsonResponse({ success: false, error: "Invalid product status." }, 400);
+
+    const categoryId = body?.category_id === null || body?.category_id === "" ? null : parseOptionalId(body?.category_id ?? existing?.category_id);
+    if (categoryId) {
+      const category = await env.DB.prepare(`SELECT id FROM categories WHERE id = ?`).bind(categoryId).first();
+      if (!category) return jsonResponse({ success: false, error: "Category not found." }, 400);
+    }
+
+    const productValues = [
+      categoryId,
+      name,
+      slug,
+      String(body?.description ?? existing?.description ?? "").trim(),
+      String(body?.sku ?? existing?.sku ?? "").trim(),
+      parseNonNegativeNumber(body?.price, existing?.price ?? 0),
+      String(body?.currency ?? existing?.currency ?? "ZAR").trim().toUpperCase() || "ZAR",
+      status,
+      parseNonNegativeInteger(body?.stock_quantity, existing?.stock_quantity ?? 0),
+      parseEnabled(body?.track_stock, existing?.track_stock ?? 1),
+      parseNonNegativeInteger(body?.sort_order, existing?.sort_order ?? 0)
+    ];
+
+    let productId = id;
+    if (request.method === "POST") {
+      const result = await env.DB.prepare(`
+        INSERT INTO products (category_id, name, slug, description, sku, price, currency, status, stock_quantity, track_stock, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
+      `).bind(...productValues).first();
+      productId = result.id;
+    } else {
+      await env.DB.prepare(`
+        UPDATE products
+        SET category_id = ?, name = ?, slug = ?, description = ?, sku = ?, price = ?, currency = ?,
+            status = ?, stock_quantity = ?, track_stock = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(...productValues, productId).run();
+    }
+
+    if (Array.isArray(body?.images)) {
+      await env.DB.prepare(`DELETE FROM product_images WHERE product_id = ?`).bind(productId).run();
+      for (const image of body.images) {
+        const imageUrl = String(image?.image_url ?? "").trim();
+        if (!imageUrl) continue;
+        await env.DB.prepare(`
+          INSERT INTO product_images (product_id, image_url, cloudinary_public_id, alt_text, sort_order, is_primary)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(
+          productId,
+          imageUrl,
+          String(image?.cloudinary_public_id ?? "").trim(),
+          String(image?.alt_text ?? "").trim(),
+          parseNonNegativeInteger(image?.sort_order),
+          parseEnabled(image?.is_primary)
+        ).run();
+      }
+    }
+
+    if (Array.isArray(body?.variants)) {
+      await env.DB.prepare(`DELETE FROM product_variants WHERE product_id = ?`).bind(productId).run();
+      for (const variant of body.variants) {
+        let optionValues = variant?.option_values;
+        if (typeof optionValues !== "object" || optionValues === null || Array.isArray(optionValues)) optionValues = {};
+        const priceOverride = variant?.price_override === null || variant?.price_override === "" ? null : parseNonNegativeNumber(variant?.price_override, 0);
+        await env.DB.prepare(`
+          INSERT INTO product_variants (product_id, name, sku, option_values, price_override, stock_quantity, is_enabled, sort_order)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          productId,
+          String(variant?.name ?? "").trim(),
+          String(variant?.sku ?? "").trim(),
+          JSON.stringify(optionValues),
+          priceOverride,
+          parseNonNegativeInteger(variant?.stock_quantity),
+          parseEnabled(variant?.is_enabled),
+          parseNonNegativeInteger(variant?.sort_order)
+        ).run();
+      }
+    }
+
+    return jsonResponse({ success: true, data: { id: productId, uid: token.sub } }, request.method === "POST" ? 201 : 200);
+  } catch (error) {
+    if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401);
+    if (String(error?.message || "").includes("UNIQUE constraint failed")) {
+      return jsonResponse({ success: false, error: "A product with that slug already exists." }, 409);
+    }
+    return jsonResponse({ success: false, error: "Unable to save product." }, 500);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/admin-auth-check") return handleAdminAuthCheck(request);
     if (url.pathname === "/api/store-settings") return handleStoreSettings(request, env);
+    if (url.pathname === "/api/categories") return handleCategories(request, env);
+    if (url.pathname === "/api/products") return handleProducts(request, env);
 
     return new Response(JSON.stringify({
       success: true,
