@@ -199,16 +199,26 @@ async function handleStoreSettings(request, env) {
       const sortOrder = Number.isFinite(Number(social?.sort_order)) ? Number(social.sort_order) : 0;
       const enabled = social?.is_enabled ? 1 : 0;
 
-      await env.DB.prepare(`
-        INSERT INTO social_links (platform, label, url, sort_order, is_enabled)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(platform) DO UPDATE SET
-          label = excluded.label,
-          url = excluded.url,
-          sort_order = excluded.sort_order,
-          is_enabled = excluded.is_enabled,
-          updated_at = CURRENT_TIMESTAMP
-      `).bind(platform, label, url, sortOrder, enabled).run();
+      const existing = await env.DB.prepare(`
+        SELECT id
+        FROM social_links
+        WHERE platform = ?
+        ORDER BY id ASC
+        LIMIT 1
+      `).bind(platform).first();
+
+      if (existing?.id) {
+        await env.DB.prepare(`
+          UPDATE social_links
+          SET label = ?, url = ?, sort_order = ?, is_enabled = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(label, url, sortOrder, enabled, existing.id).run();
+      } else {
+        await env.DB.prepare(`
+          INSERT INTO social_links (platform, label, url, sort_order, is_enabled)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(platform, label, url, sortOrder, enabled).run();
+      }
     }
 
     return jsonResponse({ success: true, data: { uid: token.sub } });
