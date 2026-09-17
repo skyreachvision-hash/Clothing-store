@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manage products for the Clothing Store.">
+  <title>Products | Clothing Store Admin</title>
+  <link rel="stylesheet" href="../../assets/css/styles.css">
+  <script type="module" src="../../assets/js/firebase-auth.js"></script>
+  <script src="../../assets/js/site.js" defer></script>
+</head>
+<body class="admin-page">
+  <a class="skip-link" href="#products-main">Skip to content</a>
+  <header class="admin-header"><div class="container header-inner"><a class="brand" href="../../index.html">Clothing Store <span class="admin-label">Admin</span></a><div class="admin-account"><span class="status-dot" aria-hidden="true"></span><span data-admin-account>Admin account</span><button class="button button-small button-outline" type="button" data-admin-logout>Log out</button></div></div></header>
+
+  <main id="products-main" class="admin-main"><div class="container">
+    <div class="settings-heading">
+      <div><p class="eyebrow">Catalogue management</p><h1>Products</h1><p class="muted">Add, edit, publish, and manage stock for products in your store.</p></div>
+      <a class="button button-outline" href="../">Back to dashboard</a>
+    </div>
+
+    <section class="settings-panel" aria-labelledby="product-form-title">
+      <div class="settings-heading"><div><h2 id="product-form-title">Add product</h2><p class="muted">Start with the core product information. Images and Cloudinary uploads will be connected separately.</p></div><span class="settings-readonly">Admin access</span></div>
+      <form class="settings-form" data-product-form>
+        <input type="hidden" name="id">
+        <fieldset class="settings-group"><legend>Product details</legend>
+          <div class="settings-fields settings-fields-two">
+            <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" placeholder="Product name"></label>
+            <label class="field"><span>SKU</span><input name="sku" type="text" maxlength="80" placeholder="Optional SKU"></label>
+            <label class="field"><span>Category</span><select name="category_id"><option value="">Uncategorized</option></select></label>
+            <label class="field"><span>Status</span><select name="status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label>
+            <label class="field"><span>Price (ZAR)</span><input name="price" type="number" min="0" step="0.01" inputmode="decimal" value="0"></label>
+            <label class="field"><span>Stock quantity</span><input name="stock_quantity" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
+            <label class="field"><span>Sort order</span><input name="sort_order" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
+            <label class="field"><span><input name="track_stock" type="checkbox" checked> Track stock</span></label>
+            <label class="field field-wide"><span>Description</span><textarea name="description" rows="5" maxlength="5000" placeholder="Describe the product"></textarea></label>
+          </div>
+        </fieldset>
+        <div class="settings-actions"><span class="settings-load-status" data-form-status aria-live="polite">Ready to add a product.</span><div><button class="button button-outline" type="button" data-cancel-edit hidden>Cancel edit</button> <button class="button button-primary" type="submit" data-save-product>Save product</button></div></div>
+      </form>
+    </section>
+
+    <section class="settings-panel" aria-labelledby="catalogue-title">
+      <div class="settings-heading"><div><h2 id="catalogue-title">Catalogue</h2><p class="muted">Products currently stored in the catalogue.</p></div><button class="button button-outline" type="button" data-refresh-products>Refresh</button></div>
+      <div class="settings-notice" data-list-status role="status">Loading products…</div>
+      <div class="admin-sections" data-products-list></div>
+    </section>
+  </div></main>
+
+  <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
+
+  <script type="module">
+    const form = document.querySelector('[data-product-form]');
+    const formStatus = document.querySelector('[data-form-status]');
+    const listStatus = document.querySelector('[data-list-status]');
+    const list = document.querySelector('[data-products-list]');
+    const categorySelect = form.elements.category_id;
+    const cancelButton = document.querySelector('[data-cancel-edit]');
+    const saveButton = document.querySelector('[data-save-product]');
+    let products = [];
+
+    function setFormStatus(message) { formStatus.textContent = message; }
+
+    async function getToken() {
+      if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
+      const token = await window.getAdminIdToken();
+      if (!token) throw new Error('Authentication required. Please sign in again.');
+      return token;
+    }
+
+    async function apiFetch(url, options = {}) {
+      const token = await getToken();
+      const headers = new Headers(options.headers || {});
+      headers.set('Authorization', `Bearer ${token}`);
+      if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+      const response = await fetch(url, { ...options, headers });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
+      return payload;
+    }
+
+    async function loadCategories() {
+      const payload = await apiFetch('/api/categories?include_disabled=1');
+      categorySelect.innerHTML = '<option value="">Uncategorized</option>';
+      for (const category of payload.data || []) {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = category.name + (category.is_enabled ? '' : ' (disabled)');
+        categorySelect.append(option);
+      }
+    }
+
+    async function loadProducts() {
+      listStatus.textContent = 'Loading products…';
+      try {
+        const results = await Promise.all(['draft', 'active', 'archived'].map((status) => apiFetch(`/api/products?status=${status}&limit=100`)));
+        products = results.flatMap((result) => result.data?.products || []).sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id));
+        renderProducts();
+        listStatus.textContent = products.length ? `${products.length} product${products.length === 1 ? '' : 's'} loaded.` : 'No products yet. Add your first product above.';
+      } catch (error) {
+        listStatus.textContent = error.message;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+    }
+
+    function renderProducts() {
+      list.innerHTML = '';
+      for (const product of products) {
+        const panel = document.createElement('section');
+        panel.className = 'admin-panel';
+        panel.innerHTML = `
+          <div class="panel-icon">${escapeHtml(String(product.id).padStart(2, '0'))}</div>
+          <div>
+            <h2>${escapeHtml(product.name)}</h2>
+            <p class="muted">${escapeHtml(product.category_name || 'Uncategorized')} · ${escapeHtml(product.status)} · ${escapeHtml(product.currency)} ${Number(product.price).toFixed(2)}</p>
+            <p class="muted">${product.track_stock ? `Stock: ${escapeHtml(product.stock_quantity)}` : 'Stock tracking off'}${product.sku ? ` · SKU: ${escapeHtml(product.sku)}` : ''}</p>
+          </div>
+          <div>
+            <button class="button button-outline" type="button" data-edit="${product.id}">Edit</button>
+            <button class="button button-outline" type="button" data-delete="${product.id}">Delete</button>
+          </div>`;
+        list.append(panel);
+      }
+    }
+
+    function resetForm() {
+      form.reset();
+      form.elements.id.value = '';
+      form.elements.price.value = '0';
+      form.elements.stock_quantity.value = '0';
+      form.elements.sort_order.value = '0';
+      form.elements.status.value = 'draft';
+      form.elements.track_stock.checked = true;
+      document.querySelector('#product-form-title').textContent = 'Add product';
+      cancelButton.hidden = true;
+      saveButton.textContent = 'Save product';
+      setFormStatus('Ready to add a product.');
+    }
+
+    function editProduct(product) {
+      form.elements.id.value = product.id;
+      form.elements.name.value = product.name || '';
+      form.elements.sku.value = product.sku || '';
+      form.elements.category_id.value = product.category_id || '';
+      form.elements.status.value = product.status || 'draft';
+      form.elements.price.value = product.price ?? 0;
+      form.elements.stock_quantity.value = product.stock_quantity ?? 0;
+      form.elements.sort_order.value = product.sort_order ?? 0;
+      form.elements.track_stock.checked = Boolean(product.track_stock);
+      form.elements.description.value = product.description || '';
+      document.querySelector('#product-form-title').textContent = `Edit: ${product.name}`;
+      cancelButton.hidden = false;
+      saveButton.textContent = 'Update product';
+      setFormStatus('Editing this product.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const id = form.elements.id.value;
+      const data = {
+        name: form.elements.name.value.trim(),
+        sku: form.elements.sku.value.trim(),
+        category_id: form.elements.category_id.value || null,
+        status: form.elements.status.value,
+        price: Number(form.elements.price.value || 0),
+        stock_quantity: Number(form.elements.stock_quantity.value || 0),
+        sort_order: Number(form.elements.sort_order.value || 0),
+        track_stock: form.elements.track_stock.checked,
+        description: form.elements.description.value.trim()
+      };
+      if (!data.name) return setFormStatus('Product name is required.');
+      if (!confirm(id ? 'Update this product?' : 'Create this product?')) return;
+      saveButton.disabled = true;
+      setFormStatus(id ? 'Updating product…' : 'Creating product…');
+      try {
+        await apiFetch(id ? `/api/products?id=${encodeURIComponent(id)}` : '/api/products', { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
+        resetForm();
+        await loadProducts();
+        setFormStatus(id ? 'Product updated successfully.' : 'Product created successfully.');
+      } catch (error) {
+        setFormStatus(error.message);
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
+
+    cancelButton.addEventListener('click', resetForm);
+    document.querySelector('[data-refresh-products]').addEventListener('click', loadProducts);
+    list.addEventListener('click', async (event) => {
+      const editId = event.target.closest('[data-edit]')?.dataset.edit;
+      const deleteId = event.target.closest('[data-delete]')?.dataset.delete;
+      if (editId) {
+        const product = products.find((item) => String(item.id) === String(editId));
+        if (product) editProduct(product);
+        return;
+      }
+      if (deleteId) {
+        const product = products.find((item) => String(item.id) === String(deleteId));
+        if (!product || !confirm(`Delete “${product.name}”? This cannot be undone.`)) return;
+        try {
+          await apiFetch(`/api/products?id=${encodeURIComponent(deleteId)}`, { method: 'DELETE' });
+          if (String(form.elements.id.value) === String(deleteId)) resetForm();
+          await loadProducts();
+        } catch (error) {
+          listStatus.textContent = error.message;
+        }
+      }
+    });
+
+    async function init() {
+      try {
+        await Promise.all([loadCategories(), loadProducts()]);
+      } catch (error) {
+        setFormStatus(error.message);
+        listStatus.textContent = error.message;
+      }
+    }
+    init();
+  </script>
+</body>
+</html>
