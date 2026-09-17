@@ -35,6 +35,8 @@
             <label class="field"><span>Homepage visibility</span><select name="show_on_homepage"><option value="0">Do not show on homepage</option><option value="1">Show on homepage</option></select></label>
             <label class="field"><span>Featured</span><select name="is_featured"><option value="0">Not featured</option><option value="1">Featured</option></select></label>
             <label class="field"><span>Promoted</span><select name="is_promoted"><option value="0">Not promoted</option><option value="1">Promoted</option></select></label>
+            <label class="field field-wide"><span>Showcase image</span><input name="showcase_image" type="file" accept="image/*"><small class="muted">Use a real image for this category's storefront showcase. Maximum 10 MB.</small><p class="muted" data-showcase-image-status>No image selected.</p></label>
+            <label class="field field-wide"><span>Showcase image alt text <small>(optional)</small></span><input name="showcase_image_alt" type="text" maxlength="200" placeholder="Describe the category image"></label>
             <label class="field field-wide"><span>Description</span><textarea name="description" rows="4" maxlength="2000" placeholder="Short description for this category"></textarea></label>
           </div>
         </fieldset>
@@ -66,6 +68,8 @@
     const list = document.querySelector('[data-categories-list]');
     const typeSelect = form.elements.is_main_category;
     const mainSelect = form.elements.parent_id;
+    const imageInput = form.elements.showcase_image;
+    const imageStatus = document.querySelector('[data-showcase-image-status]');
     const cancelButton = document.querySelector('[data-cancel-edit]');
     const saveButton = document.querySelector('[data-save-category]');
     let categories = [];
@@ -83,15 +87,28 @@
       const token = await getToken();
       const headers = new Headers(options.headers || {});
       headers.set('Authorization', `Bearer ${token}`);
-      if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+      if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
       const response = await fetch(url, { ...options, headers });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
       return payload;
     }
 
+    async function uploadShowcaseImage(file) {
+      const data = new FormData();
+      data.append('file', file, file.name);
+      const payload = await apiFetch('/api/upload-image', { method: 'POST', body: data });
+      return payload.data;
+    }
+
+    function updateImageSelection() {
+      const file = imageInput.files?.[0];
+      if (file) imageStatus.textContent = `Selected: ${file.name}`;
+      else imageStatus.textContent = 'No new image selected.';
+    }
+
     function escapeHtml(value) {
-      return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+      return String(value ?? '').replace(/[&<>'\"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '\"': '&quot;' }[character]));
     }
 
     function setCategoryTypeState() {
@@ -153,6 +170,7 @@
           <h2>${escapeHtml(category.name)}</h2>
           <p class="muted">${escapeHtml(relationshipText)} · /${escapeHtml(category.slug)} · ${enabledLabel}</p>
           ${flags.length ? `<p class="muted">${escapeHtml(flags.join(' · '))}</p>` : ''}
+          ${category.showcase_image_url ? '<p class="muted">Showcase image configured</p>' : ''}
           ${category.description ? `<p class="muted">${escapeHtml(category.description)}</p>` : ''}
         </div>
         <div>
@@ -183,6 +201,9 @@
       form.elements.show_on_homepage.value = '0';
       form.elements.is_featured.value = '0';
       form.elements.is_promoted.value = '0';
+      form.elements.showcase_image_alt.value = '';
+      imageInput.value = '';
+      imageStatus.textContent = 'No new image selected.';
       renderMainOptions();
       setCategoryTypeState();
       document.querySelector('#category-form-title').textContent = 'Add category';
@@ -203,10 +224,13 @@
       form.elements.is_main_category.value = Number(category.is_main_category) === 1 ? '1' : '0';
       form.elements.is_featured.value = Number(category.is_featured) === 1 ? '1' : '0';
       form.elements.is_promoted.value = Number(category.is_promoted) === 1 ? '1' : '0';
+      form.elements.showcase_image_alt.value = category.showcase_image_alt || '';
       renderMainOptions(category.id);
       const parentId = category.parent_id === null ? '' : String(category.parent_id);
       mainSelect.value = parentId;
       setCategoryTypeState();
+      imageInput.value = '';
+      imageStatus.textContent = category.showcase_image_url ? 'Existing showcase image is configured. Choose a new file to replace it.' : 'No showcase image configured.';
       document.querySelector('#category-form-title').textContent = `Edit: ${category.name}`;
       cancelButton.hidden = false;
       saveButton.textContent = 'Update category';
@@ -215,11 +239,13 @@
     }
 
     typeSelect.addEventListener('change', setCategoryTypeState);
+    imageInput.addEventListener('change', updateImageSelection);
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const id = form.elements.id.value;
       const isMain = form.elements.is_main_category.value === '1';
+      const selectedFile = imageInput.files?.[0] || null;
       const data = {
         name: form.elements.name.value.trim(),
         slug: form.elements.slug.value.trim(),
@@ -231,7 +257,8 @@
         show_on_homepage: form.elements.show_on_homepage.value === '1',
         is_main_category: isMain,
         is_featured: form.elements.is_featured.value === '1',
-        is_promoted: form.elements.is_promoted.value === '1'
+        is_promoted: form.elements.is_promoted.value === '1',
+        showcase_image_alt: form.elements.showcase_image_alt.value.trim()
       };
       if (!data.name) return setFormStatus('Category name is required.');
       if (!isMain && !data.parent_id) setFormStatus('You can leave this category without a main category, or select one from the list.');
@@ -239,7 +266,16 @@
       saveButton.disabled = true;
       setFormStatus(id ? 'Updating category…' : 'Creating category…');
       try {
-        await apiFetch(id ? `/api/categories?id=${encodeURIComponent(id)}` : '/api/categories', { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
+        const saved = await apiFetch(id ? `/api/categories?id=${encodeURIComponent(id)}` : '/api/categories', { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
+        const categoryId = id || saved.data.id;
+        if (selectedFile) {
+          setFormStatus('Uploading showcase image…');
+          const uploaded = await uploadShowcaseImage(selectedFile);
+          await apiFetch(`/api/categories?id=${encodeURIComponent(categoryId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ showcase_image_url: uploaded.image_url, showcase_image_alt: data.showcase_image_alt || data.name })
+          });
+        }
         resetForm();
         await loadCategories();
         setFormStatus(id ? 'Category updated successfully.' : 'Category created successfully.');
