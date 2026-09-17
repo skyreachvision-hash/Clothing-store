@@ -30,7 +30,6 @@ const setLoginStatus = (message) => {
 
 const adminLoginPath = "/admin/login/";
 const adminPath = "/admin/";
-const adminAuthCheckPath = "/api/admin-auth-check";
 
 async function getAdminIdToken() {
   const user = auth.currentUser;
@@ -39,19 +38,6 @@ async function getAdminIdToken() {
 }
 
 window.getAdminIdToken = getAdminIdToken;
-
-async function verifyAdminSession(user) {
-  const idToken = await user.getIdToken();
-  const response = await fetch(adminAuthCheckPath, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${idToken}`, Accept: "application/json" },
-    cache: "no-store"
-  });
-  if (!response.ok) throw new Error("Backend authentication check failed.");
-  const result = await response.json();
-  if (!result?.success || result?.data?.authenticated !== true) throw new Error("Backend authentication check failed.");
-  return result.data;
-}
 
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
@@ -67,7 +53,9 @@ if (loginForm) {
       setLoginStatus("Signed in. Opening admin dashboard…");
       window.location.assign(adminPath);
     } catch (error) {
-      const message = error?.code === "auth/invalid-credential" ? "The email or password is incorrect." : "Unable to sign in. Check your details and try again.";
+      const message = error?.code === "auth/invalid-credential"
+        ? "The email or password is incorrect."
+        : "Unable to sign in. Check your details and try again.";
       setLoginStatus(message);
       if (submitButton) submitButton.disabled = false;
     }
@@ -86,20 +74,14 @@ logoutButtons.forEach((button) => {
   });
 });
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, (user) => {
   if (user) {
-    accountLabels.forEach((element) => { element.textContent = user.email || "Admin account"; });
-    if (isLoginPage) {
-      window.location.assign(adminPath);
-      return;
-    }
-    try {
-      await verifyAdminSession(user);
-    } catch {
-      await signOut(auth);
-      window.location.replace(adminLoginPath);
-    }
+    accountLabels.forEach((element) => {
+      element.textContent = user.email || "Admin account";
+    });
+    if (isLoginPage) window.location.assign(adminPath);
     return;
   }
+
   if (!isLoginPage) window.location.replace(adminLoginPath);
 });
