@@ -85,12 +85,14 @@
     }
 
     async function loadCategories() {
-      const payload = await apiFetch('/api/categories?include_disabled=1');
+      const response = await fetch('/api/categories', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load categories.');
       categorySelect.innerHTML = '<option value="">Uncategorized</option>';
       for (const category of payload.data || []) {
         const option = document.createElement('option');
         option.value = category.id;
-        option.textContent = category.name + (category.is_enabled ? '' : ' (disabled)');
+        option.textContent = category.name;
         categorySelect.append(option);
       }
     }
