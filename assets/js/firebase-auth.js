@@ -30,6 +30,30 @@ const setLoginStatus = (message) => {
 
 const adminLoginPath = "/admin/login/";
 const adminPath = "/admin/";
+const adminAuthCheckPath = "/api/admin-auth-check";
+
+async function verifyAdminSession(user) {
+  const idToken = await user.getIdToken();
+  const response = await fetch(adminAuthCheckPath, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error("Backend authentication check failed.");
+  }
+
+  const result = await response.json();
+  if (!result?.success || result?.data?.authenticated !== true) {
+    throw new Error("Backend authentication check failed.");
+  }
+
+  return result.data;
+}
 
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
@@ -67,7 +91,7 @@ logoutButtons.forEach((button) => {
   });
 });
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     accountLabels.forEach((element) => {
       element.textContent = user.email || "Admin account";
@@ -75,6 +99,14 @@ onAuthStateChanged(auth, (user) => {
 
     if (isLoginPage) {
       window.location.assign(adminPath);
+      return;
+    }
+
+    try {
+      await verifyAdminSession(user);
+    } catch {
+      await signOut(auth);
+      window.location.replace(adminLoginPath);
     }
     return;
   }
