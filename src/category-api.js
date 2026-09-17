@@ -47,23 +47,14 @@ async function requireAdmin(request, originalWorker, env) {
   return response.json();
 }
 
-async function validateParent(env, parentId, categoryId = null) {
+async function validateMainCategory(env, parentId, categoryId = null) {
   if (parentId === null) return;
-  if (!parentId) throw new Error("Parent category id is invalid.");
-  if (categoryId && parentId === categoryId) throw new Error("A category cannot be its own parent.");
+  if (!parentId) throw new Error("Main category id is invalid.");
+  if (categoryId && parentId === categoryId) throw new Error("A category cannot be its own main category.");
 
-  const parent = await env.DB.prepare("SELECT id FROM categories WHERE id = ?").bind(parentId).first();
-  if (!parent) throw new Error("Parent category not found.");
-
-  if (!categoryId) return;
-  const seen = new Set([categoryId]);
-  let currentId = parentId;
-  while (currentId) {
-    if (seen.has(currentId)) throw new Error("A category cannot be placed inside its own descendant.");
-    seen.add(currentId);
-    const row = await env.DB.prepare("SELECT parent_id FROM categories WHERE id = ?").bind(currentId).first();
-    currentId = parseOptionalId(row?.parent_id);
-  }
+  const parent = await env.DB.prepare("SELECT id, is_main_category FROM categories WHERE id = ?").bind(parentId).first();
+  if (!parent) throw new Error("Main category not found.");
+  if (Number(parent.is_main_category) !== 1) throw new Error("Selected category is not a main category.");
 }
 
 export async function handleCategoryApi(request, env, originalWorker) {
@@ -86,11 +77,12 @@ export async function handleCategoryApi(request, env, originalWorker) {
       const body = await request.json();
       const name = String(body?.name ?? "").trim();
       const slug = String(body?.slug ?? name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 120);
-      const parentId = parseParentId(body?.parent_id, null);
+      const isMainCategory = parseEnabled(body?.is_main_category, 0);
+      const parentId = isMainCategory ? null : parseParentId(body?.parent_id, null);
       if (!name || !slug) return jsonResponse({ success: false, error: "Category name is required." }, 400);
-      await validateParent(env, parentId);
+      await validateMainCategory(env, parentId);
       const result = await env.DB.prepare(`INSERT INTO categories (name, slug, description, parent_id, sort_order, is_enabled, show_in_navigation, show_on_homepage, is_main_category, is_featured, is_promoted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`)
-        .bind(name, slug, String(body?.description ?? "").trim(), parentId, parseNonNegativeInteger(body?.sort_order), parseEnabled(body?.is_enabled), parseEnabled(body?.show_in_navigation, 1), parseEnabled(body?.show_on_homepage, 0), parseEnabled(body?.is_main_category, 0), parseEnabled(body?.is_featured, 0), parseEnabled(body?.is_promoted, 0)).first();
+        .bind(name, slug, String(body?.description ?? "").trim(), parentId, parseNonNegativeInteger(body?.sort_order), parseEnabled(body?.is_enabled), parseEnabled(body?.show_in_navigation, 1), parseEnabled(body?.show_on_homepage, 0), isMainCategory, parseEnabled(body?.is_featured, 0), parseEnabled(body?.is_promoted, 0)).first();
       return jsonResponse({ success: true, data: { id: result.id, uid: auth?.data?.uid || "" } }, 201);
     }
 
@@ -111,17 +103,18 @@ export async function handleCategoryApi(request, env, originalWorker) {
 
     const name = String(body?.name ?? existing.name).trim();
     const slug = String(body?.slug ?? existing.slug).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 120);
-    const parentId = parseParentId(body?.parent_id, parseOptionalId(existing.parent_id));
+    const isMainCategory = body?.is_main_category === undefined ? Number(existing.is_main_category) : parseEnabled(body?.is_main_category, existing.is_main_category);
+    const parentId = isMainCategory ? null : parseParentId(body?.parent_id, parseOptionalId(existing.parent_id));
     if (!name || !slug) return jsonResponse({ success: false, error: "Category name is required." }, 400);
-    await validateParent(env, parentId, id);
+    await validateMainCategory(env, parentId, id);
 
     await env.DB.prepare(`UPDATE categories SET name = ?, slug = ?, description = ?, parent_id = ?, sort_order = ?, is_enabled = ?, show_in_navigation = ?, show_on_homepage = ?, is_main_category = ?, is_featured = ?, is_promoted = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .bind(name, slug, String(body?.description ?? existing.description).trim(), parentId, parseNonNegativeInteger(body?.sort_order, existing.sort_order), parseEnabled(body?.is_enabled, existing.is_enabled), parseEnabled(body?.show_in_navigation, existing.show_in_navigation), parseEnabled(body?.show_on_homepage, existing.show_on_homepage), parseEnabled(body?.is_main_category, existing.is_main_category), parseEnabled(body?.is_featured, existing.is_featured), parseEnabled(body?.is_promoted, existing.is_promoted), id).run();
+      .bind(name, slug, String(body?.description ?? existing.description).trim(), parentId, parseNonNegativeInteger(body?.sort_order, existing.sort_order), parseEnabled(body?.is_enabled, existing.is_enabled), parseEnabled(body?.show_in_navigation, existing.show_in_navigation), parseEnabled(body?.show_on_homepage, existing.show_on_homepage), isMainCategory, parseEnabled(body?.is_featured, existing.is_featured), parseEnabled(body?.is_promoted, existing.is_promoted), id).run();
 
     return jsonResponse({ success: true, data: { id, uid: auth?.data?.uid || "" } });
   } catch (error) {
     if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401);
-    if (error?.message === "Parent category not found." || error?.message === "Parent category id is invalid." || error?.message === "A category cannot be its own parent." || error?.message === "A category cannot be placed inside its own descendant.") return jsonResponse({ success: false, error: error.message }, 400);
+    if (error?.message === "Main category not found." || error?.message === "Main category id is invalid." || error?.message === "Selected category is not a main category." || error?.message === "A category cannot be its own main category.") return jsonResponse({ success: false, error: error.message }, 400);
     if (String(error?.message || "").includes("UNIQUE constraint failed")) return jsonResponse({ success: false, error: "A category with that slug already exists." }, 409);
     return jsonResponse({ success: false, error: "Unable to save category." }, 500);
   }
