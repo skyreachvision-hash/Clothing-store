@@ -45,10 +45,11 @@ const renderProductCard = (product) => {
 };
 
 const sortByStoreOrder = (a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id);
+const params = new URLSearchParams(window.location.search);
+const getIdFromUrl = () => params.get('id');
+const getSubcategoryIdFromUrl = () => params.get('subcategory');
 
-const getIdFromUrl = () => new URLSearchParams(window.location.search).get('id');
-
-let currentFilter = 'all';
+let currentFilter = getSubcategoryIdFromUrl() || 'all';
 let state = { mainCategory: null, subcategories: [], products: [] };
 
 function renderFilters() {
@@ -58,8 +59,10 @@ function renderFilters() {
     ...state.subcategories.map((subcategory) => ({ id: String(subcategory.id), name: subcategory.name }))
   ];
 
+  if (!filters.some((filter) => String(filter.id) === String(currentFilter))) currentFilter = 'all';
+
   filtersElement.innerHTML = filters.map((filter) => `
-    <button class="button ${String(filter.id) === currentFilter ? 'button-primary' : 'button-ghost'}" type="button" data-category-filter="${escapeHtml(filter.id)}" aria-pressed="${String(filter.id) === currentFilter}">${escapeHtml(filter.name)}</button>
+    <button class="button ${String(filter.id) === String(currentFilter) ? 'button-primary' : 'button-ghost'}" type="button" data-category-filter="${escapeHtml(filter.id)}" aria-pressed="${String(filter.id) === String(currentFilter)}">${escapeHtml(filter.name)}</button>
   `).join('');
 
   filtersElement.querySelectorAll('[data-category-filter]').forEach((button) => {
