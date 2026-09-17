@@ -65,19 +65,32 @@ async function loadMainCategoriesWithProducts() {
       .sort(sortByStoreOrder);
 
     const sections = mainCategories.map((mainCategory) => {
-      const childIds = new Set(categories
-        .filter((category) => Number(category.is_enabled) === 1 && Number(category.parent_id) === Number(mainCategory.id))
-        .map((category) => Number(category.id)));
-      const mainProducts = products.filter((product) => childIds.has(Number(product.category_id)));
+      const subcategories = categories
+        .filter((category) => Number(category.is_enabled) === 1 && Number(category.parent_id) === Number(mainCategory.id) && Number(category.is_main_category) !== 1)
+        .sort(sortByStoreOrder);
 
-      return `<section class="category-product-section" aria-labelledby="main-category-${escapeHtml(mainCategory.id)}">
+      const subcategoryBlocks = subcategories.map((subcategory) => {
+        const subcategoryProducts = products
+          .filter((product) => Number(product.category_id) === Number(subcategory.id))
+          .slice(0, 4);
+
+        return `<div class="category-product-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">Subcategory</p><h3>${escapeHtml(subcategory.name)}</h3></div>
+            <span class="muted">${subcategoryProducts.length} ${subcategoryProducts.length === 1 ? 'piece' : 'pieces'}</span>
+          </div>
+          ${subcategoryProducts.length
+            ? `<div class="product-grid">${subcategoryProducts.map(renderProductCard).join('')}</div>`
+            : '<p class="muted">No products are available in this subcategory yet.</p>'}
+        </div>`;
+      }).join('');
+
+      return `<section aria-labelledby="main-category-${escapeHtml(mainCategory.id)}">
         <div class="section-heading">
           <div><p class="eyebrow">Main category</p><h2 id="main-category-${escapeHtml(mainCategory.id)}">${escapeHtml(mainCategory.name)}</h2></div>
-          <span class="muted">${mainProducts.length} ${mainProducts.length === 1 ? 'piece' : 'pieces'}</span>
+          <span class="muted">${subcategories.length} ${subcategories.length === 1 ? 'subcategory' : 'subcategories'}</span>
         </div>
-        ${mainProducts.length
-          ? `<div class="product-grid">${mainProducts.map(renderProductCard).join('')}</div>`
-          : '<p class="muted">No products are available in this category yet.</p>'}
+        ${subcategoryBlocks || '<p class="muted">No subcategories are available in this section yet.</p>'}
       </section>`;
     });
 
