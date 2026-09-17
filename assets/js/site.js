@@ -35,12 +35,13 @@ if (sentinel && 'IntersectionObserver' in window) {
 
 const publicSettingsCacheKey = 'clothing-store-public-settings';
 
-const applyPublicStoreSettings = (store = {}) => {
+const applyPublicStoreSettings = (store = {}, socialLinks = []) => {
   const storeNameElements = document.querySelectorAll('[data-store-name]');
   const taglineElements = document.querySelectorAll('[data-store-tagline]');
   const descriptionElements = document.querySelectorAll('[data-store-description]');
   const secondaryDescriptionElements = document.querySelectorAll('[data-store-description-secondary]');
   const metaDescription = document.querySelector('[data-store-meta-description]');
+  const socialLinkContainers = document.querySelectorAll('[data-social-links]');
 
   if (store.store_name) {
     storeNameElements.forEach((element) => {
@@ -64,19 +65,30 @@ const applyPublicStoreSettings = (store = {}) => {
     });
     if (metaDescription) metaDescription.setAttribute('content', store.description);
   }
+
+  if (socialLinkContainers.length) {
+    const links = Array.isArray(socialLinks) ? socialLinks.filter((link) => link?.url) : [];
+    socialLinkContainers.forEach((container) => {
+      container.innerHTML = links.map((link) => {
+        const label = String(link.label || link.platform || 'Social link');
+        const url = String(link.url || '');
+        return `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer">${escapeAttribute(label)}</a>`;
+      }).join('');
+    });
+  }
 };
 
 const readCachedPublicStoreSettings = () => {
   try {
     const cached = JSON.parse(localStorage.getItem(publicSettingsCacheKey) || 'null');
-    if (cached?.store) applyPublicStoreSettings(cached.store);
+    if (cached?.store) applyPublicStoreSettings(cached.store, cached.social_links || []);
   } catch {
     // Ignore unavailable or invalid local cache.
   }
 };
 
 const loadPublicStoreSettings = async () => {
-  const hasPublicSettingsElements = document.querySelector('[data-store-name], [data-store-tagline], [data-store-description], [data-store-description-secondary]');
+  const hasPublicSettingsElements = document.querySelector('[data-store-name], [data-store-tagline], [data-store-description], [data-store-description-secondary], [data-social-links]');
   if (!hasPublicSettingsElements) return;
 
   readCachedPublicStoreSettings();
@@ -89,11 +101,12 @@ const loadPublicStoreSettings = async () => {
     if (!response.ok) throw new Error('Settings request failed');
     const payload = await response.json();
     const store = payload?.data?.store || {};
+    const socialLinks = payload?.data?.social_links || [];
 
-    applyPublicStoreSettings(store);
+    applyPublicStoreSettings(store, socialLinks);
 
     try {
-      localStorage.setItem(publicSettingsCacheKey, JSON.stringify({ store }));
+      localStorage.setItem(publicSettingsCacheKey, JSON.stringify({ store, social_links: socialLinks }));
     } catch {
       // Continue normally if browser storage is unavailable.
     }
