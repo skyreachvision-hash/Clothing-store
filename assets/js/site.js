@@ -33,6 +33,59 @@ if (sentinel && 'IntersectionObserver' in window) {
   observer.observe(sentinel);
 }
 
+const loadPublicStoreSettings = async () => {
+  const storeNameElements = document.querySelectorAll('[data-store-name]');
+  const taglineElements = document.querySelectorAll('[data-store-tagline]');
+  const descriptionElements = document.querySelectorAll('[data-store-description]');
+  const secondaryDescriptionElements = document.querySelectorAll('[data-store-description-secondary]');
+  const metaDescription = document.querySelector('[data-store-meta-description]');
+
+  if (!storeNameElements.length && !taglineElements.length && !descriptionElements.length && !secondaryDescriptionElements.length) return;
+
+  try {
+    const response = await fetch('/api/store-settings', {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error('Settings request failed');
+    const payload = await response.json();
+    const store = payload?.data?.store || {};
+
+    if (store.store_name) {
+      storeNameElements.forEach((element) => {
+        element.textContent = store.store_name;
+      });
+      document.title = `${store.store_name} | Make your mark`;
+    }
+
+    if (store.tagline) {
+      taglineElements.forEach((element) => {
+        element.textContent = store.tagline;
+      });
+    }
+
+    if (store.description) {
+      descriptionElements.forEach((element) => {
+        element.textContent = store.description;
+      });
+    }
+
+    if (store.description) {
+      secondaryDescriptionElements.forEach((element) => {
+        element.textContent = store.description;
+      });
+    }
+
+    if (store.description && metaDescription) {
+      metaDescription.setAttribute('content', store.description);
+    }
+  } catch {
+    // Keep the existing storefront copy if the public settings API is unavailable.
+  }
+};
+
+loadPublicStoreSettings();
+
 const settingsForm = document.querySelector('[data-settings-form]');
 const socialList = document.querySelector('[data-social-list]');
 const settingsStatus = document.querySelector('[data-settings-status]');
