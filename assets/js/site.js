@@ -35,6 +35,22 @@ if (sentinel && 'IntersectionObserver' in window) {
 
 const publicSettingsCacheKey = 'clothing-store-public-settings';
 
+const socialIconNames = {
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
+  whatsapp: 'WhatsApp'
+};
+
+const socialIconColors = {
+  facebook: '#1877F2',
+  instagram: '#E4405F',
+  tiktok: '#111111',
+  youtube: '#FF0000',
+  whatsapp: '#25D366'
+};
+
 const applyPublicStoreSettings = (store = {}, socialLinks = []) => {
   const storeNameElements = document.querySelectorAll('[data-store-name]');
   const taglineElements = document.querySelectorAll('[data-store-tagline]');
@@ -67,12 +83,15 @@ const applyPublicStoreSettings = (store = {}, socialLinks = []) => {
   }
 
   if (socialLinkContainers.length) {
-    const links = Array.isArray(socialLinks) ? socialLinks.filter((link) => link?.url) : [];
+    const links = Array.isArray(socialLinks) ? socialLinks.filter((link) => link?.url && socialIconNames[link.platform]) : [];
     socialLinkContainers.forEach((container) => {
       container.innerHTML = links.map((link) => {
-        const label = String(link.label || link.platform || 'Social link');
+        const platform = String(link.platform);
+        const label = String(link.label || socialIconNames[platform]);
         const url = String(link.url || '');
-        return `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer">${escapeAttribute(label)}</a>`;
+        const iconColor = socialIconColors[platform];
+        const iconUrl = `https://cdn.simpleicons.org/${platform}/${encodeURIComponent(iconColor)}`;
+        return `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttribute(label)}" title="${escapeAttribute(label)}" style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin:0 .35rem .35rem 0;border-radius:50%;background:${iconColor};vertical-align:middle;transition:transform .2s ease,opacity .2s ease;"><img src="${iconUrl}" alt="" width="22" height="22" loading="lazy" decoding="async" style="display:block;width:22px;height:22px;filter:brightness(0) invert(1);" onerror="this.style.display='none'"></a>`;
       }).join('');
     });
   }
