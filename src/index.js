@@ -234,13 +234,26 @@ async function handleStoreSettings(request, env) {
     ];
     const values = allowedFields.map((field) => String(body?.[field] ?? "").trim());
 
+    let existingAdditionalSettings = {};
+    const currentSettings = await env.DB.prepare(`SELECT settings_json FROM store_settings WHERE id = 1`).first();
+    try {
+      existingAdditionalSettings = JSON.parse(currentSettings?.settings_json || "{}");
+    } catch {
+      existingAdditionalSettings = {};
+    }
+    const additionalSettings = {
+      ...existingAdditionalSettings,
+      hero_headline: String(body?.hero_headline ?? "").trim()
+    };
+
     await env.DB.prepare(`
       UPDATE store_settings
       SET store_name = ?, logo_url = ?, tagline = ?, description = ?,
           contact_email = ?, contact_phone = ?, whatsapp_url = ?, address = ?,
+          settings_json = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = 1
-    `).bind(...values).run();
+    `).bind(...values, JSON.stringify(additionalSettings)).run();
 
     const socialLinks = Array.isArray(body?.social_links) ? body.social_links : [];
     const supportedPlatforms = new Set(["facebook", "instagram", "tiktok", "youtube", "whatsapp"]);
