@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Manage product categories for the Clothing Store.">
+  <meta name="description" content="Manage main categories and product categories for the Clothing Store.">
   <title>Categories | Clothing Store Admin</title>
   <link rel="stylesheet" href="../../assets/css/styles.css">
   <script type="module" src="../../assets/js/firebase-auth.js"></script>
@@ -15,24 +15,24 @@
 
   <main id="categories-main" class="admin-main"><div class="container">
     <div class="settings-heading">
-      <div><p class="eyebrow">Catalogue management</p><h1>Categories</h1><p class="muted">Create categories, organize parent and child categories, and control where each category appears on the storefront.</p></div>
+      <div><p class="eyebrow">Catalogue management</p><h1>Categories</h1><p class="muted">Set the store's main categories first, then link regular categories to the main category they belong to.</p></div>
       <a class="button button-outline" href="../">Back to dashboard</a>
     </div>
 
     <section class="settings-panel" aria-labelledby="category-form-title">
-      <div class="settings-heading"><div><h2 id="category-form-title">Add category</h2><p class="muted">A category can exist in the catalogue without being promoted on the homepage or shown in navigation.</p></div><span class="settings-readonly">Admin access</span></div>
+      <div class="settings-heading"><div><h2 id="category-form-title">Add category</h2><p class="muted">Use Main category for major store sections such as Women, Men, Shoes or Accessories. Regular categories can then be linked to one of those main categories.</p></div><span class="settings-readonly">Admin access</span></div>
       <form class="settings-form" data-category-form>
         <input type="hidden" name="id">
         <fieldset class="settings-group"><legend>Category details</legend>
           <div class="settings-fields settings-fields-two">
             <label class="field"><span>Category name</span><input name="name" type="text" required maxlength="120" placeholder="e.g. Women"></label>
             <label class="field"><span>Slug <small>(optional)</small></span><input name="slug" type="text" maxlength="120" placeholder="women"></label>
-            <label class="field"><span>Parent category</span><select name="parent_id"><option value="">No parent (top level)</option></select></label>
+            <label class="field"><span>Category type</span><select name="is_main_category"><option value="1">Main category</option><option value="0">Regular category</option></select></label>
+            <label class="field"><span>Main category</span><select name="parent_id"><option value="">No main category</option></select></label>
             <label class="field"><span>Sort order</span><input name="sort_order" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
             <label class="field"><span>Status</span><select name="is_enabled"><option value="1">Enabled / public</option><option value="0">Disabled / hidden</option></select></label>
             <label class="field"><span>Navigation</span><select name="show_in_navigation"><option value="1">Show in navigation</option><option value="0">Hide from navigation</option></select></label>
             <label class="field"><span>Homepage visibility</span><select name="show_on_homepage"><option value="0">Do not show on homepage</option><option value="1">Show on homepage</option></select></label>
-            <label class="field"><span>Main homepage category</span><select name="is_main_category"><option value="0">No — regular category</option><option value="1">Yes — main category</option></select></label>
             <label class="field"><span>Featured</span><select name="is_featured"><option value="0">Not featured</option><option value="1">Featured</option></select></label>
             <label class="field"><span>Promoted</span><select name="is_promoted"><option value="0">Not promoted</option><option value="1">Promoted</option></select></label>
             <label class="field field-wide"><span>Description</span><textarea name="description" rows="4" maxlength="2000" placeholder="Short description for this category"></textarea></label>
@@ -42,8 +42,14 @@
       </form>
     </section>
 
+    <section class="settings-panel" aria-labelledby="main-categories-title">
+      <div class="settings-heading"><div><h2 id="main-categories-title">Main Categories</h2><p class="muted">These are the major sections of the store. Regular categories can be linked to them.</p></div><button class="button button-outline" type="button" data-refresh-categories>Refresh</button></div>
+      <div class="settings-notice" data-main-list-status role="status">Loading main categories…</div>
+      <div class="admin-sections" data-main-categories-list></div>
+    </section>
+
     <section class="settings-panel" aria-labelledby="categories-list-title">
-      <div class="settings-heading"><div><h2 id="categories-list-title">Categories</h2><p class="muted">All categories stored in the catalogue, including disabled categories.</p></div><button class="button button-outline" type="button" data-refresh-categories>Refresh</button></div>
+      <div class="settings-heading"><div><h2 id="categories-list-title">Categories</h2><p class="muted">Regular categories and the main category they are linked to.</p></div></div>
       <div class="settings-notice" data-list-status role="status">Loading categories…</div>
       <div class="admin-sections" data-categories-list></div>
     </section>
@@ -54,9 +60,12 @@
   <script type="module">
     const form = document.querySelector('[data-category-form]');
     const formStatus = document.querySelector('[data-form-status]');
+    const mainListStatus = document.querySelector('[data-main-list-status]');
     const listStatus = document.querySelector('[data-list-status]');
+    const mainList = document.querySelector('[data-main-categories-list]');
     const list = document.querySelector('[data-categories-list]');
-    const parentSelect = form.elements.parent_id;
+    const typeSelect = form.elements.is_main_category;
+    const mainSelect = form.elements.parent_id;
     const cancelButton = document.querySelector('[data-cancel-edit]');
     const saveButton = document.querySelector('[data-save-category]');
     let categories = [];
@@ -85,104 +94,97 @@
       return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
     }
 
-    function getDescendantIds(categoryId) {
-      const blocked = new Set([Number(categoryId)]);
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (const category of categories) {
-          if (category.parent_id !== null && blocked.has(Number(category.parent_id)) && !blocked.has(Number(category.id))) {
-            blocked.add(Number(category.id));
-            changed = true;
-          }
-        }
-      }
-      return blocked;
+    function setCategoryTypeState() {
+      const isMain = typeSelect.value === '1';
+      mainSelect.disabled = isMain;
+      if (isMain) mainSelect.value = '';
     }
 
-    function renderParentOptions(currentId = null) {
-      const blocked = currentId ? getDescendantIds(currentId) : new Set();
-      const currentParent = currentId ? categories.find((item) => Number(item.id) === Number(currentId))?.parent_id : null;
-      parentSelect.innerHTML = '<option value="">No parent (top level)</option>';
-      const ordered = categories.slice().sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
+    function renderMainOptions(currentId = null) {
+      const currentMain = currentId ? categories.find((item) => Number(item.id) === Number(currentId))?.parent_id : null;
+      mainSelect.innerHTML = '<option value="">No main category</option>';
+      const ordered = categories.filter((item) => Number(item.is_main_category) === 1).slice().sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
       for (const category of ordered) {
-        if (blocked.has(Number(category.id))) continue;
+        if (currentId && Number(category.id) === Number(currentId)) continue;
         const option = document.createElement('option');
         option.value = category.id;
         option.textContent = category.name;
-        if (currentParent !== null && Number(currentParent) === Number(category.id)) option.selected = true;
-        parentSelect.append(option);
+        if (currentMain !== null && Number(currentMain) === Number(category.id)) option.selected = true;
+        mainSelect.append(option);
       }
     }
 
     async function loadCategories() {
+      mainListStatus.textContent = 'Loading main categories…';
       listStatus.textContent = 'Loading categories…';
       try {
         const payload = await apiFetch('/api/categories?include_disabled=1');
         categories = (payload.data || []).slice().sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
-        renderParentOptions();
+        renderMainOptions();
         renderCategories();
-        listStatus.textContent = categories.length ? `${categories.length} categor${categories.length === 1 ? 'y' : 'ies'} loaded.` : 'No categories yet. Add your first category above.';
+        const mainCount = categories.filter((item) => Number(item.is_main_category) === 1).length;
+        const regularCount = categories.filter((item) => Number(item.is_main_category) !== 1).length;
+        mainListStatus.textContent = mainCount ? `${mainCount} main categor${mainCount === 1 ? 'y' : 'ies'} configured.` : 'No main categories yet. Create one above by selecting Main category.';
+        listStatus.textContent = regularCount ? `${regularCount} regular categor${regularCount === 1 ? 'y' : 'ies'} loaded.` : 'No regular categories yet.';
       } catch (error) {
+        mainListStatus.textContent = error.message;
         listStatus.textContent = error.message;
       }
     }
 
-    function categoryPath(category) {
-      const names = [category.name];
-      const seen = new Set([Number(category.id)]);
-      let parentId = Number(category.parent_id) || null;
-      while (parentId && !seen.has(parentId)) {
-        seen.add(parentId);
-        const parent = categories.find((item) => Number(item.id) === parentId);
-        if (!parent) break;
-        names.unshift(parent.name);
-        parentId = Number(parent.parent_id) || null;
-      }
-      return names.join(' › ');
+    function mainCategoryName(category) {
+      const main = categories.find((item) => Number(item.id) === Number(category.parent_id) && Number(item.is_main_category) === 1);
+      return main?.name || 'No main category';
+    }
+
+    function renderPanel(category, relationshipText) {
+      const panel = document.createElement('section');
+      panel.className = 'admin-panel';
+      const enabledLabel = Number(category.is_enabled) === 1 ? 'Enabled' : 'Disabled';
+      const flags = [
+        Number(category.show_in_navigation) === 1 ? 'Nav' : null,
+        Number(category.show_on_homepage) === 1 ? 'Homepage' : null,
+        Number(category.is_featured) === 1 ? 'Featured' : null,
+        Number(category.is_promoted) === 1 ? 'Promoted' : null
+      ].filter(Boolean);
+      panel.innerHTML = `
+        <div class="panel-icon">${escapeHtml(String(category.sort_order).padStart(2, '0'))}</div>
+        <div>
+          <h2>${escapeHtml(category.name)}</h2>
+          <p class="muted">${escapeHtml(relationshipText)} · /${escapeHtml(category.slug)} · ${enabledLabel}</p>
+          ${flags.length ? `<p class="muted">${escapeHtml(flags.join(' · '))}</p>` : ''}
+          ${category.description ? `<p class="muted">${escapeHtml(category.description)}</p>` : ''}
+        </div>
+        <div>
+          <button class="button button-outline" type="button" data-edit="${category.id}">Edit</button>
+          <button class="button button-outline" type="button" data-toggle="${category.id}">${enabledLabel === 'Enabled' ? 'Disable' : 'Enable'}</button>
+          <button class="button button-outline" type="button" data-delete="${category.id}">Delete</button>
+        </div>`;
+      return panel;
     }
 
     function renderCategories() {
+      mainList.innerHTML = '';
       list.innerHTML = '';
-      for (const category of categories) {
-        const panel = document.createElement('section');
-        panel.className = 'admin-panel';
-        const enabledLabel = Number(category.is_enabled) === 1 ? 'Enabled' : 'Disabled';
-        const flags = [
-          Number(category.show_in_navigation) === 1 ? 'Nav' : null,
-          Number(category.show_on_homepage) === 1 ? 'Homepage' : null,
-          Number(category.is_main_category) === 1 ? 'Main' : null,
-          Number(category.is_featured) === 1 ? 'Featured' : null,
-          Number(category.is_promoted) === 1 ? 'Promoted' : null
-        ].filter(Boolean);
-        panel.innerHTML = `
-          <div class="panel-icon">${escapeHtml(String(category.sort_order).padStart(2, '0'))}</div>
-          <div>
-            <h2>${escapeHtml(category.name)}</h2>
-            <p class="muted">${escapeHtml(categoryPath(category))} · /${escapeHtml(category.slug)} · ${enabledLabel}</p>
-            ${flags.length ? `<p class="muted">${escapeHtml(flags.join(' · '))}</p>` : ''}
-            ${category.description ? `<p class="muted">${escapeHtml(category.description)}</p>` : ''}
-          </div>
-          <div>
-            <button class="button button-outline" type="button" data-edit="${category.id}">Edit</button>
-            <button class="button button-outline" type="button" data-toggle="${category.id}">${enabledLabel === 'Enabled' ? 'Disable' : 'Enable'}</button>
-            <button class="button button-outline" type="button" data-delete="${category.id}">Delete</button>
-          </div>`;
-        list.append(panel);
-      }
+      const mainCategories = categories.filter((item) => Number(item.is_main_category) === 1);
+      const regularCategories = categories.filter((item) => Number(item.is_main_category) !== 1);
+      for (const category of mainCategories) mainList.append(renderPanel(category, 'Main category'));
+      for (const category of regularCategories) list.append(renderPanel(category, `Main category: ${mainCategoryName(category)}`));
     }
 
     function resetForm() {
       form.reset();
       form.elements.id.value = '';
       form.elements.sort_order.value = '0';
+      form.elements.is_main_category.value = '1';
+      form.elements.parent_id.value = '';
       form.elements.is_enabled.value = '1';
       form.elements.show_in_navigation.value = '1';
       form.elements.show_on_homepage.value = '0';
-      form.elements.is_main_category.value = '0';
       form.elements.is_featured.value = '0';
       form.elements.is_promoted.value = '0';
-      renderParentOptions();
+      renderMainOptions();
+      setCategoryTypeState();
       document.querySelector('#category-form-title').textContent = 'Add category';
       cancelButton.hidden = true;
       saveButton.textContent = 'Save category';
@@ -201,7 +203,10 @@
       form.elements.is_main_category.value = Number(category.is_main_category) === 1 ? '1' : '0';
       form.elements.is_featured.value = Number(category.is_featured) === 1 ? '1' : '0';
       form.elements.is_promoted.value = Number(category.is_promoted) === 1 ? '1' : '0';
-      renderParentOptions(category.id);
+      renderMainOptions(category.id);
+      const parentId = category.parent_id === null ? '' : String(category.parent_id);
+      mainSelect.value = parentId;
+      setCategoryTypeState();
       document.querySelector('#category-form-title').textContent = `Edit: ${category.name}`;
       cancelButton.hidden = false;
       saveButton.textContent = 'Update category';
@@ -209,24 +214,28 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    typeSelect.addEventListener('change', setCategoryTypeState);
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const id = form.elements.id.value;
+      const isMain = form.elements.is_main_category.value === '1';
       const data = {
         name: form.elements.name.value.trim(),
         slug: form.elements.slug.value.trim(),
         description: form.elements.description.value.trim(),
-        parent_id: form.elements.parent_id.value || null,
+        parent_id: isMain ? null : (form.elements.parent_id.value || null),
         sort_order: Number(form.elements.sort_order.value || 0),
         is_enabled: form.elements.is_enabled.value === '1',
         show_in_navigation: form.elements.show_in_navigation.value === '1',
         show_on_homepage: form.elements.show_on_homepage.value === '1',
-        is_main_category: form.elements.is_main_category.value === '1',
+        is_main_category: isMain,
         is_featured: form.elements.is_featured.value === '1',
         is_promoted: form.elements.is_promoted.value === '1'
       };
       if (!data.name) return setFormStatus('Category name is required.');
-      if (!confirm(id ? 'Update this category?' : 'Create this category?')) return;
+      if (!isMain && !data.parent_id) setFormStatus('You can leave this category without a main category, or select one from the list.');
+      if (!confirm(id ? 'Update this category?' : `Create this ${isMain ? 'main category' : 'regular category'}?`)) return;
       saveButton.disabled = true;
       setFormStatus(id ? 'Updating category…' : 'Creating category…');
       try {
@@ -244,7 +253,7 @@
     cancelButton.addEventListener('click', resetForm);
     document.querySelector('[data-refresh-categories]').addEventListener('click', loadCategories);
 
-    list.addEventListener('click', async (event) => {
+    async function handleListAction(event) {
       const editId = event.target.closest('[data-edit]')?.dataset.edit;
       const toggleId = event.target.closest('[data-toggle]')?.dataset.toggle;
       const deleteId = event.target.closest('[data-delete]')?.dataset.delete;
@@ -280,8 +289,11 @@
           listStatus.textContent = error.message;
         }
       }
-    });
+    }
 
+    mainList.addEventListener('click', handleListAction);
+    list.addEventListener('click', handleListAction);
+    resetForm();
     loadCategories();
   </script>
 </body>
