@@ -1,7 +1,7 @@
 compatibility_date = "2026-09-15"
 
 name = "clothing-store-api"
-main = "src/index.js"
+main = "src/entry.js"
 
 [[d1_databases]]
 binding = "DB"
