@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manage product categories for the Clothing Store.">
+  <title>Categories | Clothing Store Admin</title>
+  <link rel="stylesheet" href="../../assets/css/styles.css">
+  <script type="module" src="../../assets/js/firebase-auth.js"></script>
+  <script src="../../assets/js/site.js" defer></script>
+</head>
+<body class="admin-page">
+  <a class="skip-link" href="#categories-main">Skip to content</a>
+  <header class="admin-header"><div class="container header-inner"><a class="brand" href="../../index.html">Clothing Store <span class="admin-label">Admin</span></a><div class="admin-account"><span class="status-dot" aria-hidden="true"></span><span data-admin-account>Admin account</span><button class="button button-small button-outline" type="button" data-admin-logout>Log out</button></div></div></header>
+
+  <main id="categories-main" class="admin-main"><div class="container">
+    <div class="settings-heading">
+      <div><p class="eyebrow">Catalogue management</p><h1>Categories</h1><p class="muted">Create and organize the categories used to group products across your storefront.</p></div>
+      <a class="button button-outline" href="../">Back to dashboard</a>
+    </div>
+
+    <section class="settings-panel" aria-labelledby="category-form-title">
+      <div class="settings-heading"><div><h2 id="category-form-title">Add category</h2><p class="muted">Categories can be enabled or disabled without removing them from the catalogue.</p></div><span class="settings-readonly">Admin access</span></div>
+      <form class="settings-form" data-category-form>
+        <input type="hidden" name="id">
+        <fieldset class="settings-group"><legend>Category details</legend>
+          <div class="settings-fields settings-fields-two">
+            <label class="field"><span>Category name</span><input name="name" type="text" required maxlength="120" placeholder="e.g. Women"></label>
+            <label class="field"><span>Slug <small>(optional)</small></span><input name="slug" type="text" maxlength="120" placeholder="women"></label>
+            <label class="field"><span>Sort order</span><input name="sort_order" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
+            <label class="field"><span>Status</span><select name="is_enabled"><option value="1">Enabled</option><option value="0">Disabled</option></select></label>
+            <label class="field field-wide"><span>Description</span><textarea name="description" rows="4" maxlength="2000" placeholder="Short description for this category"></textarea></label>
+          </div>
+        </fieldset>
+        <div class="settings-actions"><span class="settings-load-status" data-form-status aria-live="polite">Ready to add a category.</span><div><button class="button button-outline" type="button" data-cancel-edit hidden>Cancel edit</button> <button class="button button-primary" type="submit" data-save-category>Save category</button></div></div>
+      </form>
+    </section>
+
+    <section class="settings-panel" aria-labelledby="categories-list-title">
+      <div class="settings-heading"><div><h2 id="categories-list-title">Categories</h2><p class="muted">All categories stored in the catalogue, including disabled categories.</p></div><button class="button button-outline" type="button" data-refresh-categories>Refresh</button></div>
+      <div class="settings-notice" data-list-status role="status">Loading categories…</div>
+      <div class="admin-sections" data-categories-list></div>
+    </section>
+  </div></main>
+
+  <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
+
+  <script type="module">
+    const form = document.querySelector('[data-category-form]');
+    const formStatus = document.querySelector('[data-form-status]');
+    const listStatus = document.querySelector('[data-list-status]');
+    const list = document.querySelector('[data-categories-list]');
+    const cancelButton = document.querySelector('[data-cancel-edit]');
+    const saveButton = document.querySelector('[data-save-category]');
+    let categories = [];
+
+    function setFormStatus(message) { formStatus.textContent = message; }
+
+    async function getToken() {
+      if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
+      const token = await window.getAdminIdToken();
+      if (!token) throw new Error('Authentication required. Please sign in again.');
+      return token;
+    }
+
+    async function apiFetch(url, options = {}) {
+      const token = await getToken();
+      const headers = new Headers(options.headers || {});
+      headers.set('Authorization', `Bearer ${token}`);
+      if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+      const response = await fetch(url, { ...options, headers });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
+      return payload;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+    }
+
+    async function loadCategories() {
+      listStatus.textContent = 'Loading categories…';
+      try {
+        const payload = await apiFetch('/api/categories?include_disabled=1');
+        categories = (payload.data || []).slice().sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
+        renderCategories();
+        listStatus.textContent = categories.length ? `${categories.length} categor${categories.length === 1 ? 'y' : 'ies'} loaded.` : 'No categories yet. Add your first category above.';
+      } catch (error) {
+        listStatus.textContent = error.message;
+      }
+    }
+
+    function renderCategories() {
+      list.innerHTML = '';
+      for (const category of categories) {
+        const panel = document.createElement('section');
+        panel.className = 'admin-panel';
+        const enabledLabel = Number(category.is_enabled) === 1 ? 'Enabled' : 'Disabled';
+        panel.innerHTML = `
+          <div class="panel-icon">${escapeHtml(String(category.sort_order).padStart(2, '0'))}</div>
+          <div>
+            <h2>${escapeHtml(category.name)}</h2>
+            <p class="muted">/${escapeHtml(category.slug)} · ${enabledLabel}</p>
+            ${category.description ? `<p class="muted">${escapeHtml(category.description)}</p>` : ''}
+          </div>
+          <div>
+            <button class="button button-outline" type="button" data-edit="${category.id}">Edit</button>
+            <button class="button button-outline" type="button" data-toggle="${category.id}">${enabledLabel === 'Enabled' ? 'Disable' : 'Enable'}</button>
+            <button class="button button-outline" type="button" data-delete="${category.id}">Delete</button>
+          </div>`;
+        list.append(panel);
+      }
+    }
+
+    function resetForm() {
+      form.reset();
+      form.elements.id.value = '';
+      form.elements.sort_order.value = '0';
+      form.elements.is_enabled.value = '1';
+      document.querySelector('#category-form-title').textContent = 'Add category';
+      cancelButton.hidden = true;
+      saveButton.textContent = 'Save category';
+      setFormStatus('Ready to add a category.');
+    }
+
+    function editCategory(category) {
+      form.elements.id.value = category.id;
+      form.elements.name.value = category.name || '';
+      form.elements.slug.value = category.slug || '';
+      form.elements.description.value = category.description || '';
+      form.elements.sort_order.value = category.sort_order ?? 0;
+      form.elements.is_enabled.value = Number(category.is_enabled) === 1 ? '1' : '0';
+      document.querySelector('#category-form-title').textContent = `Edit: ${category.name}`;
+      cancelButton.hidden = false;
+      saveButton.textContent = 'Update category';
+      setFormStatus('Editing this category.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const id = form.elements.id.value;
+      const data = {
+        name: form.elements.name.value.trim(),
+        slug: form.elements.slug.value.trim(),
+        description: form.elements.description.value.trim(),
+        sort_order: Number(form.elements.sort_order.value || 0),
+        is_enabled: form.elements.is_enabled.value === '1'
+      };
+      if (!data.name) return setFormStatus('Category name is required.');
+      if (!confirm(id ? 'Update this category?' : 'Create this category?')) return;
+      saveButton.disabled = true;
+      setFormStatus(id ? 'Updating category…' : 'Creating category…');
+      try {
+        await apiFetch(id ? `/api/categories?id=${encodeURIComponent(id)}` : '/api/categories', { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
+        resetForm();
+        await loadCategories();
+        setFormStatus(id ? 'Category updated successfully.' : 'Category created successfully.');
+      } catch (error) {
+        setFormStatus(error.message);
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
+
+    cancelButton.addEventListener('click', resetForm);
+    document.querySelector('[data-refresh-categories]').addEventListener('click', loadCategories);
+
+    list.addEventListener('click', async (event) => {
+      const editId = event.target.closest('[data-edit]')?.dataset.edit;
+      const toggleId = event.target.closest('[data-toggle]')?.dataset.toggle;
+      const deleteId = event.target.closest('[data-delete]')?.dataset.delete;
+
+      if (editId) {
+        const category = categories.find((item) => String(item.id) === String(editId));
+        if (category) editCategory(category);
+        return;
+      }
+
+      if (toggleId) {
+        const category = categories.find((item) => String(item.id) === String(toggleId));
+        if (!category) return;
+        const enabled = Number(category.is_enabled) === 1;
+        if (!confirm(`${enabled ? 'Disable' : 'Enable'} “${category.name}”?`)) return;
+        try {
+          await apiFetch(`/api/categories?id=${encodeURIComponent(toggleId)}`, { method: 'PUT', body: JSON.stringify({ is_enabled: !enabled }) });
+          await loadCategories();
+        } catch (error) {
+          listStatus.textContent = error.message;
+        }
+        return;
+      }
+
+      if (deleteId) {
+        const category = categories.find((item) => String(item.id) === String(deleteId));
+        if (!category || !confirm(`Delete “${category.name}”? Products assigned to it will become uncategorized.`)) return;
+        try {
+          await apiFetch(`/api/categories?id=${encodeURIComponent(deleteId)}`, { method: 'DELETE' });
+          if (String(form.elements.id.value) === String(deleteId)) resetForm();
+          await loadCategories();
+        } catch (error) {
+          listStatus.textContent = error.message;
+        }
+      }
+    });
+
+    loadCategories();
+  </script>
+</body>
+</html>
