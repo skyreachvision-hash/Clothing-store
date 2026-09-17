@@ -1,5 +1,7 @@
 const categorySections = document.querySelector('[data-main-category-sections]');
 const categoryStatus = document.querySelector('[data-category-status]');
+const subcategoryShowcase = document.querySelector('[data-subcategory-showcase]');
+const subcategoryStatus = document.querySelector('[data-subcategory-status]');
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
   '&': '&amp;',
@@ -43,6 +45,38 @@ const renderProductCard = (product) => {
 
 const sortByStoreOrder = (a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id);
 
+function renderSubcategoryShowcase(categories) {
+  if (!subcategoryShowcase) return;
+
+  const subcategories = categories
+    .filter((category) =>
+      Number(category.is_enabled) === 1 &&
+      Number(category.is_main_category) !== 1 &&
+      String(category.showcase_image_url || '').trim()
+    )
+    .sort(sortByStoreOrder);
+
+  if (!subcategories.length) {
+    subcategoryShowcase.innerHTML = '';
+    if (subcategoryStatus) subcategoryStatus.hidden = true;
+    return;
+  }
+
+  subcategoryShowcase.innerHTML = subcategories.map((subcategory) => {
+    const imageUrl = String(subcategory.showcase_image_url).trim();
+    const altText = String(subcategory.showcase_image_alt || subcategory.name).trim();
+    const parentId = Number(subcategory.parent_id);
+    const href = Number.isInteger(parentId) && parentId > 0
+      ? `category.html?id=${encodeURIComponent(parentId)}&subcategory=${encodeURIComponent(subcategory.id)}`
+      : '#categories';
+
+    return `<a class="subcategory-showcase-card" href="${href}" aria-label="Shop ${escapeHtml(subcategory.name)}">
+      <span class="subcategory-showcase-image"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(altText)}" loading="lazy"></span>
+      <span class="subcategory-showcase-name">${escapeHtml(subcategory.name)}</span>
+    </a>`;
+  }).join('');
+}
+
 async function loadMainCategoriesWithProducts() {
   if (!categorySections) return;
 
@@ -64,8 +98,8 @@ async function loadMainCategoriesWithProducts() {
         ? productPayload.data
         : [];
 
-    // Every enabled Main Category is a real storefront section. The optional
-    // homepage flag is not required for the main category to appear here.
+    renderSubcategoryShowcase(categories);
+
     const mainCategories = categories
       .filter((category) => Number(category.is_enabled) === 1 && Number(category.is_main_category) === 1)
       .sort(sortByStoreOrder);
@@ -106,6 +140,7 @@ async function loadMainCategoriesWithProducts() {
   } catch (error) {
     categorySections.innerHTML = '<p class="muted">Store categories are temporarily unavailable.</p>';
     if (categoryStatus) categoryStatus.textContent = error?.message || 'Unable to load categories.';
+    if (subcategoryStatus) subcategoryStatus.textContent = error?.message || 'Unable to load categories.';
   }
 }
 
