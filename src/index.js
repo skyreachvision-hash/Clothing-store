@@ -48,7 +48,7 @@ async function getFirebaseKeys() {
     firebaseKeyCache.set(kid, certificate);
   }
   firebaseKeysExpiresAt = Date.now() + Math.max(60, maxAge) * 1000;
-  return firebaseKeyCache;
+  return firebaseKeys;
 }
 
 function readDerElement(bytes, offset) {
@@ -293,6 +293,73 @@ async function handleStoreSettings(request, env) {
       return jsonResponse({ success: false, error: error.message }, 401);
     }
     return jsonResponse({ success: false, error: "Unable to save store settings." }, 500);
+  }
+}
+
+async function createCloudinarySignature(params, secret) {
+  const entries = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .sort(([a], [b]) => a.localeCompare(b));
+  const query = entries.map(([key, value]) => `${key}=${value}`).join("&");
+  const data = new TextEncoder().encode(`${query}${secret}`);
+  const digest = await crypto.subtle.digest("SHA-1", data);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function handleImageUpload(request, env) {
+  if (request.method !== "POST") return jsonResponse({ success: false, error: "Method not allowed." }, 405);
+
+  try {
+    const token = await verifyFirebaseIdToken(request);
+    const contentLength = Number(request.headers.get("Content-Length") || 0);
+    if (contentLength > 10 * 1024 * 1024) {
+      return jsonResponse({ success: false, error: "Image is too large. Maximum size is 10 MB." }, 413);
+    }
+
+    if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+      return jsonResponse({ success: false, error: "Cloudinary upload is not configured." }, 500);
+    }
+
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) return jsonResponse({ success: false, error: "An image file is required." }, 400);
+    if (!file.type.startsWith("image/")) return jsonResponse({ success: false, error: "Only image files are allowed." }, 400);
+    if (file.size > 10 * 1024 * 1024) return jsonResponse({ success: false, error: "Image is too large. Maximum size is 10 MB." }, 413);
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const uploadParams = {
+      folder: "clothing-store/products",
+      timestamp
+    };
+    const signature = await createCloudinarySignature(uploadParams, env.CLOUDINARY_API_SECRET);
+    const cloudinaryForm = new FormData();
+    cloudinaryForm.append("file", file, file.name || "product-image");
+    cloudinaryForm.append("api_key", env.CLOUDINARY_API_KEY);
+    cloudinaryForm.append("timestamp", String(timestamp));
+    cloudinaryForm.append("folder", uploadParams.folder);
+    cloudinaryForm.append("signature", signature);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(env.CLOUDINARY_CLOUD_NAME)}/image/upload`, {
+      method: "POST",
+      body: cloudinaryForm
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.secure_url) {
+      return jsonResponse({ success: false, error: result.error?.message || "Cloudinary upload failed." }, 502);
+    }
+
+    return jsonResponse({
+      success: true,
+      data: {
+        uid: token.sub,
+        image_url: result.secure_url,
+        cloudinary_public_id: result.public_id || "",
+        original_filename: result.original_filename || file.name || ""
+      }
+    }, 201);
+  } catch (error) {
+    if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401);
+    return jsonResponse({ success: false, error: "Unable to upload image." }, 500);
   }
 }
 
@@ -650,6 +717,7 @@ export default {
 
     if (url.pathname === "/api/admin-auth-check") return handleAdminAuthCheck(request);
     if (url.pathname === "/api/store-settings") return handleStoreSettings(request, env);
+    if (url.pathname === "/api/upload-image") return handleImageUpload(request, env);
     if (url.pathname === "/api/categories") return handleCategories(request, env);
     if (url.pathname === "/api/products") return handleProducts(request, env);
 
