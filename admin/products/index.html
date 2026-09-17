@@ -88,12 +88,49 @@
       const response = await fetch('/api/categories', { headers: { Accept: 'application/json' }, cache: 'no-store' });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load categories.');
+
+      const categories = Array.isArray(payload.data) ? payload.data : [];
+      const mainCategories = categories
+        .filter((category) => Number(category.is_main_category) === 1 && Number(category.is_enabled) === 1)
+        .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
+      const regularCategories = categories
+        .filter((category) => Number(category.is_main_category) !== 1 && Number(category.is_enabled) === 1)
+        .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
+
       categorySelect.innerHTML = '<option value="">Uncategorized</option>';
-      for (const category of payload.data || []) {
-        const option = document.createElement('option');
-        option.value = category.id;
-        option.textContent = category.name;
-        categorySelect.append(option);
+
+      const categoriesByMain = new Map(mainCategories.map((main) => [Number(main.id), []]));
+      const unassigned = [];
+      for (const category of regularCategories) {
+        const mainId = Number(category.parent_id);
+        if (mainId && categoriesByMain.has(mainId)) categoriesByMain.get(mainId).push(category);
+        else unassigned.push(category);
+      }
+
+      for (const main of mainCategories) {
+        const children = categoriesByMain.get(Number(main.id)) || [];
+        if (!children.length) continue;
+        const group = document.createElement('optgroup');
+        group.label = main.name;
+        for (const category of children) {
+          const option = document.createElement('option');
+          option.value = category.id;
+          option.textContent = category.name;
+          group.append(option);
+        }
+        categorySelect.append(group);
+      }
+
+      if (unassigned.length) {
+        const group = document.createElement('optgroup');
+        group.label = 'Other categories';
+        for (const category of unassigned) {
+          const option = document.createElement('option');
+          option.value = category.id;
+          option.textContent = category.name;
+          group.append(option);
+        }
+        categorySelect.append(group);
       }
     }
 
