@@ -33,14 +33,53 @@ if (sentinel && 'IntersectionObserver' in window) {
   observer.observe(sentinel);
 }
 
-const loadPublicStoreSettings = async () => {
+const publicSettingsCacheKey = 'clothing-store-public-settings';
+
+const applyPublicStoreSettings = (store = {}) => {
   const storeNameElements = document.querySelectorAll('[data-store-name]');
   const taglineElements = document.querySelectorAll('[data-store-tagline]');
   const descriptionElements = document.querySelectorAll('[data-store-description]');
   const secondaryDescriptionElements = document.querySelectorAll('[data-store-description-secondary]');
   const metaDescription = document.querySelector('[data-store-meta-description]');
 
-  if (!storeNameElements.length && !taglineElements.length && !descriptionElements.length && !secondaryDescriptionElements.length) return;
+  if (store.store_name) {
+    storeNameElements.forEach((element) => {
+      element.textContent = store.store_name;
+    });
+    document.title = `${store.store_name} | Make your mark`;
+  }
+
+  if (store.tagline) {
+    taglineElements.forEach((element) => {
+      element.textContent = store.tagline;
+    });
+  }
+
+  if (store.description) {
+    descriptionElements.forEach((element) => {
+      element.textContent = store.description;
+    });
+    secondaryDescriptionElements.forEach((element) => {
+      element.textContent = store.description;
+    });
+    if (metaDescription) metaDescription.setAttribute('content', store.description);
+  }
+};
+
+const readCachedPublicStoreSettings = () => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(publicSettingsCacheKey) || 'null');
+    if (cached?.store) applyPublicStoreSettings(cached.store);
+  } catch {
+    // Ignore unavailable or invalid local cache.
+  }
+};
+
+const loadPublicStoreSettings = async () => {
+  const hasPublicSettingsElements = document.querySelector('[data-store-name], [data-store-tagline], [data-store-description], [data-store-description-secondary]');
+  if (!hasPublicSettingsElements) return;
+
+  readCachedPublicStoreSettings();
 
   try {
     const response = await fetch('/api/store-settings', {
@@ -51,36 +90,15 @@ const loadPublicStoreSettings = async () => {
     const payload = await response.json();
     const store = payload?.data?.store || {};
 
-    if (store.store_name) {
-      storeNameElements.forEach((element) => {
-        element.textContent = store.store_name;
-      });
-      document.title = `${store.store_name} | Make your mark`;
-    }
+    applyPublicStoreSettings(store);
 
-    if (store.tagline) {
-      taglineElements.forEach((element) => {
-        element.textContent = store.tagline;
-      });
-    }
-
-    if (store.description) {
-      descriptionElements.forEach((element) => {
-        element.textContent = store.description;
-      });
-    }
-
-    if (store.description) {
-      secondaryDescriptionElements.forEach((element) => {
-        element.textContent = store.description;
-      });
-    }
-
-    if (store.description && metaDescription) {
-      metaDescription.setAttribute('content', store.description);
+    try {
+      localStorage.setItem(publicSettingsCacheKey, JSON.stringify({ store }));
+    } catch {
+      // Continue normally if browser storage is unavailable.
     }
   } catch {
-    // Keep the existing storefront copy if the public settings API is unavailable.
+    // Keep cached or existing storefront copy if the public settings API is unavailable.
   }
 };
 
