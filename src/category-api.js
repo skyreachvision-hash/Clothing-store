@@ -29,7 +29,7 @@ function parseParentId(value, fallback = null) {
 }
 
 function categoryFields() {
-  return `id, name, slug, description, parent_id, sort_order, is_enabled, show_in_navigation, show_on_homepage, is_main_category, is_featured, is_promoted, created_at, updated_at`;
+  return `id, name, slug, description, parent_id, sort_order, is_enabled, show_in_navigation, show_on_homepage, is_main_category, is_featured, is_promoted, showcase_image_url, showcase_image_alt, created_at, updated_at`;
 }
 
 async function getCategories(env, includeDisabled = false) {
@@ -79,10 +79,12 @@ export async function handleCategoryApi(request, env, originalWorker) {
       const slug = String(body?.slug ?? name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 120);
       const isMainCategory = parseEnabled(body?.is_main_category, 0);
       const parentId = isMainCategory ? null : parseParentId(body?.parent_id, null);
+      const showcaseImageUrl = String(body?.showcase_image_url ?? "").trim();
+      const showcaseImageAlt = String(body?.showcase_image_alt ?? "").trim();
       if (!name || !slug) return jsonResponse({ success: false, error: "Category name is required." }, 400);
       await validateMainCategory(env, parentId);
-      const result = await env.DB.prepare(`INSERT INTO categories (name, slug, description, parent_id, sort_order, is_enabled, show_in_navigation, show_on_homepage, is_main_category, is_featured, is_promoted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`)
-        .bind(name, slug, String(body?.description ?? "").trim(), parentId, parseNonNegativeInteger(body?.sort_order), parseEnabled(body?.is_enabled), parseEnabled(body?.show_in_navigation, 1), parseEnabled(body?.show_on_homepage, 0), isMainCategory, parseEnabled(body?.is_featured, 0), parseEnabled(body?.is_promoted, 0)).first();
+      const result = await env.DB.prepare(`INSERT INTO categories (name, slug, description, parent_id, sort_order, is_enabled, show_in_navigation, show_on_homepage, is_main_category, is_featured, is_promoted, showcase_image_url, showcase_image_alt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`)
+        .bind(name, slug, String(body?.description ?? "").trim(), parentId, parseNonNegativeInteger(body?.sort_order), parseEnabled(body?.is_enabled), parseEnabled(body?.show_in_navigation, 1), parseEnabled(body?.show_on_homepage, 0), isMainCategory, parseEnabled(body?.is_featured, 0), parseEnabled(body?.is_promoted, 0), showcaseImageUrl || null, showcaseImageAlt || null).first();
       return jsonResponse({ success: true, data: { id: result.id, uid: auth?.data?.uid || "" } }, 201);
     }
 
@@ -105,11 +107,13 @@ export async function handleCategoryApi(request, env, originalWorker) {
     const slug = String(body?.slug ?? existing.slug).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 120);
     const isMainCategory = body?.is_main_category === undefined ? Number(existing.is_main_category) : parseEnabled(body?.is_main_category, existing.is_main_category);
     const parentId = isMainCategory ? null : parseParentId(body?.parent_id, parseOptionalId(existing.parent_id));
+    const showcaseImageUrl = body?.showcase_image_url === undefined ? (existing.showcase_image_url || "") : String(body.showcase_image_url ?? "").trim();
+    const showcaseImageAlt = body?.showcase_image_alt === undefined ? (existing.showcase_image_alt || "") : String(body.showcase_image_alt ?? "").trim();
     if (!name || !slug) return jsonResponse({ success: false, error: "Category name is required." }, 400);
     await validateMainCategory(env, parentId, id);
 
-    await env.DB.prepare(`UPDATE categories SET name = ?, slug = ?, description = ?, parent_id = ?, sort_order = ?, is_enabled = ?, show_in_navigation = ?, show_on_homepage = ?, is_main_category = ?, is_featured = ?, is_promoted = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .bind(name, slug, String(body?.description ?? existing.description).trim(), parentId, parseNonNegativeInteger(body?.sort_order, existing.sort_order), parseEnabled(body?.is_enabled, existing.is_enabled), parseEnabled(body?.show_in_navigation, existing.show_in_navigation), parseEnabled(body?.show_on_homepage, existing.show_on_homepage), isMainCategory, parseEnabled(body?.is_featured, existing.is_featured), parseEnabled(body?.is_promoted, existing.is_promoted), id).run();
+    await env.DB.prepare(`UPDATE categories SET name = ?, slug = ?, description = ?, parent_id = ?, sort_order = ?, is_enabled = ?, show_in_navigation = ?, show_on_homepage = ?, is_main_category = ?, is_featured = ?, is_promoted = ?, showcase_image_url = ?, showcase_image_alt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+      .bind(name, slug, String(body?.description ?? existing.description).trim(), parentId, parseNonNegativeInteger(body?.sort_order, existing.sort_order), parseEnabled(body?.is_enabled, existing.is_enabled), parseEnabled(body?.show_in_navigation, existing.show_in_navigation), parseEnabled(body?.show_on_homepage, existing.show_on_homepage), isMainCategory, parseEnabled(body?.is_featured, existing.is_featured), parseEnabled(body?.is_promoted, existing.is_promoted), showcaseImageUrl || null, showcaseImageAlt || null, id).run();
 
     return jsonResponse({ success: true, data: { id, uid: auth?.data?.uid || "" } });
   } catch (error) {
