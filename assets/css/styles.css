@@ -402,3 +402,12 @@ body.communications-drawer-open,body.customer-chat-drawer-open{overflow:hidden}
 @media (max-width:480px){
   .communications-drawer,.customer-chat-drawer{padding:var(--space-4)}
 }
+
+/* Desktop communication selector */
+@media (min-width:701px) {
+  .communications-workspace { display:grid; grid-template-columns:minmax(250px,.72fr) minmax(0,1.5fr); gap:var(--space-6); align-items:start; }
+  .communications-drawer { position:static; z-index:auto; width:auto; max-height:calc(100vh - 140px); transform:none; border:var(--border-width) solid var(--color-border); box-shadow:none; }
+  .communications-drawer-backdrop { display:none !important; }
+  .communications-detail-toolbar .button[data-communications-toggle] { display:none; }
+  .communications-drawer-header { position:sticky; top:0; background:var(--color-surface); z-index:1; }
+}
