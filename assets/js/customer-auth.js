@@ -77,6 +77,154 @@ async function saveCustomerProfile(user, form) {
   return payload.data || details;
 }
 
+function formatOrderMoney(amount, currency = "ZAR") {
+  try {
+    return new Intl.NumberFormat("en-ZA", { style: "currency", currency }).format(Number(amount || 0));
+  } catch {
+    return `${currency} ${Number(amount || 0).toFixed(2)}`;
+  }
+}
+
+function formatOrderDate(value) {
+  if (!value) return "Date unavailable";
+  const date = new Date(value.replace(" ", "T") + (value.endsWith("Z") ? "" : "Z"));
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-ZA", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function renderCustomerOrdersSection() {
+  accountPage.insertAdjacentHTML("beforeend", `
+    <section class="account-orders" data-customer-orders aria-live="polite">
+      <div class="settings-heading">
+        <div>
+          <p class="eyebrow">Order history</p>
+          <h2>My Orders</h2>
+          <p class="muted">View your purchases and follow their current delivery status.</p>
+        </div>
+      </div>
+      <div class="customer-orders-list" data-orders-list>
+        <p class="settings-load-status">Loading your orders…</p>
+      </div>
+      <div class="customer-order-detail" data-order-detail hidden></div>
+    </section>`);
+}
+
+async function loadCustomerOrders(user) {
+  const ordersList = accountPage.querySelector("[data-orders-list]");
+  const detail = accountPage.querySelector("[data-order-detail]");
+  if (!ordersList || !detail) return;
+
+  try {
+    const token = await user.getIdToken();
+    const response = await fetch("/api/customer-orders", {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      cache: "no-store"
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to load your orders.");
+
+    const orders = Array.isArray(payload.data) ? payload.data : [];
+    if (!orders.length) {
+      ordersList.innerHTML = `
+        <div class="customer-orders-empty">
+          <h3>No orders yet</h3>
+          <p class="muted">Your completed purchases will appear here.</p>
+          <a class="button button-primary" href="index.html">Start shopping</a>
+        </div>`;
+      return;
+    }
+
+    ordersList.innerHTML = orders.map((order) => `
+      <button class="customer-order-card" type="button" data-order-id="${Number(order.id)}">
+        <span>
+          <strong>${escapeHtml(order.order_number)}</strong>
+          <small>${escapeHtml(formatOrderDate(order.created_at))}</small>
+        </span>
+        <span>
+          <strong>${escapeHtml(formatOrderMoney(order.total, order.currency))}</strong>
+          <small>${escapeHtml(order.order_status)}</small>
+        </span>
+        <span class="customer-order-arrow" aria-hidden="true">→</span>
+      </button>`).join("");
+
+    ordersList.querySelectorAll("[data-order-id]").forEach((button) => {
+      button.addEventListener("click", () => loadCustomerOrderDetail(user, Number(button.dataset.orderId)));
+    });
+  } catch (error) {
+    ordersList.innerHTML = `<p class="settings-notice">${escapeHtml(error.message || "Unable to load your orders.")}</p>`;
+  }
+}
+
+async function loadCustomerOrderDetail(user, orderId) {
+  const detail = accountPage.querySelector("[data-order-detail]");
+  if (!detail) return;
+  detail.hidden = false;
+  detail.innerHTML = '<p class="settings-load-status">Loading order details…</p>';
+  detail.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  try {
+    const token = await user.getIdToken();
+    const response = await fetch(`/api/customer-orders?id=${encodeURIComponent(orderId)}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      cache: "no-store"
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to load this order.");
+
+    const { order, items = [] } = payload.data || {};
+    detail.innerHTML = `
+      <div class="settings-heading">
+        <div>
+          <p class="eyebrow">Order details</p>
+          <h3>${escapeHtml(order.order_number)}</h3>
+          <p class="muted">${escapeHtml(formatOrderDate(order.created_at))}</p>
+        </div>
+        <button class="button button-outline button-small" type="button" data-close-order>Close</button>
+      </div>
+
+      <div class="customer-order-status-row">
+        <span>Payment: <strong>${escapeHtml(order.payment_status)}</strong></span>
+        <span>Order: <strong>${escapeHtml(order.order_status)}</strong></span>
+      </div>
+
+      <div class="customer-order-grid">
+        <div>
+          <p class="settings-readonly">Delivery</p>
+          <p>${escapeHtml(order.customer_full_name || "")}<br>${escapeHtml(order.customer_phone || "")}</p>
+          <p>${escapeHtml(order.shipping_address || "")}<br>${escapeHtml([order.shipping_city, order.shipping_province, order.shipping_postal_code].filter(Boolean).join(", "))}<br>${escapeHtml(order.shipping_country || "")}</p>
+          <p class="muted">${escapeHtml(order.shipping_method_name || "")}${order.shipping_option_name ? " · " + escapeHtml(order.shipping_option_name) : ""}</p>
+        </div>
+        <div>
+          <p class="settings-readonly">Items</p>
+          <div class="customer-order-items">
+            ${items.map(item => `
+              <div class="customer-order-item">
+                <span>${escapeHtml(item.product_name)} × ${Number(item.quantity)}</span>
+                <strong>${escapeHtml(formatOrderMoney(item.line_total, item.currency))}</strong>
+              </div>`).join("")}
+          </div>
+          <div class="customer-order-total"><span>Subtotal</span><strong>${escapeHtml(formatOrderMoney(order.subtotal, order.currency))}</strong></div>
+          <div class="customer-order-total"><span>Delivery</span><strong>${escapeHtml(formatOrderMoney(order.shipping_fee, order.currency))}</strong></div>
+          <div class="customer-order-total customer-order-grand-total"><span>Total</span><strong>${escapeHtml(formatOrderMoney(order.total, order.currency))}</strong></div>
+        </div>
+      </div>
+      ${order.customer_notes || order.delivery_landmark ? `<div class="customer-order-notes">${order.customer_notes ? `<p><strong>Notes:</strong> ${escapeHtml(order.customer_notes)}</p>` : ""}${order.delivery_landmark ? `<p><strong>Landmark:</strong> ${escapeHtml(order.delivery_landmark)}</p>` : ""}</div>` : ""}`;
+
+    detail.querySelector("[data-close-order]")?.addEventListener("click", () => {
+      detail.hidden = true;
+      detail.innerHTML = "";
+    });
+  } catch (error) {
+    detail.innerHTML = `<p class="settings-notice">${escapeHtml(error.message || "Unable to load this order.")}</p>`;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[character]));
+}
+
 function renderCustomerAccount(user) {
   if (!accountPage) return;
 
@@ -151,6 +299,9 @@ function renderCustomerAccount(user) {
         </div>
       </form>
     </div>`;
+
+  renderCustomerOrdersSection();
+  loadCustomerOrders(user);
 
   const form = accountPage.querySelector("[data-customer-profile-form]");
   const emailInput = form?.elements.email;
