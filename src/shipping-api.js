@@ -87,12 +87,12 @@ export async function handleShippingApi(request, env, originalWorker) {
       const methodId = id(body?.shipping_method_id);
       const name = String(body?.name ?? "").trim();
       if (!methodId || !name) return jsonResponse({ success: false, error: "Shipping method and option name are required." }, 400);
-      const method = await env.DB.prepare("SELECT id FROM shipping_methods WHERE id = ?").bind(methodId).first();
+      const method = await env.DB.prepare("SELECT id, provider_type FROM shipping_methods WHERE id = ?").bind(methodId).first();
       if (!method) return jsonResponse({ success: false, error: "Shipping method not found." }, 404);
       const result = await env.DB.prepare(
         `INSERT INTO shipping_options (shipping_method_id, name, price, requires_landmark, is_enabled, sort_order)
          VALUES (?, ?, ?, ?, ?, ?) RETURNING id`
-      ).bind(methodId, name, nonNegative(body?.price), enabled(body?.requires_landmark, 0), enabled(body?.is_enabled, 1), nonNegative(body?.sort_order)).first();
+      ).bind(methodId, name, nonNegative(body?.price), method.provider_type === "local" ? enabled(body?.requires_landmark, 0) : 0, enabled(body?.is_enabled, 1), nonNegative(body?.sort_order)).first();
       return jsonResponse({ success: true, data: { id: result.id, uid: auth?.data?.uid || "" } }, 201);
     }
 
@@ -108,17 +108,20 @@ export async function handleShippingApi(request, env, originalWorker) {
 
     const body = await request.json();
     if (resource === "option") {
-      const existing = await env.DB.prepare("SELECT * FROM shipping_options WHERE id = ?").bind(resourceId).first();
+      const existing = await env.DB.prepare("SELECT o.*, m.provider_type FROM shipping_options o JOIN shipping_methods m ON m.id = o.shipping_method_id WHERE o.id = ?").bind(resourceId).first();
       if (!existing) return jsonResponse({ success: false, error: "Shipping option not found." }, 404);
+      const targetMethodId = id(body?.shipping_method_id) || existing.shipping_method_id;
+      const targetMethod = await env.DB.prepare("SELECT id, provider_type FROM shipping_methods WHERE id = ?").bind(targetMethodId).first();
+      if (!targetMethod) return jsonResponse({ success: false, error: "Shipping method not found." }, 404);
       await env.DB.prepare(
         `UPDATE shipping_options
          SET shipping_method_id = ?, name = ?, price = ?, requires_landmark = ?, is_enabled = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`
       ).bind(
-        id(body?.shipping_method_id) || existing.shipping_method_id,
+        targetMethodId,
         String(body?.name ?? existing.name).trim(),
         nonNegative(body?.price, existing.price),
-        enabled(body?.requires_landmark, existing.requires_landmark),
+        targetMethod.provider_type === "local" ? enabled(body?.requires_landmark, existing.requires_landmark) : 0,
         enabled(body?.is_enabled, existing.is_enabled),
         nonNegative(body?.sort_order, existing.sort_order),
         resourceId
