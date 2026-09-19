@@ -166,6 +166,17 @@ function renderCustomerAccount(user) {
       const input = form?.elements[field];
       if (input && profile[field]) input.value = profile[field];
     }
+    if (profile.status === "suspended") {
+      const message = profile.suspension_reason
+        ? `Your customer account is suspended: ${profile.suspension_reason}`
+        : "Your customer account is suspended. Please contact the store for assistance.";
+      setStatus(message, "[data-profile-status]");
+      const status = accountPage.querySelector("[data-profile-status]");
+      if (status) status.hidden = false;
+      form?.querySelectorAll("input:not([readonly])").forEach((input) => { input.disabled = true; });
+      const saveButton = form?.querySelector('button[type="submit"]');
+      if (saveButton) saveButton.disabled = true;
+    }
   }).catch((error) => {
     setStatus(error.message || "Unable to load your customer information.", "[data-profile-status]");
     const status = accountPage.querySelector("[data-profile-status]");
