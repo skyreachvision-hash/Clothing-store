@@ -1,14 +1,4 @@
-const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
-
-async function verifyFirebaseIdToken(request) {
-  const authorization = request.headers.get("Authorization") || "";
-  if (!authorization.startsWith("Bearer ")) throw new Error("Authentication required.");
-  const parts = authorization.slice(7).trim().split(".");
-  if (parts.length !== 3) throw new Error("Authentication required.");
-  const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/") + "=="), c => c.charCodeAt(0))));
-  if (!payload.sub || payload.aud !== "clothing-store-e7200") throw new Error("Authentication required.");
-  return payload;
-}
+import { verifyFirebaseIdToken } from "./index.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
