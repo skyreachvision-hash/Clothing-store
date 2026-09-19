@@ -366,6 +366,20 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 @media (max-width:700px){.customer-chat-layout,.communications-workspace{grid-template-columns:minmax(0,.75fr) minmax(0,1.5fr);gap:var(--space-3)}.customer-chat-list,.customer-chat-panel,.communications-list-panel,.communications-detail-panel{padding:var(--space-3)}.chat-heading{flex-direction:column}.chat-message{max-width:95%}}
 @media (max-width:480px){.customer-chat-layout,.communications-workspace{grid-template-columns:minmax(170px,.7fr) minmax(0,1.3fr)}.customer-chat-list,.customer-chat-panel,.communications-list-panel,.communications-detail-panel{padding:var(--space-2)}.customer-chat-conversation,.communication-list-item{padding:var(--space-3)}}
 
+/* Responsive selector layout */
+@media (min-width:701px) {
+  .orders-workspace { display:grid; grid-template-columns:minmax(250px,.72fr) minmax(0,1.7fr); gap:var(--space-6); align-items:start; }
+  .orders-drawer { position:static; z-index:auto; width:auto; max-height:calc(100vh - 140px); transform:none; border:var(--border-width) solid var(--color-border); box-shadow:none; }
+  .orders-drawer-backdrop { display:none !important; }
+  .orders-drawer-toggle { display:none; }
+  .orders-drawer-header { position:sticky; top:0; background:var(--color-surface); z-index:1; }
+  .communications-workspace { display:grid; grid-template-columns:minmax(250px,.72fr) minmax(0,1.5fr); gap:var(--space-6); align-items:start; }
+  .communications-drawer { position:static; z-index:auto; width:auto; max-height:calc(100vh - 140px); transform:none; border:var(--border-width) solid var(--color-border); box-shadow:none; }
+  .communications-drawer-backdrop { display:none !important; }
+  .communications-detail-toolbar .button[data-communications-toggle] { display:none; }
+  .communications-drawer-header { position:sticky; top:0; background:var(--color-surface); z-index:1; }
+}
+
 /* Communication drawer layout */
 .communications-workspace,.customer-chat-layout{display:block;position:relative}
 .communications-detail-panel,.customer-chat-panel{min-height:520px}
