@@ -7,6 +7,7 @@ function json(data, status = 200) {
 }
 
 export async function handleCustomerProfile(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...JSON_HEADERS, "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, PUT, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept" } });
   if (request.method !== "GET" && request.method !== "PUT") return json({ success: false, error: "Method not allowed." }, 405);
   try {
     const token = await verifyFirebaseIdToken(request);
