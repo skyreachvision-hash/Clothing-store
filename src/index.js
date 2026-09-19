@@ -38,7 +38,7 @@ function extractSubjectPublicKeyInfoFromCertificate(certificateBytes) {
   const subjectPublicKeyInfo = readDerElement(certificateBytes, offset); if (subjectPublicKeyInfo.tag !== 0x30) throw new Error("Invalid certificate public key.");
   return certificateBytes.slice(offset, subjectPublicKeyInfo.end);
 }
-async function verifyFirebaseIdToken(request) {
+export async function verifyFirebaseIdToken(request) {
   const authorization = request.headers.get("Authorization") || ""; if (!authorization.startsWith("Bearer ")) throw new Error("Missing bearer token.");
   const token = authorization.slice(7).trim(); const parts = token.split("."); if (parts.length !== 3) throw new Error("Invalid token format.");
   const [encodedHeader, encodedPayload, encodedSignature] = parts; const header = decodeBase64UrlJson(encodedHeader); const payload = decodeBase64UrlJson(encodedPayload);
