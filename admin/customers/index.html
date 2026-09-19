@@ -42,8 +42,15 @@
           <label class="field"><span>Province</span><input name="province" type="text" required></label>
           <label class="field"><span>Postal code</span><input name="postal_code" type="text" required></label>
           <label class="field"><span>Country</span><input name="country" type="text" required value="South Africa"></label>
+          <label class="field"><span>Account status</span><input name="status" type="text" readonly></label>
+          <label class="field"><span>Suspension reason</span><input name="suspension_reason" type="text" readonly></label>
         </div>
-        <div class="settings-actions"><span class="settings-load-status" data-form-status>Ready.</span><button class="button button-primary" type="submit">Save customer</button></div>
+        <div class="settings-actions">
+          <span class="settings-load-status" data-form-status>Ready.</span>
+          <button class="button button-primary" type="submit">Save customer</button>
+          <button class="button button-outline" type="button" data-suspend-customer>Suspend</button>
+          <button class="button button-outline" type="button" data-restore-customer hidden>Restore</button>
+        </div>
       </form>
     </section>
   </div></main>
@@ -121,6 +128,7 @@ function openEditor(customer) {
     if (field) field.value = value ?? '';
   });
   formStatus.textContent = 'Editing customer information.';
+  syncStatusControls(customer);
   editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -138,6 +146,59 @@ searchForm.addEventListener('submit', (event) => {
 
 refreshButton.addEventListener('click', () => loadCustomers(searchForm.elements.search.value));
 closeEditor.addEventListener('click', () => { editor.hidden = true; });
+
+const suspendButton = editor.querySelector('[data-suspend-customer]');
+const restoreButton = editor.querySelector('[data-restore-customer]');
+
+function syncStatusControls(customer) {
+  const suspended = customer.status === 'suspended';
+  const statusField = form.elements.status;
+  const reasonField = form.elements.suspension_reason;
+  if (statusField) statusField.value = suspended ? 'Suspended' : 'Active';
+  if (reasonField) reasonField.value = customer.suspension_reason || '';
+  if (suspendButton) suspendButton.hidden = suspended;
+  if (restoreButton) restoreButton.hidden = !suspended;
+}
+
+async function changeCustomerStatus(action) {
+  const uid = form.elements.firebase_uid.value;
+  const customer = customers.find((item) => item.firebase_uid === uid);
+  if (!customer) return;
+
+  let reason = '';
+  if (action === 'suspend') {
+    reason = window.prompt('Enter the reason for suspending this customer:', customer.suspension_reason || '')?.trim() || '';
+    if (!reason) {
+      formStatus.textContent = 'Suspension cancelled. A reason is required.';
+      return;
+    }
+    if (!window.confirm('Suspend this customer? They will be blocked from using protected customer actions.')) return;
+  } else {
+    if (!window.confirm('Restore this customer and remove the suspension?')) return;
+  }
+
+  formStatus.textContent = action === 'suspend' ? 'Suspending…' : 'Restoring…';
+  try {
+    const payload = await apiFetch('/api/admin-customers', {
+      method: 'PUT',
+      body: JSON.stringify({
+        firebase_uid: uid,
+        action,
+        ...(action === 'suspend' ? { suspension_reason: reason } : {})
+      })
+    });
+    const updated = payload.data;
+    customers = customers.map((item) => item.firebase_uid === updated.firebase_uid ? updated : item);
+    renderCustomers();
+    openEditor(updated);
+    formStatus.textContent = action === 'suspend' ? 'Customer suspended successfully.' : 'Customer restored successfully.';
+  } catch (error) {
+    formStatus.textContent = error.message;
+  }
+}
+
+suspendButton?.addEventListener('click', () => changeCustomerStatus('suspend'));
+restoreButton?.addEventListener('click', () => changeCustomerStatus('restore'));
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
