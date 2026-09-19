@@ -58,6 +58,13 @@
       .orders-detail-content .admin-panel { grid-template-columns:36px minmax(0,1fr); }
       .orders-detail-content .admin-panel > strong { grid-column:2; justify-self:start; }
     }
+    @media (min-width:701px) {
+      .orders-workspace { display:grid; grid-template-columns:minmax(250px,.72fr) minmax(0,1.7fr); gap:var(--space-6); align-items:start; }
+      .orders-drawer { position:static; z-index:auto; width:auto; max-height:calc(100vh - 140px); padding:var(--space-6); transform:none; overflow-y:auto; border:var(--border-width) solid var(--color-border); box-shadow:none; }
+      .orders-drawer-backdrop { display:none !important; }
+      .orders-drawer-toggle { display:none; }
+      .orders-drawer-header { position:sticky; top:0; background:var(--color-surface); z-index:1; }
+    }
     @media (max-width:480px) {
       .orders-drawer { padding:var(--space-4); }
       .order-list-item { gap:var(--space-2); }
