@@ -202,7 +202,21 @@ document.addEventListener('submit', async (event) => {
     details.shipping_option_name = option.name;
     details.shipping_fee = Number(option.price || 0);
     sessionStorage.setItem('clothing-store-checkout-details', JSON.stringify(details));
-    notice.textContent = `Your details have been saved. Delivery selected: ${method.name} — ${option.name}. Payment integration is the next step.`;
+    notice.textContent = 'Preparing secure payment…';
+    const token = await window.getCustomerIdToken();
+    const paymentResponse = await fetch('/api/payment/initialize', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        items: cart.map((item) => ({ product_id: Number(item.product_id), quantity: Number(item.quantity) })),
+        shipping_method_id: Number(method.id),
+        shipping_option_id: Number(option.id),
+        customer: details
+      })
+    });
+    const paymentPayload = await paymentResponse.json().catch(() => ({}));
+    if (!paymentResponse.ok || !paymentPayload.success || !paymentPayload.data?.authorization_url) throw new Error(paymentPayload.error || 'Unable to start payment.');
+    window.location.assign(paymentPayload.data.authorization_url);
   } catch (error) {
     notice.textContent = error.message || 'Your details could not be saved. Please try again.';
   } finally {
