@@ -171,11 +171,12 @@ function renderCheckout() {
   renderShippingOptions();
 }
 
-document.addEventListener('submit', (event) => {
+document.addEventListener('submit', async (event) => {
   const form = event.target.closest('[data-checkout-form]');
   if (!form) return;
   event.preventDefault();
   const notice = form.querySelector('[data-checkout-notice]');
+  const submitButton = form.querySelector('.checkout-submit');
   const { method, option } = selectedShipping();
 
   if (!method || !option) {
@@ -188,16 +189,25 @@ document.addEventListener('submit', (event) => {
     return;
   }
 
-  const details = Object.fromEntries(new FormData(form).entries());
-  saveCustomerProfile(form).catch(() => {});
-  details.shipping_method_name = method.name;
-  details.shipping_provider_type = method.provider_type;
-  details.shipping_mode = method.mode;
-  details.shipping_option_name = option.name;
-  details.shipping_fee = Number(option.price || 0);
-  sessionStorage.setItem('clothing-store-checkout-details', JSON.stringify(details));
+  submitButton.disabled = true;
   notice.hidden = false;
-  notice.textContent = `Delivery selected: ${method.name} — ${option.name}. Payment integration is the next step.`;
+  notice.textContent = 'Saving your customer details…';
+
+  try {
+    await saveCustomerProfile(form);
+    const details = Object.fromEntries(new FormData(form).entries());
+    details.shipping_method_name = method.name;
+    details.shipping_provider_type = method.provider_type;
+    details.shipping_mode = method.mode;
+    details.shipping_option_name = option.name;
+    details.shipping_fee = Number(option.price || 0);
+    sessionStorage.setItem('clothing-store-checkout-details', JSON.stringify(details);
+    notice.textContent = `Your details have been saved. Delivery selected: ${method.name} — ${option.name}. Payment integration is the next step.`;
+  } catch (error) {
+    notice.textContent = error.message || 'Your details could not be saved. Please try again.';
+  } finally {
+    submitButton.disabled = false;
+  }
 });
 
 async function getCustomerUser() {
