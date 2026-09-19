@@ -1,3 +1,5 @@
+import { getEmailSettings } from "./email-service.js";
+
 const JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
   "Cache-Control": "no-store"
@@ -80,7 +82,9 @@ async function getStoreSettings(env) {
   const socialLinks = await env.DB.prepare(`SELECT id, platform, label, url, sort_order, is_enabled, created_at, updated_at FROM social_links WHERE is_enabled = 1 ORDER BY sort_order ASC, id ASC`).all();
   if (!settings) return { store: null, social_links: socialLinks.results ?? [] };
   let additionalSettings = {}; try { additionalSettings = JSON.parse(settings.settings_json || "{}"); } catch { additionalSettings = {}; }
-  const { settings_json: _settingsJson, ...store } = settings; return { store: { ...store, additional_settings: additionalSettings }, social_links: socialLinks.results ?? [] };
+  const { settings_json: _settingsJson, ...store } = settings;
+  const emailSettings = getEmailSettings(settings);
+  return { store: { ...store, additional_settings: { ...additionalSettings, email: emailSettings } }, social_links: socialLinks.results ?? [] };
 }
 async function handleStoreSettings(request, env) {
   if (request.method === "GET") { try { return jsonResponse({ success: true, data: await getStoreSettings(env) }); } catch { return jsonResponse({ success: false, error: "Unable to load store settings." }, 500); } }
@@ -93,7 +97,19 @@ async function handleStoreSettings(request, env) {
     const values = allowedFields.map((field) => String(body?.[field] ?? "").trim());
     let existingAdditionalSettings = {}; const currentSettings = await env.DB.prepare(`SELECT settings_json FROM store_settings WHERE id = 1`).first();
     try { existingAdditionalSettings = JSON.parse(currentSettings?.settings_json || "{}"); } catch { existingAdditionalSettings = {}; }
-    const additionalSettings = { ...existingAdditionalSettings, hero_headline: String(body?.hero_headline ?? "").trim() };
+    const incomingEmail = body?.email_notifications || {};
+    const emailSettings = {
+      enabled: Boolean(incomingEmail.enabled),
+      provider: String(incomingEmail.provider || "resend").trim().toLowerCase() || "resend",
+      sender_name: String(incomingEmail.sender_name ?? "").trim(),
+      sender_email: String(incomingEmail.sender_email ?? "").trim(),
+      reply_to: String(incomingEmail.reply_to ?? "").trim(),
+      notify_order_confirmation: Boolean(incomingEmail.notify_order_confirmation),
+      notify_order_status: Boolean(incomingEmail.notify_order_status),
+      notify_new_chat: Boolean(incomingEmail.notify_new_chat)
+    };
+    if (!["resend"].includes(emailSettings.provider)) return jsonResponse({ success: false, error: "Unsupported email provider." }, 400);
+    const additionalSettings = { ...existingAdditionalSettings, hero_headline: String(body?.hero_headline ?? "").trim(), email: emailSettings };
     await env.DB.prepare(`UPDATE store_settings SET store_name = ?, logo_url = ?, tagline = ?, description = ?, contact_email = ?, contact_phone = ?, whatsapp_url = ?, address = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`).bind(...values, JSON.stringify(additionalSettings)).run();
     const socialLinks = Array.isArray(body?.social_links) ? body.social_links : []; const supportedPlatforms = new Set(["facebook", "instagram", "tiktok", "youtube", "whatsapp"]);
     for (const social of socialLinks) {
