@@ -182,6 +182,23 @@ const populateSettings = (store = {}) => {
   });
   const heroHeadlineField = settingsForm.elements.namedItem('hero_headline');
   if (heroHeadlineField) heroHeadlineField.value = store.additional_settings?.hero_headline || '';
+  const email = store.additional_settings?.email || {};
+  const emailFields = {
+    email_enabled: Boolean(email.enabled),
+    email_provider: email.provider || 'resend',
+    email_sender_name: email.sender_name || '',
+    email_sender_email: email.sender_email || '',
+    email_reply_to: email.reply_to || '',
+    email_notify_order_confirmation: email.notify_order_confirmation !== false,
+    email_notify_order_status: email.notify_order_status !== false,
+    email_notify_new_chat: email.notify_new_chat !== false
+  };
+  Object.entries(emailFields).forEach(([name, value]) => {
+    const field = settingsForm.elements.namedItem(name);
+    if (!field) return;
+    if (field.type === 'checkbox') field.checked = Boolean(value);
+    else field.value = value;
+  });
 };
 
 const collectSettings = () => {
@@ -190,6 +207,16 @@ const collectSettings = () => {
     data[name] = String(settingsForm.elements.namedItem(name)?.value || '').trim();
   });
   data.hero_headline = String(settingsForm.elements.namedItem('hero_headline')?.value || '').trim();
+  data.email_notifications = {
+    enabled: Boolean(settingsForm.elements.namedItem('email_enabled')?.checked),
+    provider: String(settingsForm.elements.namedItem('email_provider')?.value || 'resend').trim(),
+    sender_name: String(settingsForm.elements.namedItem('email_sender_name')?.value || '').trim(),
+    sender_email: String(settingsForm.elements.namedItem('email_sender_email')?.value || '').trim(),
+    reply_to: String(settingsForm.elements.namedItem('email_reply_to')?.value || '').trim(),
+    notify_order_confirmation: Boolean(settingsForm.elements.namedItem('email_notify_order_confirmation')?.checked),
+    notify_order_status: Boolean(settingsForm.elements.namedItem('email_notify_order_status')?.checked),
+    notify_new_chat: Boolean(settingsForm.elements.namedItem('email_notify_new_chat')?.checked)
+  };
   data.social_links = supportedPlatforms.map(({ platform }) => ({
     platform,
     label: String(settingsForm.elements.namedItem(`social_label_${platform}`)?.value || '').trim(),
