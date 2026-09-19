@@ -19,7 +19,7 @@ const updateCartCount = () => {
   const quantity = getCartQuantity(readCart());
   document.querySelectorAll('.cart-count').forEach((element) => { element.textContent = String(quantity); });
   document.querySelectorAll('.cart-link').forEach((link) => {
-    link.setAttribute('aria-label', `Shopping bag, currently containing ${quantity} ${quantity === 1 ? 'item' : 'items'}`);
+    link.setAttribute('aria-label', `Shopping cart, currently containing ${quantity} ${quantity === 1 ? 'item' : 'items'}`);
   });
 };
 
