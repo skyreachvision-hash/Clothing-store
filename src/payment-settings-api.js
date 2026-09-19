@@ -23,6 +23,30 @@ export async function handlePaymentSettings(request, env) {
       const adminRequest = new URL(request.url).searchParams.get("admin") === "1";
       if (adminRequest) await requireAdmin(request, env);
 
+      const providerKey = clean(new URL(request.url).searchParams.get("provider"));
+      if (adminRequest && providerKey) {
+        const provider = await env.DB.prepare(
+          "SELECT id, provider_key, display_name, is_enabled, sort_order, created_at, updated_at FROM payment_providers WHERE provider_key = ?"
+        ).bind(providerKey).first();
+        if (!provider) return json({ success: false, error: "Payment provider not found." }, 404);
+
+        const secretNameByProvider = {
+          paystack: "PAYSTACK_SECRET_KEY",
+          yoco: "YOCO_SECRET_KEY",
+          stripe: "STRIPE_SECRET_KEY"
+        };
+        const secretName = secretNameByProvider[provider.provider_key];
+        const configured = Boolean(secretName && env[secretName]);
+
+        return json({
+          success: true,
+          data: {
+            ...provider,
+            secret_configured: configured
+          }
+        });
+      }
+
       const query = adminRequest
         ? "SELECT id, provider_key, display_name, is_enabled, sort_order, created_at, updated_at FROM payment_providers ORDER BY sort_order ASC, id ASC"
         : "SELECT id, provider_key, display_name, is_enabled, sort_order FROM payment_providers WHERE is_enabled = 1 ORDER BY sort_order ASC, id ASC";
