@@ -1,4 +1,4 @@
-import { verifyFirebaseIdToken } from "./index.js";
+import { requireAdmin } from "./admin-auth.js";
 
 const JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -19,7 +19,7 @@ export async function handleAdminCustomers(request, env) {
   }
 
   try {
-    await verifyFirebaseIdToken(request);
+    await requireAdmin(request, env);
     const url = new URL(request.url);
     const id = clean(url.searchParams.get("firebase_uid"));
     
@@ -80,6 +80,7 @@ export async function handleAdminCustomers(request, env) {
 
     return json({ success: true, data: updated });
   } catch (error) {
+    if (error?.code === "ADMIN_AUTH_REQUIRED") return json({ success: false, error: error.message }, 403);
     const message = error?.message === "Authentication required."
       ? error.message
       : "Unable to manage customers.";
