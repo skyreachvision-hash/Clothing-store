@@ -86,7 +86,9 @@ async function handleStoreSettings(request, env) {
   if (request.method === "GET") { try { return jsonResponse({ success: true, data: await getStoreSettings(env) }); } catch { return jsonResponse({ success: false, error: "Unable to load store settings." }, 500); } }
   if (request.method !== "PUT") return jsonResponse({ success: false, error: "Method not allowed." }, 405);
   try {
-    const token = await verifyFirebaseIdToken(request); const body = await request.json();
+    const token = await verifyFirebaseIdToken(request);
+    await requireAdminRole(token, env);
+    const body = await request.json();
     const allowedFields = ["store_name", "logo_url", "tagline", "description", "contact_email", "contact_phone", "whatsapp_url", "address"];
     const values = allowedFields.map((field) => String(body?.[field] ?? "").trim());
     let existingAdditionalSettings = {}; const currentSettings = await env.DB.prepare(`SELECT settings_json FROM store_settings WHERE id = 1`).first();
@@ -101,7 +103,9 @@ async function handleStoreSettings(request, env) {
       else await env.DB.prepare(`INSERT INTO social_links (platform, label, url, sort_order, is_enabled) VALUES (?, ?, ?, ?, ?)`).bind(platform, label, url, sortOrder, enabled).run();
     }
     return jsonResponse({ success: true, data: { uid: token.sub } });
-  } catch (error) { if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401); return jsonResponse({ success: false, error: "Unable to save store settings." }, 500); }
+  } catch (error) { if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401);
+    if (error?.message === "Administrator authorization required.") return jsonResponse({ success: false, error: error.message }, 403);
+    return jsonResponse({ success: false, error: "Unable to save store settings." }, 500); }
 }
 async function createCloudinarySignature(params, secret) {
   const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "").sort(([a], [b]) => a.localeCompare(b));
@@ -126,7 +130,7 @@ async function handleImageUpload(request, env) {
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.secure_url) return jsonResponse({ success: false, error: result.error?.message || "Cloudinary upload failed." }, 502);
     return jsonResponse({ success: true, data: { uid: token.sub, image_url: result.secure_url, cloudinary_public_id: result.public_id || "", original_filename: result.original_filename || file.name || "" } }, 201);
-  } catch (error) { if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401); return jsonResponse({ success: false, error: "Unable to upload image." }, 500); }
+  } catch (error) { if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401); if (error?.message === "Administrator authorization required.") return jsonResponse({ success: false, error: error.message }, 403); return jsonResponse({ success: false, error: "Unable to upload image." }, 500); }
 }
 function normalizeSlug(value) { return String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 120); }
 function parseOptionalId(value) { const id = Number(value); return Number.isInteger(id) && id > 0 ? id : null; }
@@ -148,7 +152,7 @@ async function handleCategories(request, env) {
     const name = String(body?.name ?? existing.name).trim(); const slug = normalizeSlug(body?.slug || name || existing.slug); if (!name || !slug) return jsonResponse({ success: false, error: "Category name is required." }, 400);
     await env.DB.prepare(`UPDATE categories SET name = ?, slug = ?, description = ?, sort_order = ?, is_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(name, slug, String(body?.description ?? existing.description).trim(), parseNonNegativeInteger(body?.sort_order, existing.sort_order), parseEnabled(body?.is_enabled, existing.is_enabled), id).run();
     return jsonResponse({ success: true, data: { id, uid: token.sub } });
-  } catch (error) { if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401); if (String(error?.message || "").includes("UNIQUE constraint failed")) return jsonResponse({ success: false, error: "A category with that slug already exists." }, 409); return jsonResponse({ success: false, error: "Unable to save category." }, 500); }
+  } catch (error) { if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401); if (error?.message === "Administrator authorization required.") return jsonResponse({ success: false, error: error.message }, 403); if (String(error?.message || "").includes("UNIQUE constraint failed")) return jsonResponse({ success: false, error: "A category with that slug already exists." }, 409); return jsonResponse({ success: false, error: "Unable to save category." }, 500); }
 }
 async function getProducts(env, request) {
   const params = new URL(request.url).searchParams; const status = params.get("status"); const categoryId = parseOptionalId(params.get("category_id")); const search = String(params.get("search") || "").trim(); const page = Math.max(1, parseNonNegativeInteger(params.get("page"), 1)); const limit = Math.min(100, Math.max(1, parseNonNegativeInteger(params.get("limit"), 24))); const offset = (page - 1) * limit; const publicOnly = status === null;
@@ -163,7 +167,9 @@ async function getProducts(env, request) {
 async function handleProducts(request, env) {
   if (request.method === "GET") { try { const result = await getProducts(env, request); if (result.error) return jsonResponse({ success: false, error: result.error }, result.status); return jsonResponse({ success: true, data: result.data }); } catch { return jsonResponse({ success: false, error: "Unable to load products." }, 500); } }
   try {
-    const token = await verifyFirebaseIdToken(request); if (!["POST", "PUT", "DELETE"].includes(request.method)) return jsonResponse({ success: false, error: "Method not allowed." }, 405); const url = new URL(request.url); const id = parseOptionalId(url.searchParams.get("id"));
+    const token = await verifyFirebaseIdToken(request);
+    await requireAdminRole(token, env);
+    if (!["POST", "PUT", "DELETE"].includes(request.method)) return jsonResponse({ success: false, error: "Method not allowed." }, 405); const url = new URL(request.url); const id = parseOptionalId(url.searchParams.get("id"));
     if (request.method === "DELETE") { if (!id) return jsonResponse({ success: false, error: "A valid product id is required." }, 400); const existing = await env.DB.prepare(`SELECT id FROM products WHERE id = ?`).bind(id).first(); if (!existing) return jsonResponse({ success: false, error: "Product not found." }, 404); await env.DB.prepare(`DELETE FROM products WHERE id = ?`).bind(id).run(); return jsonResponse({ success: true, data: { id, uid: token.sub } }); }
     const body = await request.json(); let existing = null;
     if (request.method === "PUT") { if (!id) return jsonResponse({ success: false, error: "A valid product id is required." }, 400); existing = await env.DB.prepare(`SELECT id, category_id, name, slug, description, sku, price, currency, status, stock_quantity, track_stock, sort_order FROM products WHERE id = ?`).bind(id).first(); if (!existing) return jsonResponse({ success: false, error: "Product not found." }, 404); }
