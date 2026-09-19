@@ -218,14 +218,15 @@ async function createOrderFromVerifiedPayment(env, transaction) {
 
   const itemStatements = lineItems.map(item =>
     env.DB.prepare(
-      "INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, line_total, currency) VALUES (last_insert_rowid(), ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, line_total, currency) SELECT id, ?, ?, ?, ?, ?, ? FROM orders WHERE payment_transaction_id = ?"
     ).bind(
       Number(item.product_id),
       clean(item.name),
       Number(item.quantity),
       Number(item.unit_price),
       Number(item.unit_price) * Number(item.quantity),
-      clean(item.currency || transaction.currency).toUpperCase()
+      clean(item.currency || transaction.currency).toUpperCase(),
+      transaction.id
     )
   );
 
@@ -250,7 +251,7 @@ async function handleVerify(request, env) {
   if (!reference) return json({ success: false, error: "Payment reference is required." }, 400);
 
   const transaction = await env.DB.prepare(
-    "SELECT id, firebase_uid, reference, provider, status, amount, currency, customer_email, provider_checkout_id, provider_transaction_id FROM payment_transactions WHERE reference = ? AND firebase_uid = ?"
+    "SELECT id, firebase_uid, reference, provider, status, amount, currency, customer_email, provider_checkout_id, provider_transaction_id, checkout_data FROM payment_transactions WHERE reference = ? AND firebase_uid = ?"
   ).bind(reference, token.sub).first();
   if (!transaction) return json({ success: false, error: "Payment transaction not found." }, 404);
 
