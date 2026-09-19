@@ -9,14 +9,24 @@
   <script type="module" src="../../assets/js/firebase-auth.js"></script>
   <script src="../../assets/js/site.js" defer></script>
 <style>
-    .orders-workspace { display:grid; grid-template-columns:minmax(280px,.72fr) minmax(0,1.5fr); gap:var(--space-6); align-items:start; }
-    .orders-list-panel, .orders-detail-panel { min-width:0; }
-    .orders-list-panel { position:sticky; top:100px; }
-    .orders-list-panel .settings-heading { align-items:start; flex-direction:column; gap:var(--space-4); }
-    .orders-list-panel .search-row { flex-wrap:wrap; }
-    .orders-list-panel .search-row input { min-width:0; flex:1 1 180px; }
-    .orders-list-panel .search-row select { flex:0 1 150px; min-width:130px; border:var(--border-width) solid var(--color-border-strong); padding:var(--space-3) var(--space-4); background:var(--color-surface); color:var(--color-text); }
-    .orders-list { display:grid; gap:var(--space-3); margin-top:var(--space-4); }
+    .orders-workspace { position:relative; }
+    .orders-detail-panel { min-height:360px; }
+    .orders-detail-toolbar { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); margin-bottom:var(--space-6); }
+    .orders-drawer-toggle { display:inline-flex; align-items:center; justify-content:space-between; gap:var(--space-8); min-width:150px; }
+    .orders-empty-detail { display:grid; min-height:300px; place-items:center; padding:var(--space-8); border:var(--border-width) dashed var(--color-border-strong); color:var(--color-text-muted); text-align:center; }
+    .orders-detail-content[hidden] { display:none; }
+    .orders-drawer { position:fixed; z-index:1000; top:0; right:0; bottom:0; width:min(440px,92vw); padding:var(--space-6); overflow-y:auto; background:var(--color-surface); border-left:var(--border-width) solid var(--color-border); box-shadow:var(--shadow-lg); transform:translateX(105%); transition:transform var(--duration-slow) var(--ease-emphasis); }
+    .orders-drawer.is-open { transform:translateX(0); }
+    .orders-drawer-backdrop { position:fixed; z-index:999; inset:0; background:rgb(23 23 23 / .28); opacity:0; transition:opacity var(--duration-normal) var(--ease-standard); }
+    .orders-drawer-backdrop.is-visible { opacity:1; }
+    .orders-drawer-header { display:flex; align-items:start; justify-content:space-between; gap:var(--space-4); padding-bottom:var(--space-5); border-bottom:var(--border-width) solid var(--color-border); }
+    .orders-drawer-tools { padding:var(--space-5) 0; }
+    .orders-drawer .search-row { display:grid; gap:var(--space-3); }
+    .orders-drawer .search-row input,
+    .orders-drawer .search-row select { width:100%; min-width:0; border:var(--border-width) solid var(--color-border-strong); padding:var(--space-3) var(--space-4); background:var(--color-surface); color:var(--color-text); }
+    .orders-drawer-actions { display:flex; gap:var(--space-2); }
+    .orders-drawer-actions .button { flex:1; }
+    .orders-list { display:grid; gap:var(--space-3); }
     .order-list-item { display:grid; grid-template-columns:1fr auto; gap:var(--space-3); align-items:center; width:100%; padding:var(--space-4); border:var(--border-width) solid var(--color-border); background:var(--color-surface); text-align:left; transition:var(--transition-standard); }
     .order-list-item:hover { border-color:var(--color-brand-secondary); transform:translateY(-2px); }
     .order-list-item.is-selected { border-color:var(--color-brand-secondary); box-shadow:var(--shadow-sm); }
@@ -24,26 +34,13 @@
     .order-list-item p { margin-bottom:var(--space-1); font-size:var(--font-size-xs); }
     .order-list-item p:last-child { margin-bottom:0; }
     .order-status-badge { align-self:start; padding:var(--space-1) var(--space-2); background:var(--color-surface-muted); font-size:var(--font-size-xs); font-weight:var(--font-weight-bold); text-transform:capitalize; white-space:nowrap; }
-    .orders-detail-panel { min-height:360px; }
-    .orders-empty-detail { display:grid; min-height:300px; place-items:center; padding:var(--space-8); border:var(--border-width) dashed var(--color-border-strong); color:var(--color-text-muted); text-align:center; }
-    .orders-detail-content[hidden] { display:none; }
-    @media (max-width:900px) {
-      .orders-workspace { grid-template-columns:minmax(240px,.72fr) minmax(0,1.5fr); gap:var(--space-4); }
-      .orders-list-panel { position:sticky; top:80px; }
-      .orders-detail-panel { min-height:0; }
-    }
+    body.orders-drawer-open { overflow:hidden; }
     @media (max-width:700px) {
-      .orders-workspace { gap:var(--space-3); }
-      .orders-list-panel, .orders-detail-panel { padding:var(--space-3); }
-      .orders-list-panel .settings-heading { gap:var(--space-3); }
-      .orders-list-panel .search-row { display:grid; grid-template-columns:1fr; }
-      .orders-list-panel .search-row input,
-      .orders-list-panel .search-row select,
-      .orders-list-panel .search-row .button { width:100%; min-width:0; }
-      .order-list-item { grid-template-columns:minmax(0,1fr) auto; padding:var(--space-4); }
+      .orders-detail-toolbar { align-items:stretch; flex-direction:column; }
+      .orders-drawer { width:min(430px,94vw); padding:var(--space-5); }
+      .orders-drawer .order-list-item { grid-template-columns:minmax(0,1fr) auto; padding:var(--space-4); }
       .order-list-item > div { min-width:0; }
-      .order-list-item h2,
-      .order-list-item p { overflow-wrap:anywhere; }
+      .order-list-item h2, .order-list-item p { overflow-wrap:anywhere; }
       .order-status-badge { max-width:110px; white-space:normal; text-align:center; }
       .orders-detail-content .settings-heading { align-items:flex-start; }
       .orders-detail-content .settings-fields-two { grid-template-columns:1fr; }
@@ -54,9 +51,8 @@
       .orders-detail-content .admin-panel > strong { grid-column:2; justify-self:start; }
     }
     @media (max-width:480px) {
-      .orders-list-panel, .orders-detail-panel { padding:var(--space-4); }
+      .orders-drawer { padding:var(--space-4); }
       .order-list-item { gap:var(--space-2); }
-      .order-list-item p { overflow-wrap:anywhere; }
       .orders-detail-content .admin-panel { padding:var(--space-4); }
       .orders-detail-content .admin-panel .panel-icon { width:36px; height:36px; }
     }
@@ -73,29 +69,13 @@
     </div>
 
     <div class="orders-workspace">
-      <section class="settings-panel orders-list-panel" aria-labelledby="orders-list-title">
-        <div class="settings-heading">
-          <div><h2 id="orders-list-title">Orders</h2><p class="muted">Select an order to view its details.</p></div>
-          <button class="button button-outline" type="button" data-refresh>Refresh</button>
-        </div>
-        <form class="search-row" data-search-form>
-          <label class="sr-only" for="order-search">Search orders</label>
-          <input id="order-search" name="search" type="search" placeholder="Search order number, name, email, or phone">
-          <select name="status" aria-label="Filter by order status">
-            <option value="">All statuses</option>
-            <option value="pending">Pending</option>
-            <option value="processing">Processing</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <button class="button button-outline" type="submit">Search</button>
-        </form>
-        <div class="settings-notice" data-list-status role="status">Loading orders…</div>
-        <div class="orders-list" data-order-list></div>
-      </section>
-
       <section class="settings-panel orders-detail-panel" aria-labelledby="order-detail-title">
+        <div class="orders-detail-toolbar">
+          <button class="button button-outline orders-drawer-toggle" type="button" data-orders-toggle aria-expanded="false" aria-controls="orders-drawer">
+            <span>Orders</span><span aria-hidden="true">☰</span>
+          </button>
+          <span class="settings-load-status" data-list-status role="status">Loading orders…</span>
+        </div>
         <div class="orders-empty-detail" data-empty-detail>
           <div><h2>Select an order</h2><p class="muted">Choose an order from the list to view the full order and manage its status.</p></div>
         </div>
@@ -134,6 +114,33 @@
         </div>
       </section>
     </div>
+
+    <div class="orders-drawer-backdrop" data-orders-backdrop hidden></div>
+    <aside class="orders-drawer" id="orders-drawer" data-orders-drawer aria-hidden="true">
+      <div class="orders-drawer-header">
+        <div><p class="eyebrow">Order selector</p><h2>Orders</h2></div>
+        <button class="button button-outline button-small" type="button" data-orders-close aria-label="Close orders selector">Close</button>
+      </div>
+      <div class="orders-drawer-tools">
+        <form class="search-row" data-search-form>
+          <label class="sr-only" for="order-search">Search orders</label>
+          <input id="order-search" name="search" type="search" placeholder="Search order, customer, email, or phone">
+          <select name="status" aria-label="Filter by order status">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <div class="orders-drawer-actions">
+            <button class="button button-primary" type="submit">Search</button>
+            <button class="button button-outline" type="button" data-refresh>Refresh</button>
+          </div>
+        </form>
+      </div>
+      <div class="orders-list" data-order-list></div>
+    </aside>
   </div></main>
 
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
@@ -149,6 +156,23 @@ const statusForm = document.querySelector('[data-status-form]');
 const detailStatus = document.querySelector('[data-detail-status]');
 let orders = [];
 let selectedOrder = null;
+
+const ordersDrawer = document.querySelector('[data-orders-drawer]');
+const ordersBackdrop = document.querySelector('[data-orders-backdrop]');
+const ordersToggle = document.querySelector('[data-orders-toggle]');
+const ordersClose = document.querySelector('[data-orders-close]');
+
+function setOrdersDrawer(open) {
+  ordersDrawer.classList.toggle('is-open', open);
+  ordersBackdrop.hidden = !open;
+  ordersBackdrop.classList.toggle('is-visible', open);
+  ordersDrawer.setAttribute('aria-hidden', String(!open));
+  ordersToggle.setAttribute('aria-expanded', String(open));
+  document.body.classList.toggle('orders-drawer-open', open);
+  if (open) {
+    setTimeout(() => document.querySelector('#order-search')?.focus(), 80);
+  }
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
@@ -261,6 +285,7 @@ list.addEventListener('click', async (event) => {
     const payload = await apiFetch('/api/admin-orders?id=' + encodeURIComponent(id));
     openDetail(payload.data);
     listStatus.textContent = 'Order loaded.';
+    setOrdersDrawer(false);
   } catch (error) {
     listStatus.textContent = error.message;
   }
@@ -271,7 +296,13 @@ searchForm.addEventListener('submit', (event) => {
   loadOrders();
 });
 
-refreshButton.addEventListener('click', loadOrders);
+refreshButton?.addEventListener('click', loadOrders);
+ordersToggle.addEventListener('click', () => setOrdersDrawer(true));
+ordersClose.addEventListener('click', () => setOrdersDrawer(false));
+ordersBackdrop.addEventListener('click', () => setOrdersDrawer(false));
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && ordersDrawer.classList.contains('is-open')) setOrdersDrawer(false);
+});
 
 statusForm.addEventListener('submit', async (event) => {
   event.preventDefault();
