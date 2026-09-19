@@ -1,0 +1,149 @@
+import { verifyFirebaseIdToken } from "./index.js";
+
+const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
+function json(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS }); }
+function clean(value) { return String(value ?? "").trim(); }
+function toAmountSubunit(amount) { const value = Number(amount); if (!Number.isFinite(value) || value < 0) throw new Error("Invalid payment amount."); return Math.round(value * 100); }
+function makeReference() { return "CS-" + Date.now().toString(36) + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16); }
+
+async function paystackRequest(path, options, secretKey) {
+  const response = await fetch("https://api.paystack.co" + path, {
+    ...options,
+    headers: { Authorization: "Bearer " + secretKey, "Content-Type": "application/json", ...(options?.headers || {}) }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.status) throw new Error(payload?.message || "Paystack request failed.");
+  return payload;
+}
+
+async function getAuthoritativeCart(env, items) {
+  if (!Array.isArray(items) || !items.length) throw new Error("Your cart is empty.");
+  const normalized = items.map(item => ({ product_id: Number(item?.product_id), quantity: Number(item?.quantity) }));
+  if (normalized.some(item => !Number.isInteger(item.product_id) || item.product_id <= 0 || !Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 99)) throw new Error("Your cart contains an invalid item.");
+  const ids = [...new Set(normalized.map(item => item.product_id))];
+  const placeholders = ids.map(() => "?").join(", ");
+  const result = await env.DB.prepare("SELECT id, name, price, currency, status FROM products WHERE id IN (" + placeholders + ")").bind(...ids).all();
+  const products = new Map((result.results || []).map(product => [Number(product.id), product]));
+  if (products.size !== ids.length) throw new Error("One or more products are no longer available.");
+  let currency = null, subtotal = 0;
+  const lineItems = [];
+  for (const item of normalized) {
+    const product = products.get(item.product_id);
+    if (product.status !== "active") throw new Error("Product unavailable: " + product.name);
+    const productCurrency = clean(product.currency || "ZAR").toUpperCase();
+    if (!currency) currency = productCurrency;
+    if (currency !== productCurrency) throw new Error("Cart contains products with different currencies.");
+    const unitPrice = Number(product.price);
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error("Invalid price for product: " + product.name);
+    subtotal += unitPrice * item.quantity;
+    lineItems.push({ product_id: item.product_id, name: product.name, quantity: item.quantity, unit_price: unitPrice, currency: productCurrency });
+  }
+  return { currency: currency || "ZAR", subtotal, lineItems };
+}
+
+async function getShipping(env, shippingMethodId, shippingOptionId) {
+  const methodId = Number(shippingMethodId), optionId = Number(shippingOptionId);
+  if (!Number.isInteger(methodId) || methodId <= 0 || !Number.isInteger(optionId) || optionId <= 0) throw new Error("Please select a valid delivery method and option.");
+  const row = await env.DB.prepare(
+    "SELECT m.id AS method_id, m.name AS method_name, m.provider_type, m.mode, o.id AS option_id, o.name AS option_name, o.price FROM shipping_methods m JOIN shipping_options o ON o.shipping_method_id = m.id WHERE m.id = ? AND o.id = ? AND m.is_enabled = 1 AND o.is_enabled = 1"
+  ).bind(methodId, optionId).first();
+  if (!row) throw new Error("The selected delivery option is no longer available.");
+  return row;
+}
+
+async function handleInitialize(request, env) {
+  const token = await verifyFirebaseIdToken(request);
+  if (!env.PAYSTACK_SECRET_KEY) return json({ success: false, error: "Payment gateway is not configured yet." }, 503);
+  const body = await request.json().catch(() => ({}));
+  const email = clean(token.email || body?.email);
+  if (!email) return json({ success: false, error: "A customer email address is required." }, 400);
+  const cartResult = await getAuthoritativeCart(env, body?.items);
+  const shipping = await getShipping(env, body?.shipping_method_id, body?.shipping_option_id);
+  const total = cartResult.subtotal + Number(shipping.price || 0);
+  if (cartResult.currency !== "ZAR") return json({ success: false, error: "Paystack checkout is currently configured for ZAR." }, 400);
+  if (!(total > 0)) return json({ success: false, error: "Payment total must be greater than zero." }, 400);
+  const reference = makeReference();
+  const checkoutData = {
+    line_items: cartResult.lineItems,
+    shipping: { method_id: shipping.method_id, method_name: shipping.method_name, provider_type: shipping.provider_type, mode: shipping.mode, option_id: shipping.option_id, option_name: shipping.option_name, fee: Number(shipping.price || 0) },
+    customer: { full_name: clean(body?.customer?.full_name), phone: clean(body?.customer?.phone), address: clean(body?.customer?.address), city: clean(body?.customer?.city), province: clean(body?.customer?.province), postal_code: clean(body?.customer?.postal_code), country: clean(body?.customer?.country || "South Africa"), notes: clean(body?.customer?.notes), landmark: clean(body?.customer?.landmark) }
+  };
+  await env.DB.prepare("INSERT INTO payment_transactions (firebase_uid, reference, provider, status, amount, currency, customer_email, checkout_data) VALUES (?, ?, 'paystack', 'initializing', ?, ?, ?, ?)").bind(token.sub, reference, total, cartResult.currency, email, JSON.stringify(checkoutData)).run();
+  try {
+    const payload = await paystackRequest("/transaction/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        amount: String(toAmountSubunit(total)),
+        currency: cartResult.currency,
+        reference,
+        callback_url: new URL(request.url).origin + "/payment.html",
+        metadata: JSON.stringify({ firebase_uid: token.sub, reference })
+      })
+    }, env.PAYSTACK_SECRET_KEY);
+    await env.DB.prepare("UPDATE payment_transactions SET status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(reference).run();
+    return json({ success: true, data: { reference, authorization_url: payload.data.authorization_url } });
+  } catch (error) {
+    await env.DB.prepare("UPDATE payment_transactions SET status = 'initialization_failed', updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(reference).run();
+    throw error;
+  }
+}
+
+async function handleVerify(request, env) {
+  const token = await verifyFirebaseIdToken(request);
+  if (!env.PAYSTACK_SECRET_KEY) return json({ success: false, error: "Payment gateway is not configured yet." }, 503);
+  const reference = clean(new URL(request.url).searchParams.get("reference"));
+  if (!reference) return json({ success: false, error: "Payment reference is required." }, 400);
+  const transaction = await env.DB.prepare("SELECT id, firebase_uid, reference, status, amount, currency, customer_email, provider_transaction_id FROM payment_transactions WHERE reference = ? AND firebase_uid = ?").bind(reference, token.sub).first();
+  if (!transaction) return json({ success: false, error: "Payment transaction not found." }, 404);
+  const payload = await paystackRequest("/transaction/verify/" + encodeURIComponent(reference), { method: "GET" }, env.PAYSTACK_SECRET_KEY);
+  const data = payload.data || {};
+  const status = clean(data.status || "unknown");
+  const amountMatches = Number(data.amount) === toAmountSubunit(transaction.amount);
+  const currencyMatches = clean(data.currency).toUpperCase() === clean(transaction.currency).toUpperCase();
+  if (status === "success" && amountMatches && currencyMatches) {
+    await env.DB.prepare("UPDATE payment_transactions SET status = 'success', provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(String(data.id ?? ""), reference).run();
+    return json({ success: true, data: { reference, status: "success", amount: transaction.amount, currency: transaction.currency } });
+  }
+  await env.DB.prepare("UPDATE payment_transactions SET status = ?, provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(status || "unknown", String(data.id ?? ""), reference).run();
+  return json({ success: true, data: { reference, status, amount: transaction.amount, currency: transaction.currency } });
+}
+
+async function handleWebhook(request, env) {
+  if (request.method !== "POST") return json({ success: false, error: "Method not allowed." }, 405);
+  if (!env.PAYSTACK_SECRET_KEY) return json({ success: false, error: "Payment gateway is not configured yet." }, 503);
+  const rawBody = await request.text();
+  const signature = clean(request.headers.get("x-paystack-signature"));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.PAYSTACK_SECRET_KEY), { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
+  const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+  const expected = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+  if (!signature || signature.length !== expected.length) return json({ success: false, error: "Invalid webhook signature." }, 401);
+  let difference = 0;
+  for (let i = 0; i < expected.length; i += 1) difference |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  if (difference !== 0) return json({ success: false, error: "Invalid webhook signature." }, 401);
+  const event = JSON.parse(rawBody || "{}");
+  if (event.event !== "charge.success") return json({ success: true });
+  const data = event.data || {}, reference = clean(data.reference);
+  if (!reference) return json({ success: true });
+  const transaction = await env.DB.prepare("SELECT amount, currency FROM payment_transactions WHERE reference = ?").bind(reference).first();
+  if (!transaction) return json({ success: true });
+  if (Number(data.amount) !== toAmountSubunit(transaction.amount) || clean(data.currency).toUpperCase() !== clean(transaction.currency).toUpperCase()) {
+    await env.DB.prepare("UPDATE payment_transactions SET status = 'verification_failed', provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(String(data.id ?? ""), reference).run();
+    return json({ success: true });
+  }
+  await env.DB.prepare("UPDATE payment_transactions SET status = 'success', provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(String(data.id ?? ""), reference).run();
+  return json({ success: true });
+}
+
+export async function handlePaymentApi(request, env) {
+  const pathname = new URL(request.url).pathname;
+  try {
+    if (pathname === "/api/payment/webhook") return handleWebhook(request, env);
+    if (request.method === "POST" && pathname === "/api/payment/initialize") return handleInitialize(request, env);
+    if (request.method === "GET" && pathname === "/api/payment/verify") return handleVerify(request, env);
+    return json({ success: false, error: "Method not allowed." }, 405);
+  } catch (error) {
+    if (error?.message === "Authentication required.") return json({ success: false, error: error.message }, 401);
+    return json({ success: false, error: error?.message || "Unable to process payment." }, 500);
+  }
+}
