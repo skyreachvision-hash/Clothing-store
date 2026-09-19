@@ -40,7 +40,7 @@ const renderProductCard = (product) => {
       <div><p class="product-category">${escapeHtml(product.category_name || 'Uncategorized')}</p><h2><a href="#cart">${escapeHtml(product.name)}</a></h2></div>
       <strong class="price">${formatPrice(product)}</strong>
     </div>
-    <button class="product-action" type="button">Add to bag <span aria-hidden="true">+</span></button>
+    <button class="product-action" type="button" data-add-to-cart data-product-id="${escapeHtml(product.id)}" aria-label="Add ${escapeHtml(product.name)} to cart">Add to cart <span aria-hidden="true">+</span></button>
   </article>`;
 };
 
