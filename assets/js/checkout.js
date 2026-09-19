@@ -44,7 +44,7 @@ function renderShippingOptions() {
   optionField.hidden = !(method?.options?.length);
   if (method?.options?.length === 1) optionSelect.value = String(method.options[0].id);
 
-  const requiresLandmark = method?.provider_type === 'local' || (method?.options || []).some((item) => Number(item.id) === Number(optionSelect.value) && Number(item.requires_landmark) === 1);
+  const requiresLandmark = method?.provider_type === 'local';
   if (landmarkField) {
     landmarkField.hidden = !requiresLandmark;
     const input = landmarkField.querySelector('input');
@@ -52,9 +52,8 @@ function renderShippingOptions() {
   }
 
   const addressField = document.querySelector('[data-address-field]');
-  const local = method?.provider_type === 'local';
   if (addressField) {
-    addressField.querySelector('input').required = !local;
+    addressField.querySelector('input').required = true;
     addressField.hidden = false;
   }
 
