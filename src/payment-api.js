@@ -173,6 +173,77 @@ async function handleInitialize(request, env) {
   }
 }
 
+async function createOrderFromVerifiedPayment(env, transaction) {
+  const existing = await env.DB.prepare(
+    "SELECT id, order_number FROM orders WHERE payment_transaction_id = ?"
+  ).bind(transaction.id).first();
+  if (existing) return existing;
+
+  const checkoutData = JSON.parse(transaction.checkout_data || "{}");
+  const customer = checkoutData.customer || {};
+  const shipping = checkoutData.shipping || {};
+  const lineItems = Array.isArray(checkoutData.line_items) ? checkoutData.line_items : [];
+  if (!lineItems.length) throw new Error("Verified payment has no order items.");
+
+  const orderNumber = "ORD-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+  const subtotal = lineItems.reduce((sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0), 0);
+  const shippingFee = Number(shipping.fee || 0);
+  const total = Number(transaction.amount);
+
+  const orderInsert = env.DB.prepare(
+    "INSERT INTO orders (order_number, payment_transaction_id, firebase_uid, customer_email, customer_full_name, customer_phone, shipping_address, shipping_city, shipping_province, shipping_postal_code, shipping_country, shipping_method_id, shipping_method_name, shipping_option_id, shipping_option_name, shipping_fee, subtotal, total, currency, payment_status, order_status, customer_notes, delivery_landmark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', 'pending', ?, ?)"
+  ).bind(
+    orderNumber,
+    transaction.id,
+    transaction.firebase_uid,
+    transaction.customer_email,
+    clean(customer.full_name),
+    clean(customer.phone),
+    clean(customer.address),
+    clean(customer.city),
+    clean(customer.province),
+    clean(customer.postal_code),
+    clean(customer.country || "South Africa"),
+    Number(shipping.method_id) || null,
+    clean(shipping.method_name),
+    Number(shipping.option_id) || null,
+    clean(shipping.option_name),
+    shippingFee,
+    subtotal,
+    total,
+    transaction.currency,
+    clean(customer.notes),
+    clean(customer.landmark)
+  );
+
+  const itemStatements = lineItems.map(item =>
+    env.DB.prepare(
+      "INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, line_total, currency) VALUES (last_insert_rowid(), ?, ?, ?, ?, ?, ?)"
+    ).bind(
+      Number(item.product_id),
+      clean(item.name),
+      Number(item.quantity),
+      Number(item.unit_price),
+      Number(item.unit_price) * Number(item.quantity),
+      clean(item.currency || transaction.currency).toUpperCase()
+    )
+  );
+
+  try {
+    await env.DB.batch([orderInsert, ...itemStatements]);
+  } catch (error) {
+    const duplicate = await env.DB.prepare(
+      "SELECT id, order_number FROM orders WHERE payment_transaction_id = ?"
+    ).bind(transaction.id).first();
+    if (duplicate) return duplicate;
+    throw error;
+  }
+
+  return await env.DB.prepare(
+    "SELECT id, order_number FROM orders WHERE payment_transaction_id = ?"
+  ).bind(transaction.id).first();
+}
+
 async function handleVerify(request, env) {
   const token = await verifyFirebaseIdToken(request);
   const reference = clean(new URL(request.url).searchParams.get("reference"));
@@ -209,7 +280,8 @@ async function handleVerify(request, env) {
       await env.DB.prepare(
         "UPDATE payment_transactions SET status = 'success', provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?"
       ).bind(providerTransactionId, reference).run();
-      return json({ success: true, data: { reference, status: "success", amount: transaction.amount, currency: transaction.currency } });
+      const order = await createOrderFromVerifiedPayment(env, transaction);
+      return json({ success: true, data: { reference, status: "success", amount: transaction.amount, currency: transaction.currency, order_id: order.id, order_number: order.order_number } });
     }
 
     const localStatus = status === "failed" || status === "cancelled" ? status : "pending";
