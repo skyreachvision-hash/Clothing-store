@@ -8,6 +8,31 @@
   <link rel="stylesheet" href="../../assets/css/styles.css">
   <script type="module" src="../../assets/js/firebase-auth.js"></script>
   <script src="../../assets/js/site.js" defer></script>
+<style>
+    .orders-workspace { display:grid; grid-template-columns:minmax(280px,.72fr) minmax(0,1.5fr); gap:var(--space-6); align-items:start; }
+    .orders-list-panel, .orders-detail-panel { min-width:0; }
+    .orders-list-panel { position:sticky; top:100px; }
+    .orders-list-panel .settings-heading { align-items:start; flex-direction:column; gap:var(--space-4); }
+    .orders-list-panel .search-row { flex-wrap:wrap; }
+    .orders-list-panel .search-row input { min-width:0; flex:1 1 180px; }
+    .orders-list-panel .search-row select { flex:0 1 150px; min-width:130px; border:var(--border-width) solid var(--color-border-strong); padding:var(--space-3) var(--space-4); background:var(--color-surface); color:var(--color-text); }
+    .orders-list { display:grid; gap:var(--space-3); margin-top:var(--space-4); }
+    .order-list-item { display:grid; grid-template-columns:1fr auto; gap:var(--space-3); align-items:center; width:100%; padding:var(--space-4); border:var(--border-width) solid var(--color-border); background:var(--color-surface); text-align:left; transition:var(--transition-standard); }
+    .order-list-item:hover { border-color:var(--color-brand-secondary); transform:translateY(-2px); }
+    .order-list-item.is-selected { border-color:var(--color-brand-secondary); box-shadow:var(--shadow-sm); }
+    .order-list-item h2 { margin-bottom:var(--space-1); font-family:var(--font-body); font-size:var(--font-size-md); font-weight:var(--font-weight-semibold); letter-spacing:0; }
+    .order-list-item p { margin-bottom:var(--space-1); font-size:var(--font-size-xs); }
+    .order-list-item p:last-child { margin-bottom:0; }
+    .order-status-badge { align-self:start; padding:var(--space-1) var(--space-2); background:var(--color-surface-muted); font-size:var(--font-size-xs); font-weight:var(--font-weight-bold); text-transform:capitalize; white-space:nowrap; }
+    .orders-detail-panel { min-height:360px; }
+    .orders-empty-detail { display:grid; min-height:300px; place-items:center; padding:var(--space-8); border:var(--border-width) dashed var(--color-border-strong); color:var(--color-text-muted); text-align:center; }
+    .orders-detail-content[hidden] { display:none; }
+    @media (max-width:900px) {
+      .orders-workspace { grid-template-columns:1fr; }
+      .orders-list-panel { position:static; }
+      .orders-detail-panel { min-height:0; }
+    }
+  </style>
 </head>
 <body class="admin-page">
   <a class="skip-link" href="#orders-main">Skip to content</a>
@@ -19,62 +44,68 @@
       <a class="button button-outline" href="../">Back to dashboard</a>
     </div>
 
-    <section class="settings-panel" aria-labelledby="orders-list-title">
-      <div class="settings-heading">
-        <div><h2 id="orders-list-title">Order list</h2><p class="muted">Orders are created from verified successful payments.</p></div>
-        <button class="button button-outline" type="button" data-refresh>Refresh</button>
-      </div>
-      <form class="search-row" data-search-form>
-        <label class="sr-only" for="order-search">Search orders</label>
-        <input id="order-search" name="search" type="search" placeholder="Search order number, name, email, or phone">
-        <select name="status" aria-label="Filter by order status">
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="processing">Processing</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <button class="button button-outline" type="submit">Search</button>
-      </form>
-      <div class="settings-notice" data-list-status role="status">Loading orders…</div>
-      <div class="admin-sections" data-order-list></div>
-    </section>
-
-    <section class="settings-panel" data-order-detail hidden aria-labelledby="order-detail-title">
-      <div class="settings-heading">
-        <div><h2 id="order-detail-title">Order details</h2><p class="muted" data-order-summary></p></div>
-        <button class="button button-outline" type="button" data-close-detail>Close</button>
-      </div>
-      <div class="settings-fields settings-fields-two">
-        <div class="field"><span>Customer</span><strong data-customer-name>—</strong></div>
-        <div class="field"><span>Email</span><strong data-customer-email>—</strong></div>
-        <div class="field"><span>Phone</span><strong data-customer-phone>—</strong></div>
-        <div class="field"><span>Payment</span><strong data-payment-status>—</strong></div>
-        <div class="field field-wide"><span>Delivery address</span><strong data-shipping-address>—</strong></div>
-        <div class="field"><span>Delivery option</span><strong data-shipping-option>—</strong></div>
-        <div class="field"><span>Shipping fee</span><strong data-shipping-fee>—</strong></div>
-        <div class="field"><span>Subtotal</span><strong data-subtotal>—</strong></div>
-        <div class="field"><span>Total</span><strong data-total>—</strong></div>
-        <div class="field field-wide"><span>Customer notes / landmark</span><strong data-customer-notes>—</strong></div>
-      </div>
-      <div class="settings-panel">
-        <div class="settings-heading"><div><h3>Items</h3><p class="muted">Products recorded at checkout.</p></div></div>
-        <div class="admin-sections" data-order-items></div>
-      </div>
-      <form class="settings-form" data-status-form>
-        <label class="field"><span>Order status</span>
-          <select name="order_status" required>
+    <div class="orders-workspace">
+      <section class="settings-panel orders-list-panel" aria-labelledby="orders-list-title">
+        <div class="settings-heading">
+          <div><h2 id="orders-list-title">Orders</h2><p class="muted">Select an order to view its details.</p></div>
+          <button class="button button-outline" type="button" data-refresh>Refresh</button>
+        </div>
+        <form class="search-row" data-search-form>
+          <label class="sr-only" for="order-search">Search orders</label>
+          <input id="order-search" name="search" type="search" placeholder="Search order number, name, email, or phone">
+          <select name="status" aria-label="Filter by order status">
+            <option value="">All statuses</option>
             <option value="pending">Pending</option>
             <option value="processing">Processing</option>
             <option value="shipped">Shipped</option>
             <option value="delivered">Delivered</option>
             <option value="cancelled">Cancelled</option>
           </select>
-        </label>
-        <div class="settings-actions"><span class="settings-load-status" data-detail-status>Ready.</span><button class="button button-primary" type="submit">Save status</button></div>
-      </form>
-    </section>
+          <button class="button button-outline" type="submit">Search</button>
+        </form>
+        <div class="settings-notice" data-list-status role="status">Loading orders…</div>
+        <div class="orders-list" data-order-list></div>
+      </section>
+
+      <section class="settings-panel orders-detail-panel" aria-labelledby="order-detail-title">
+        <div class="orders-empty-detail" data-empty-detail>
+          <div><h2>Select an order</h2><p class="muted">Choose an order from the list to view the full order and manage its status.</p></div>
+        </div>
+        <div class="orders-detail-content" data-order-detail hidden>
+          <div class="settings-heading">
+            <div><p class="eyebrow">Selected order</p><h2 id="order-detail-title">Order details</h2><p class="muted" data-order-summary></p></div>
+          </div>
+          <div class="settings-fields settings-fields-two">
+            <div class="field"><span>Customer</span><strong data-customer-name>—</strong></div>
+            <div class="field"><span>Email</span><strong data-customer-email>—</strong></div>
+            <div class="field"><span>Phone</span><strong data-customer-phone>—</strong></div>
+            <div class="field"><span>Payment</span><strong data-payment-status>—</strong></div>
+            <div class="field field-wide"><span>Delivery address</span><strong data-shipping-address>—</strong></div>
+            <div class="field"><span>Delivery option</span><strong data-shipping-option>—</strong></div>
+            <div class="field"><span>Shipping fee</span><strong data-shipping-fee>—</strong></div>
+            <div class="field"><span>Subtotal</span><strong data-subtotal>—</strong></div>
+            <div class="field"><span>Total</span><strong data-total>—</strong></div>
+            <div class="field field-wide"><span>Customer notes / landmark</span><strong data-customer-notes>—</strong></div>
+          </div>
+          <div class="settings-panel">
+            <div class="settings-heading"><div><h3>Items</h3><p class="muted">Products recorded at checkout.</p></div></div>
+            <div class="admin-sections" data-order-items></div>
+          </div>
+          <form class="settings-form" data-status-form>
+            <label class="field"><span>Order status</span>
+              <select name="order_status" required>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <div class="settings-actions"><span class="settings-load-status" data-detail-status>Ready.</span><button class="button button-primary" type="submit">Save status</button></div>
+          </form>
+        </div>
+      </section>
+    </div>
   </div></main>
 
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
@@ -85,7 +116,7 @@ const listStatus = document.querySelector('[data-list-status]');
 const searchForm = document.querySelector('[data-search-form]');
 const refreshButton = document.querySelector('[data-refresh]');
 const detail = document.querySelector('[data-order-detail]');
-const closeDetail = document.querySelector('[data-close-detail]');
+const emptyDetail = document.querySelector('[data-empty-detail]');
 const statusForm = document.querySelector('[data-status-form]');
 const detailStatus = document.querySelector('[data-detail-status]');
 let orders = [];
@@ -124,18 +155,19 @@ function renderOrders() {
     list.innerHTML = '<p class="muted">No orders found.</p>';
     return;
   }
-  orders.forEach((order, index) => {
-    const panel = document.createElement('section');
-    panel.className = 'admin-panel';
-    panel.innerHTML = `
-      <div class="panel-icon">${String(index + 1).padStart(2, '0')}</div>
+  orders.forEach((order) => {
+    const item = document.createElement('button');
+    item.className = 'order-list-item' + (selectedOrder?.id === order.id ? ' is-selected' : '');
+    item.type = 'button';
+    item.dataset.viewOrder = order.id;
+    item.innerHTML = `
       <div>
         <h2>${escapeHtml(order.order_number)}</h2>
-        <p class="muted">${escapeHtml(order.customer_full_name || 'Customer')} · ${escapeHtml(order.customer_email)}</p>
-        <p class="muted">${escapeHtml(order.order_status)} · ${escapeHtml(money(order, order.total))} · ${escapeHtml(order.created_at)}</p>
+        <p class="muted">${escapeHtml(order.customer_full_name || 'Customer')}</p>
+        <p class="muted">${escapeHtml(money(order, order.total))} · ${escapeHtml(order.created_at)}</p>
       </div>
-      <button class="button button-outline" type="button" data-view-order="${order.id}">View order</button>`;
-    list.append(panel);
+      <span class="order-status-badge">${escapeHtml(order.order_status)}</span>`;
+    list.append(item);
   });
 }
 
@@ -164,6 +196,7 @@ function setText(selector, value) {
 
 function openDetail(order) {
   selectedOrder = order;
+  emptyDetail.hidden = true;
   detail.hidden = false;
   setText('[data-order-summary]', `${order.order_number} · ${order.created_at}`);
   setText('[data-customer-name]', order.customer_full_name || 'Customer');
@@ -189,7 +222,7 @@ function openDetail(order) {
       <strong>${escapeHtml(money(order, item.line_total))}</strong>`;
     items.append(panel);
   });
-  detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  renderOrders();
 }
 
 list.addEventListener('click', async (event) => {
@@ -211,7 +244,6 @@ searchForm.addEventListener('submit', (event) => {
 });
 
 refreshButton.addEventListener('click', loadOrders);
-closeDetail.addEventListener('click', () => { detail.hidden = true; selectedOrder = null; });
 
 statusForm.addEventListener('submit', async (event) => {
   event.preventDefault();
