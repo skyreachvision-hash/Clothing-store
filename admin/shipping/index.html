@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manage delivery and shipping methods for the Clothing Store.">
+  <title>Shipping | Clothing Store Admin</title>
+  <link rel="stylesheet" href="../../assets/css/styles.css">
+  <script type="module" src="../../assets/js/firebase-auth.js"></script>
+  <script src="../../assets/js/site.js" defer></script>
+</head>
+<body class="admin-page">
+  <a class="skip-link" href="#shipping-main">Skip to content</a>
+  <header class="admin-header"><div class="container header-inner"><a class="brand" href="../../index.html">Clothing Store <span class="admin-label">Admin</span></a><div class="admin-account"><span class="status-dot" aria-hidden="true"></span><span data-admin-account>Admin account</span><button class="button button-small button-outline" type="button" data-admin-logout>Log out</button></div></div></header>
+
+  <main id="shipping-main" class="admin-main"><div class="container">
+    <div class="settings-heading">
+      <div><p class="eyebrow">Delivery configuration</p><h1>Shipping settings</h1><p class="muted">Configure local delivery areas and manual PAXI rates. The Courier Guy API is kept ready for a later connection.</p></div>
+      <a class="button button-outline" href="../">Back to dashboard</a>
+    </div>
+
+    <section class="settings-panel">
+      <div class="settings-heading"><div><h2>Shipping methods</h2><p class="muted">Turn delivery methods on or off. Prices and areas below are controlled by the business.</p></div></div>
+      <div class="admin-sections" data-methods-list></div>
+      <p class="settings-load-status" data-status>Loading shipping settings…</p>
+    </section>
+
+    <section class="settings-panel">
+      <div class="settings-heading"><div><h2>Add delivery option</h2><p class="muted">For Local delivery, enter an area name and the price. For PAXI manual rates, enter the PAXI option and the price you want the store to charge.</p></div></div>
+      <form class="settings-form" data-option-form>
+        <div class="settings-fields settings-fields-two">
+          <label class="field"><span>Shipping method</span><select name="shipping_method_id" required></select></label>
+          <label class="field"><span>Option / area name</span><input name="name" type="text" required maxlength="160" placeholder="e.g. Section C"></label>
+          <label class="field"><span>Price (ZAR)</span><input name="price" type="number" min="0" step="0.01" inputmode="decimal" required value="0"></label>
+          <label class="field"><span><input name="requires_landmark" type="checkbox"> Ask customer where they are staying / what they are near</span></label>
+        </div>
+        <div class="settings-actions"><span class="settings-load-status" data-form-status>Ready.</span><button class="button button-primary" type="submit">Add option</button></div>
+      </form>
+    </section>
+
+    <section class="settings-panel">
+      <div class="settings-heading"><div><h2>Configured options</h2><p class="muted">These are the options customers can select at checkout when their shipping method is enabled.</p></div></div>
+      <div class="admin-sections" data-options-list></div>
+    </section>
+  </div></main>
+
+  <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
+
+<script>
+const methodsList = document.querySelector('[data-methods-list]');
+const optionsList = document.querySelector('[data-options-list]');
+const methodSelect = document.querySelector('[name="shipping_method_id"]');
+const form = document.querySelector('[data-option-form]');
+const status = document.querySelector('[data-status]');
+const formStatus = document.querySelector('[data-form-status]');
+let methods = [];
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
+}
+async function getToken() {
+  if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
+  const token = await window.getAdminIdToken();
+  if (!token) throw new Error('Authentication required. Please sign in again.');
+  return token;
+}
+async function apiFetch(url, options = {}) {
+  const token = await getToken();
+  const headers = new Headers(options.headers || {});
+  headers.set('Authorization', 'Bearer ' + token);
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const response = await fetch(url, { ...options, headers });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
+  return payload;
+}
+function render() {
+  methodsList.innerHTML = methods.map((method) => {
+    const state = Number(method.is_enabled) === 1;
+    const mode = method.mode === 'api' ? 'API' : 'Manual';
+    return '<section class="admin-panel"><div class="panel-icon">' + escapeHtml(String(method.sort_order).padStart(2,'0')) + '</div><div><h2>' + escapeHtml(method.name) + '</h2><p class="muted">' + mode + ' · ' + (state ? 'Enabled' : 'Disabled') + '</p></div><button class="button button-outline" type="button" data-toggle-method="' + method.id + '">' + (state ? 'Disable' : 'Enable') + '</button></section>';
+  }).join('');
+  methodSelect.innerHTML = methods.map((method) => '<option value="' + method.id + '">' + escapeHtml(method.name) + '</option>').join('');
+  optionsList.innerHTML = methods.flatMap((method) => (method.options || []).map((option) =>
+    '<section class="admin-panel"><div class="panel-icon">•</div><div><h2>' + escapeHtml(option.name) + '</h2><p class="muted">' + escapeHtml(method.name) + ' · ZAR ' + Number(option.price).toFixed(2) + (Number(option.requires_landmark) === 1 ? ' · Landmark required' : '') + '</p></div><button class="button button-outline" type="button" data-delete-option="' + option.id + '">Delete</button></section>'
+  )).join('') || '<p class="muted">No delivery options configured yet.</p>';
+}
+async function load() {
+  status.textContent = 'Loading shipping settings…';
+  try {
+    const payload = await apiFetch('/api/shipping?include_disabled=1');
+    methods = payload.data || [];
+    render();
+    status.textContent = 'Shipping settings loaded.';
+  } catch (error) { status.textContent = error.message; }
+}
+methodsList.addEventListener('click', async (event) => {
+  const id = event.target.closest('[data-toggle-method]')?.dataset.toggleMethod;
+  if (!id) return;
+  const method = methods.find((item) => String(item.id) === String(id));
+  if (!method) return;
+  try {
+    await apiFetch('/api/shipping?resource=method&id=' + encodeURIComponent(id), { method:'PUT', body: JSON.stringify({ is_enabled: Number(method.is_enabled) !== 1 }) });
+    await load();
+  } catch (error) { status.textContent = error.message; }
+});
+optionsList.addEventListener('click', async (event) => {
+  const id = event.target.closest('[data-delete-option]')?.dataset.deleteOption;
+  if (!id || !confirm('Delete this shipping option?')) return;
+  try {
+    await apiFetch('/api/shipping?resource=option&id=' + encodeURIComponent(id), { method:'DELETE' });
+    await load();
+  } catch (error) { status.textContent = error.message; }
+});
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  formStatus.textContent = 'Saving…';
+  try {
+    await apiFetch('/api/shipping', { method:'POST', body: JSON.stringify({
+      shipping_method_id: Number(form.elements.shipping_method_id.value),
+      name: form.elements.name.value.trim(),
+      price: Number(form.elements.price.value || 0),
+      requires_landmark: form.elements.requires_landmark.checked,
+      is_enabled: true
+    })});
+    form.reset();
+    form.elements.price.value = '0';
+    formStatus.textContent = 'Shipping option added.';
+    await load();
+  } catch (error) { formStatus.textContent = error.message; }
+});
+load();
+</script>
+</body>
+</html>
