@@ -26,7 +26,7 @@ export async function handleAdminCustomers(request, env) {
     if (request.method === "GET") {
       if (id) {
         const customer = await env.DB.prepare(
-          "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, created_at, updated_at FROM customer_profiles WHERE firebase_uid = ?"
+          "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, status, suspension_reason, suspended_at, suspended_by, created_at, updated_at FROM customer_profiles WHERE firebase_uid = ?"
         ).bind(id).first();
         if (!customer) return json({ success: false, error: "Customer not found." }, 404);
         return json({ success: true, data: customer });
@@ -37,11 +37,11 @@ export async function handleAdminCustomers(request, env) {
       if (search) {
         const term = `%${search}%`;
         result = await env.DB.prepare(
-          "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, created_at, updated_at FROM customer_profiles WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ? OR city LIKE ? ORDER BY updated_at DESC, created_at DESC"
+          "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, status, suspension_reason, suspended_at, suspended_by, created_at, updated_at FROM customer_profiles WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ? OR city LIKE ? ORDER BY updated_at DESC, created_at DESC"
         ).bind(term, term, term, term).all();
       } else {
         result = await env.DB.prepare(
-          "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, created_at, updated_at FROM customer_profiles ORDER BY updated_at DESC, created_at DESC"
+          "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, status, suspension_reason, suspended_at, suspended_by, created_at, updated_at FROM customer_profiles ORDER BY updated_at DESC, created_at DESC"
         ).all();
       }
 
@@ -53,9 +53,28 @@ export async function handleAdminCustomers(request, env) {
     if (!firebaseUid) return json({ success: false, error: "Customer ID is required." }, 400);
 
     const existing = await env.DB.prepare(
-      "SELECT firebase_uid FROM customer_profiles WHERE firebase_uid = ?"
+      "SELECT firebase_uid, status FROM customer_profiles WHERE firebase_uid = ?"
     ).bind(firebaseUid).first();
     if (!existing) return json({ success: false, error: "Customer not found." }, 404);
+
+    if (body?.action === "suspend" || body?.action === "restore") {
+      if (body.action === "suspend") {
+        const reason = clean(body?.suspension_reason);
+        if (!reason) return json({ success: false, error: "A suspension reason is required." }, 400);
+        const { token } = await requireAdmin(request, env);
+        await env.DB.prepare(
+          "UPDATE customer_profiles SET status = 'suspended', suspension_reason = ?, suspended_at = CURRENT_TIMESTAMP, suspended_by = ?, updated_at = CURRENT_TIMESTAMP WHERE firebase_uid = ?"
+        ).bind(reason, token.sub, firebaseUid).run();
+      } else {
+        await env.DB.prepare(
+          "UPDATE customer_profiles SET status = 'active', suspension_reason = '', suspended_at = NULL, suspended_by = NULL, updated_at = CURRENT_TIMESTAMP WHERE firebase_uid = ?"
+        ).bind(firebaseUid).run();
+      }
+      const updatedStatus = await env.DB.prepare(
+        "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, status, suspension_reason, suspended_at, suspended_by, created_at, updated_at FROM customer_profiles WHERE firebase_uid = ?"
+      ).bind(firebaseUid).first();
+      return json({ success: true, data: updatedStatus });
+    }
 
     const email = clean(body?.email);
     const fullName = clean(body?.full_name);
@@ -75,7 +94,7 @@ export async function handleAdminCustomers(request, env) {
     ).bind(email, fullName, phone, address, city, province, postalCode, country, firebaseUid).run();
 
     const updated = await env.DB.prepare(
-      "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, created_at, updated_at FROM customer_profiles WHERE firebase_uid = ?"
+      "SELECT firebase_uid, email, full_name, phone, address, city, province, postal_code, country, status, suspension_reason, suspended_at, suspended_by, created_at, updated_at FROM customer_profiles WHERE firebase_uid = ?"
     ).bind(firebaseUid).first();
 
     return json({ success: true, data: updated });
