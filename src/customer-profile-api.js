@@ -28,6 +28,6 @@ export async function handleCustomerProfile(request, env) {
     return json({ success: true, data: { firebase_uid: token.sub, email, full_name: fullName, phone, address, city, province, postal_code: postalCode, country } });
   } catch (error) {
     const authError = error?.message === "Authentication required.";
-    return json({ success: false, error: authError ? error.message : "Unable to save customer profile." }, authError ? 401 : 500);
+    return json({ success: false, error: authError ? error.message : `Unable to save customer profile: ${error?.message || "Unknown server error."}` }, authError ? 401 : 500);
   }
 }
