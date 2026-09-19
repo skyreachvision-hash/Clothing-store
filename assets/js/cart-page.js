@@ -5,10 +5,29 @@ const formatCartPrice = (item) => {
   return `${currency} ${(Number(item.price) * Number(item.quantity)).toFixed(2)}`;
 };
 
-const renderCart = () => {
-  if (!cartPageElement) return;
+const enrichCartImages = async () => {
   const cart = readCart();
+  if (!cart.some((item) => !item.image_url)) return cart;
+  try {
+    const response = await fetch('/api/products?limit=100', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    const payload = await response.json().catch(() => ({}));
+    const products = Array.isArray(payload.data?.products) ? payload.data.products : [];
+    let changed = false;
+    cart.forEach((item) => {
+      if (item.image_url) return;
+      const product = products.find((candidate) => Number(candidate.id) === Number(item.product_id));
+      const images = Array.isArray(product?.images) ? product.images : [];
+      const image = images.find((candidate) => Number(candidate.is_primary) === 1)?.image_url || images[0]?.image_url;
+      if (image) { item.image_url = image; changed = true; }
+    });
+    if (changed) writeCart(cart);
+  } catch {}
+  return cart;
+};
 
+const renderCart = (cartOverride) => {
+  if (!cartPageElement) return;
+  const cart = cartOverride || readCart();
   if (!cart.length) {
     cartPageElement.innerHTML = `<div class="cart-empty"><h2>Your cart is empty</h2><p class="muted">Add products from the store and they will appear here.</p><a class="button button-primary" href="index.html#categories">Shop products</a></div>`;
     return;
@@ -51,7 +70,10 @@ const renderCart = () => {
 const saveAndRender = (cart) => {
   writeCart(cart);
   updateCartCount();
-  renderCart();
+  enrichCartImages().then((cart) => {
+  updateCartCount();
+  renderCart(cart);
+});
 };
 
 document.addEventListener('click', (event) => {
