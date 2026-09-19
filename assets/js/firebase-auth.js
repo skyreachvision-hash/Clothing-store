@@ -30,6 +30,12 @@ async function getAdminIdToken() {
 }
 
 window.getAdminIdToken = getAdminIdToken;
+window.adminAuthReady = new Promise((resolve) => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    unsubscribe();
+    resolve(user);
+  });
+});
 
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
