@@ -53,38 +53,119 @@ async function getShipping(env, shippingMethodId, shippingOptionId) {
 
 async function handleInitialize(request, env) {
   const token = await verifyFirebaseIdToken(request);
-  if (!env.PAYSTACK_SECRET_KEY) return json({ success: false, error: "Payment gateway is not configured yet." }, 503);
   const body = await request.json().catch(() => ({}));
   const email = clean(token.email || body?.email);
   if (!email) return json({ success: false, error: "A customer email address is required." }, 400);
+
+  const provider = await env.DB.prepare(
+    "SELECT provider_key, display_name FROM payment_providers WHERE is_enabled = 1 ORDER BY sort_order ASC, id ASC LIMIT 1"
+  ).first();
+
+  if (!provider) {
+    return json({ success: false, error: "No payment provider is enabled for checkout." }, 503);
+  }
+
+  if (provider.provider_key !== "yoco") {
+    return json({ success: false, error: provider.display_name + " checkout is not implemented yet." }, 501);
+  }
+
+  if (!env.YOCO_SECRET_KEY) {
+    return json({ success: false, error: "Yoco payment gateway is not configured yet." }, 503);
+  }
+
   const cartResult = await getAuthoritativeCart(env, body?.items);
   const shipping = await getShipping(env, body?.shipping_method_id, body?.shipping_option_id);
   const total = cartResult.subtotal + Number(shipping.price || 0);
-  if (cartResult.currency !== "ZAR") return json({ success: false, error: "Paystack checkout is currently configured for ZAR." }, 400);
-  if (!(total > 0)) return json({ success: false, error: "Payment total must be greater than zero." }, 400);
+
+  if (cartResult.currency !== "ZAR") {
+    return json({ success: false, error: "Yoco checkout is currently configured for ZAR." }, 400);
+  }
+  if (!(total > 0)) {
+    return json({ success: false, error: "Payment total must be greater than zero." }, 400);
+  }
+
   const reference = makeReference();
   const checkoutData = {
     line_items: cartResult.lineItems,
-    shipping: { method_id: shipping.method_id, method_name: shipping.method_name, provider_type: shipping.provider_type, mode: shipping.mode, option_id: shipping.option_id, option_name: shipping.option_name, fee: Number(shipping.price || 0) },
-    customer: { full_name: clean(body?.customer?.full_name), phone: clean(body?.customer?.phone), address: clean(body?.customer?.address), city: clean(body?.customer?.city), province: clean(body?.customer?.province), postal_code: clean(body?.customer?.postal_code), country: clean(body?.customer?.country || "South Africa"), notes: clean(body?.customer?.notes), landmark: clean(body?.customer?.landmark) }
+    shipping: {
+      method_id: shipping.method_id,
+      method_name: shipping.method_name,
+      provider_type: shipping.provider_type,
+      mode: shipping.mode,
+      option_id: shipping.option_id,
+      option_name: shipping.option_name,
+      fee: Number(shipping.price || 0)
+    },
+    customer: {
+      full_name: clean(body?.customer?.full_name),
+      phone: clean(body?.customer?.phone),
+      address: clean(body?.customer?.address),
+      city: clean(body?.customer?.city),
+      province: clean(body?.customer?.province),
+      postal_code: clean(body?.customer?.postal_code),
+      country: clean(body?.customer?.country || "South Africa"),
+      notes: clean(body?.customer?.notes),
+      landmark: clean(body?.customer?.landmark)
+    }
   };
-  await env.DB.prepare("INSERT INTO payment_transactions (firebase_uid, reference, provider, status, amount, currency, customer_email, checkout_data) VALUES (?, ?, 'paystack', 'initializing', ?, ?, ?, ?)").bind(token.sub, reference, total, cartResult.currency, email, JSON.stringify(checkoutData)).run();
+
+  await env.DB.prepare(
+    "INSERT INTO payment_transactions (firebase_uid, reference, provider, status, amount, currency, customer_email, checkout_data) VALUES (?, ?, ?, 'initializing', ?, ?, ?, ?)"
+  ).bind(
+    token.sub,
+    reference,
+    provider.provider_key,
+    total,
+    cartResult.currency,
+    email,
+    JSON.stringify(checkoutData)
+  ).run();
+
   try {
-    const payload = await paystackRequest("/transaction/initialize", {
+    const origin = new URL(request.url).origin;
+    const query = "?reference=" + encodeURIComponent(reference);
+
+    const yocoResponse = await fetch("https://payments.yoco.com/api/checkouts", {
       method: "POST",
+      headers: {
+        Authorization: "Bearer " + env.YOCO_SECRET_KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
       body: JSON.stringify({
-        email,
-        amount: String(toAmountSubunit(total)),
+        amount: toAmountSubunit(total),
         currency: cartResult.currency,
-        reference,
-        callback_url: new URL(request.url).origin + "/payment.html",
-        metadata: JSON.stringify({ firebase_uid: token.sub, reference })
+        successUrl: origin + "/payment.html" + query,
+        cancelUrl: origin + "/payment.html" + query,
+        failureUrl: origin + "/payment.html" + query,
+        metadata: {
+          reference,
+          firebase_uid: token.sub
+        }
       })
-    }, env.PAYSTACK_SECRET_KEY);
-    await env.DB.prepare("UPDATE payment_transactions SET status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(reference).run();
-    return json({ success: true, data: { reference, authorization_url: payload.data.authorization_url } });
+    });
+
+    const payload = await yocoResponse.json().catch(() => ({}));
+    if (!yocoResponse.ok || !payload?.redirectUrl) {
+      throw new Error(payload?.message || payload?.error || "Yoco checkout creation failed.");
+    }
+
+    await env.DB.prepare(
+      "UPDATE payment_transactions SET status = 'pending', provider_checkout_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?"
+    ).bind(String(payload.id || ""), reference).run();
+
+    return json({
+      success: true,
+      data: {
+        reference,
+        provider: provider.provider_key,
+        authorization_url: payload.redirectUrl
+      }
+    });
   } catch (error) {
-    await env.DB.prepare("UPDATE payment_transactions SET status = 'initialization_failed', updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(reference).run();
+    await env.DB.prepare(
+      "UPDATE payment_transactions SET status = 'initialization_failed', updated_at = CURRENT_TIMESTAMP WHERE reference = ?"
+    ).bind(reference).run();
     throw error;
   }
 }
