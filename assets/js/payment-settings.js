@@ -19,6 +19,7 @@ function renderProviders(providers) {
 
 async function loadPaymentSettings() {
   setStatus("Loading payment providers…");
+  await window.adminAuthReady;
   const token = await window.getAdminIdToken();
   const response = await fetch("/api/payment-settings?admin=1", {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
