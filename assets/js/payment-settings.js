@@ -10,20 +10,17 @@ function setStatus(message) {
 function renderProviders(providers) {
   if (!list) return;
   list.innerHTML = providers.map((provider) =>
-    '<label class="settings-option payment-provider-option">' +
+    '<a class="settings-option payment-provider-option" href="/admin/settings/payments/' +
+    encodeURIComponent(provider.provider_key) +
+    '/">' +
     '<span><strong>' +
     provider.display_name +
     '</strong><small>' +
     (provider.is_enabled ? "Enabled for checkout." : "Not enabled for checkout.") +
     '</small></span>' +
-    '<span class="settings-option-control">' +
-    '<input type="checkbox" name="payment_provider" value="' +
-    provider.provider_key +
-    '" ' + (provider.is_enabled ? "checked" : "") +
-    ' aria-label="Enable ' + provider.display_name + ' for checkout">' +
     '<span class="settings-readonly">' +
-    (provider.is_enabled ? "Enabled" : "Enable") +
-    '</span></span></label>'
+    (provider.is_enabled ? "Enabled" : "Configure") +
+    '</span></a>'
   ).join("");
 }
 
@@ -41,37 +38,6 @@ async function loadPaymentSettings() {
   setStatus("Payment provider settings loaded.");
   if (saveButton) saveButton.disabled = false;
 }
-
-form?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (saveButton) saveButton.disabled = true;
-  setStatus("Saving payment provider settings…");
-  try {
-    const token = await window.getAdminIdToken();
-    const providers = [...document.querySelectorAll('input[name="payment_provider"]')].map((input, index) => ({
-      provider_key: input.value,
-      is_enabled: input.checked,
-      sort_order: index + 1
-    }));
-    const response = await fetch("/api/payment-settings", {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json"
-      },
-      body: JSON.stringify({ providers })
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to save payment provider settings.");
-    renderProviders(payload.data || []);
-    setStatus("Payment provider settings saved.");
-  } catch (error) {
-    setStatus(error?.message || "Unable to save payment provider settings.");
-  } finally {
-    if (saveButton) saveButton.disabled = false;
-  }
-});
 
 loadPaymentSettings().catch((error) => {
   setStatus(error?.message || "Unable to load payment providers.");
