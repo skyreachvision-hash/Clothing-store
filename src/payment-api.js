@@ -241,9 +241,10 @@ async function createOrderFromVerifiedPayment(env, transaction) {
     throw error;
   }
 
-  return await env.DB.prepare(
+  const createdOrder = await env.DB.prepare(
     "SELECT id, order_number FROM orders WHERE payment_transaction_id = ?"
   ).bind(transaction.id).first();
+  return createdOrder ? { ...createdOrder, created: true } : null;
 }
 
 async function sendOrderConfirmationEmail(env, transaction, order, checkoutData) {
