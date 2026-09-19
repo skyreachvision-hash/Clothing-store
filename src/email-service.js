@@ -113,13 +113,13 @@ async function sendWithGmail(env, settings, { to, subject, html, text }) {
   if (settings.reply_to) headers.splice(3, 0, "Reply-To: " + normalizeHeader(settings.reply_to));
 
   const mime = headers.join("\r\n") +
-    "\\r\\n\\r\\n--store-email-boundary\\r\\n" +
+    "\r\n\r\n--store-email-boundary\\r\\n" +
     "Content-Type: text/plain; charset=UTF-8\\r\\nContent-Transfer-Encoding: 8bit\\r\\n\\r\\n" +
     encodeMimeBody(text) +
-    "\\r\\n\\r\\n--store-email-boundary\\r\\n" +
+    "\r\n\r\n--store-email-boundary\\r\\n" +
     "Content-Type: text/html; charset=UTF-8\\r\\nContent-Transfer-Encoding: 8bit\\r\\n\\r\\n" +
     encodeMimeBody(html) +
-    "\\r\\n\\r\\n--store-email-boundary--";
+    "\r\n\r\n--store-email-boundary--";
 
   const accessToken = await getGoogleAccessToken(env);
   const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
