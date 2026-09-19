@@ -42,12 +42,22 @@ if (loginForm) {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch("/api/admin-auth-check", {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        cache: "no-store"
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success || !payload.data?.authorized) {
+        await signOut(auth);
+        throw new Error(response.status === 403 ? "This Firebase account is not authorized for the Admin area." : "Unable to verify administrator access.");
+      }
       setLoginStatus("Signed in. Opening admin dashboard…");
       window.location.assign(adminPath);
     } catch (error) {
       const message = error?.code === "auth/invalid-credential"
         ? "The email or password is incorrect."
-        : "Unable to sign in. Check your details and try again.";
+        : error?.message || "Unable to sign in. Check your details and try again.";
       setLoginStatus(message);
       if (submitButton) submitButton.disabled = false;
     }
@@ -66,12 +76,33 @@ logoutButtons.forEach((button) => {
   });
 });
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     accountLabels.forEach((element) => {
       element.textContent = user.email || "Admin account";
     });
-    if (isLoginPage) window.location.assign(adminPath);
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/admin-auth-check", {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        cache: "no-store"
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || !payload.success || !payload.data?.authorized) {
+        await signOut(auth);
+        if (isLoginPage) setLoginStatus("This Firebase account is not authorized for the Admin area.");
+        else window.location.replace(adminLoginPath);
+        return;
+      }
+
+      if (isLoginPage) window.location.assign(adminPath);
+    } catch {
+      await signOut(auth);
+      if (isLoginPage) setLoginStatus("Unable to verify administrator access. Please try again.");
+      else window.location.replace(adminLoginPath);
+    }
     return;
   }
 
