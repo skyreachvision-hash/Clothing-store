@@ -172,22 +172,66 @@ async function handleInitialize(request, env) {
 
 async function handleVerify(request, env) {
   const token = await verifyFirebaseIdToken(request);
-  if (!env.PAYSTACK_SECRET_KEY) return json({ success: false, error: "Payment gateway is not configured yet." }, 503);
   const reference = clean(new URL(request.url).searchParams.get("reference"));
   if (!reference) return json({ success: false, error: "Payment reference is required." }, 400);
-  const transaction = await env.DB.prepare("SELECT id, firebase_uid, reference, status, amount, currency, customer_email, provider_transaction_id FROM payment_transactions WHERE reference = ? AND firebase_uid = ?").bind(reference, token.sub).first();
+
+  const transaction = await env.DB.prepare(
+    "SELECT id, firebase_uid, reference, provider, status, amount, currency, customer_email, provider_checkout_id, provider_transaction_id FROM payment_transactions WHERE reference = ? AND firebase_uid = ?"
+  ).bind(reference, token.sub).first();
   if (!transaction) return json({ success: false, error: "Payment transaction not found." }, 404);
-  const payload = await paystackRequest("/transaction/verify/" + encodeURIComponent(reference), { method: "GET" }, env.PAYSTACK_SECRET_KEY);
-  const data = payload.data || {};
-  const status = clean(data.status || "unknown");
-  const amountMatches = Number(data.amount) === toAmountSubunit(transaction.amount);
-  const currencyMatches = clean(data.currency).toUpperCase() === clean(transaction.currency).toUpperCase();
-  if (status === "success" && amountMatches && currencyMatches) {
-    await env.DB.prepare("UPDATE payment_transactions SET status = 'success', provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(String(data.id ?? ""), reference).run();
-    return json({ success: true, data: { reference, status: "success", amount: transaction.amount, currency: transaction.currency } });
+
+  if (transaction.provider === "yoco") {
+    if (!env.YOCO_SECRET_KEY) return json({ success: false, error: "Yoco payment gateway is not configured yet." }, 503);
+    if (!transaction.provider_checkout_id) return json({ success: false, error: "Yoco checkout reference is missing." }, 500);
+
+    const response = await fetch("https://payments.yoco.com/api/checkouts/" + encodeURIComponent(transaction.provider_checkout_id), {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + env.YOCO_SECRET_KEY,
+        Accept: "application/json"
+      }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload?.id) {
+      throw new Error(payload?.message || payload?.error || "Yoco payment verification failed.");
+    }
+
+    const data = payload;
+    const status = clean(data.status || "unknown").toLowerCase();
+    const amountMatches = Number(data.amount) === toAmountSubunit(transaction.amount);
+    const currencyMatches = clean(data.currency).toUpperCase() === clean(transaction.currency).toUpperCase();
+    const providerTransactionId = String(data.transactionId || data.paymentId || data.id || "");
+
+    if (status === "completed" && amountMatches && currencyMatches) {
+      await env.DB.prepare(
+        "UPDATE payment_transactions SET status = 'success', provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?"
+      ).bind(providerTransactionId, reference).run();
+      return json({ success: true, data: { reference, status: "success", amount: transaction.amount, currency: transaction.currency } });
+    }
+
+    const localStatus = status === "failed" || status === "cancelled" ? status : "pending";
+    await env.DB.prepare(
+      "UPDATE payment_transactions SET status = ?, provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?"
+    ).bind(localStatus, providerTransactionId, reference).run();
+    return json({ success: true, data: { reference, status: localStatus, amount: transaction.amount, currency: transaction.currency } });
   }
-  await env.DB.prepare("UPDATE payment_transactions SET status = ?, provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(status || "unknown", String(data.id ?? ""), reference).run();
-  return json({ success: true, data: { reference, status, amount: transaction.amount, currency: transaction.currency } });
+
+  if (transaction.provider === "paystack") {
+    if (!env.PAYSTACK_SECRET_KEY) return json({ success: false, error: "Paystack payment gateway is not configured yet." }, 503);
+    const payload = await paystackRequest("/transaction/verify/" + encodeURIComponent(reference), { method: "GET" }, env.PAYSTACK_SECRET_KEY);
+    const data = payload.data || {};
+    const status = clean(data.status || "unknown");
+    const amountMatches = Number(data.amount) === toAmountSubunit(transaction.amount);
+    const currencyMatches = clean(data.currency).toUpperCase() === clean(transaction.currency).toUpperCase();
+    if (status === "success" && amountMatches && currencyMatches) {
+      await env.DB.prepare("UPDATE payment_transactions SET status = 'success', provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(String(data.id ?? ""), reference).run();
+      return json({ success: true, data: { reference, status: "success", amount: transaction.amount, currency: transaction.currency } });
+    }
+    await env.DB.prepare("UPDATE payment_transactions SET status = ?, provider_transaction_id = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?").bind(status || "unknown", String(data.id ?? ""), reference).run();
+    return json({ success: true, data: { reference, status, amount: transaction.amount, currency: transaction.currency } });
+  }
+
+  return json({ success: false, error: "Payment provider verification is not implemented yet." }, 501);
 }
 
 async function handleWebhook(request, env) {
