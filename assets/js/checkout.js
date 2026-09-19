@@ -201,7 +201,7 @@ document.addEventListener('submit', async (event) => {
     details.shipping_mode = method.mode;
     details.shipping_option_name = option.name;
     details.shipping_fee = Number(option.price || 0);
-    sessionStorage.setItem('clothing-store-checkout-details', JSON.stringify(details);
+    sessionStorage.setItem('clothing-store-checkout-details', JSON.stringify(details));
     notice.textContent = `Your details have been saved. Delivery selected: ${method.name} — ${option.name}. Payment integration is the next step.`;
   } catch (error) {
     notice.textContent = error.message || 'Your details could not be saved. Please try again.';
