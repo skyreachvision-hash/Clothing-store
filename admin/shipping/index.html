@@ -82,6 +82,14 @@ async function apiFetch(url, options = {}) {
   if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
   return payload;
 }
+function syncLandmarkControl() {
+  const method = methods.find((item) => String(item.id) === String(methodSelect.value));
+  const field = form.elements.requires_landmark.closest('.field');
+  const local = method?.provider_type === 'local';
+  form.elements.requires_landmark.disabled = !local;
+  if (!local) form.elements.requires_landmark.checked = false;
+  if (field) field.hidden = !local;
+}
 function render() {
   methodsList.innerHTML = methods.map((method) => {
     const state = Number(method.is_enabled) === 1;
@@ -89,8 +97,9 @@ function render() {
     return '<section class="admin-panel"><div class="panel-icon">' + escapeHtml(String(method.sort_order).padStart(2,'0')) + '</div><div><h2>' + escapeHtml(method.name) + '</h2><p class="muted">' + mode + ' · ' + (state ? 'Enabled' : 'Disabled') + '</p></div><button class="button button-outline" type="button" data-toggle-method="' + method.id + '">' + (state ? 'Disable' : 'Enable') + '</button></section>';
   }).join('');
   methodSelect.innerHTML = methods.map((method) => '<option value="' + method.id + '">' + escapeHtml(method.name) + '</option>').join('');
+  syncLandmarkControl();
   optionsList.innerHTML = methods.flatMap((method) => (method.options || []).map((option) =>
-    '<section class="admin-panel"><div class="panel-icon">•</div><div><h2>' + escapeHtml(option.name) + '</h2><p class="muted">' + escapeHtml(method.name) + ' · ZAR ' + Number(option.price).toFixed(2) + (Number(option.requires_landmark) === 1 ? ' · Landmark required' : '') + '</p></div><button class="button button-outline" type="button" data-delete-option="' + option.id + '">Delete</button></section>'
+    '<section class="admin-panel"><div class="panel-icon">•</div><div><h2>' + escapeHtml(option.name) + '</h2><p class="muted">' + escapeHtml(method.name) + ' · ZAR ' + Number(option.price).toFixed(2) + (method.provider_type === 'local' && Number(option.requires_landmark) === 1 ? ' · Landmark required' : '') + '</p></div><button class="button button-outline" type="button" data-delete-option="' + option.id + '">Delete</button></section>'
   )).join('') || '<p class="muted">No delivery options configured yet.</p>';
 }
 async function load() {
@@ -120,6 +129,7 @@ optionsList.addEventListener('click', async (event) => {
     await load();
   } catch (error) { status.textContent = error.message; }
 });
+methodSelect.addEventListener('change', syncLandmarkControl);
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   formStatus.textContent = 'Saving…';
