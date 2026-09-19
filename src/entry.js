@@ -4,6 +4,7 @@ import { handleShippingApi } from "./shipping-api.js";
 import { handleCustomerProfile } from "./customer-profile-api.js";
 import { handleAdminCustomers } from "./admin-customers-api.js";
 import { handleAdminOrders } from "./admin-orders-api.js";
+import { handleCustomerOrders } from "./customer-orders-api.js";
 import { handlePaymentApi } from "./payment-api.js";
 import { handlePaymentSettings } from "./payment-settings-api.js";
 export default { async fetch(request, env, ctx) {
@@ -13,6 +14,7 @@ export default { async fetch(request, env, ctx) {
   if (url.pathname === "/api/customer-profile") return handleCustomerProfile(request, env);
   if (url.pathname === "/api/admin-customers") return handleAdminCustomers(request, env);
   if (url.pathname === "/api/admin-orders") return handleAdminOrders(request, env);
+  if (url.pathname === "/api/customer-orders") return handleCustomerOrders(request, env);
   if (url.pathname === "/api/payment-settings") return handlePaymentSettings(request, env);
   if (url.pathname.startsWith("/api/payment/")) return handlePaymentApi(request, env);
   return originalWorker.fetch(request, env, ctx);
