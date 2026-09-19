@@ -59,7 +59,22 @@ export async function verifyFirebaseIdToken(request) {
   const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, base64UrlToBytes(encodedSignature), new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`));
   if (!valid) throw new Error("Invalid Firebase token signature."); return payload;
 }
-async function handleAdminAuthCheck(request) { try { const token = await verifyFirebaseIdToken(request); return jsonResponse({ success: true, data: { authenticated: true, uid: token.sub, email: token.email || "" } }); } catch { return jsonResponse({ success: false, error: "Authentication required." }, 401); } }
+async function requireAdminRole(token, env) {
+  const admin = await env.DB.prepare("SELECT firebase_uid, role, is_enabled FROM admin_users WHERE firebase_uid = ? AND is_enabled = 1").bind(token.sub).first();
+  if (!admin) throw new Error("Administrator authorization required.");
+  return admin;
+}
+async function handleAdminAuthCheck(request, env) {
+  try {
+    const token = await verifyFirebaseIdToken(request);
+    const admin = await requireAdminRole(token, env);
+    return jsonResponse({ success: true, data: { authenticated: true, authorized: true, uid: token.sub, email: token.email || "", role: admin.role } });
+  } catch (error) {
+    if (error?.message === "Administrator authorization required.") return jsonResponse({ success: false, error: error.message }, 403);
+    return jsonResponse({ success: false, error: "Authentication required." }, 401);
+  }
+}
+
 async function getStoreSettings(env) {
   const settings = await env.DB.prepare(`SELECT id, store_name, logo_url, tagline, description, contact_email, contact_phone, whatsapp_url, address, settings_json, updated_at FROM store_settings WHERE id = 1`).first();
   const socialLinks = await env.DB.prepare(`SELECT id, platform, label, url, sort_order, is_enabled, created_at, updated_at FROM social_links WHERE is_enabled = 1 ORDER BY sort_order ASC, id ASC`).all();
@@ -98,6 +113,7 @@ async function handleImageUpload(request, env) {
   if (request.method !== "POST") return jsonResponse({ success: false, error: "Method not allowed." }, 405);
   try {
     const token = await verifyFirebaseIdToken(request);
+    await requireAdminRole(token, env);
     if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) return jsonResponse({ success: false, error: "Cloudinary upload is not configured." }, 500);
     const contentLength = Number(request.headers.get("Content-Length") || 0); if (contentLength > 10 * 1024 * 1024) return jsonResponse({ success: false, error: "Image is too large. Maximum size is 10 MB." }, 413);
     const form = await request.formData(); const file = form.get("file");
@@ -122,7 +138,9 @@ async function getCategories(env, includeDisabled = false) { const query = inclu
 async function handleCategories(request, env) {
   if (request.method === "GET") { try { const includeDisabled = new URL(request.url).searchParams.get("include_disabled") === "1"; if (includeDisabled) { try { await verifyFirebaseIdToken(request); } catch { return jsonResponse({ success: false, error: "Authentication required." }, 401); } } return jsonResponse({ success: true, data: await getCategories(env, includeDisabled) }); } catch { return jsonResponse({ success: false, error: "Unable to load categories." }, 500); } }
   try {
-    const token = await verifyFirebaseIdToken(request); if (!["POST", "PUT", "DELETE"].includes(request.method)) return jsonResponse({ success: false, error: "Method not allowed." }, 405);
+    const token = await verifyFirebaseIdToken(request);
+    await requireAdminRole(token, env);
+    if (!["POST", "PUT", "DELETE"].includes(request.method)) return jsonResponse({ success: false, error: "Method not allowed." }, 405);
     if (request.method === "POST") { const body = await request.json(); const name = String(body?.name ?? "").trim(); const slug = normalizeSlug(body?.slug || name); if (!name || !slug) return jsonResponse({ success: false, error: "Category name is required." }, 400); const result = await env.DB.prepare(`INSERT INTO categories (name, slug, description, sort_order, is_enabled) VALUES (?, ?, ?, ?, ?) RETURNING id`).bind(name, slug, String(body?.description ?? "").trim(), parseNonNegativeInteger(body?.sort_order), parseEnabled(body?.is_enabled)).first(); return jsonResponse({ success: true, data: { id: result.id, uid: token.sub } }, 201); }
     const url = new URL(request.url); const id = parseOptionalId(url.searchParams.get("id")); if (!id) return jsonResponse({ success: false, error: "A valid category id is required." }, 400);
     if (request.method === "DELETE") { await env.DB.prepare(`DELETE FROM categories WHERE id = ?`).bind(id).run(); return jsonResponse({ success: true, data: { id, uid: token.sub } }); }
@@ -160,4 +178,4 @@ async function handleProducts(request, env) {
     return jsonResponse({ success: true, data: { id: productId, uid: token.sub } }, request.method === "POST" ? 201 : 200);
   } catch (error) { if (error?.message === "Authentication required.") return jsonResponse({ success: false, error: error.message }, 401); if (String(error?.message || "").includes("UNIQUE constraint failed")) return jsonResponse({ success: false, error: "A product with that slug already exists." }, 409); return jsonResponse({ success: false, error: "Unable to save product." }, 500); }
 }
-export default { async fetch(request, env) { const url = new URL(request.url); if (url.pathname === "/api/admin-auth-check") return handleAdminAuthCheck(request); if (url.pathname === "/api/store-settings") return handleStoreSettings(request, env); if (url.pathname === "/api/upload-image") return handleImageUpload(request, env); if (url.pathname === "/api/categories") return handleCategories(request, env); if (url.pathname === "/api/products") return handleProducts(request, env); return new Response(JSON.stringify({ success: true, message: "Clothing Store Worker is online.", version: "1.0.0-test" }), { status: 200, headers: { "Content-Type": "application/json" } }); } };
+export default { async fetch(request, env) { const url = new URL(request.url); if (url.pathname === "/api/admin-auth-check") return handleAdminAuthCheck(request, env); if (url.pathname === "/api/store-settings") return handleStoreSettings(request, env); if (url.pathname === "/api/upload-image") return handleImageUpload(request, env); if (url.pathname === "/api/categories") return handleCategories(request, env); if (url.pathname === "/api/products") return handleProducts(request, env); return new Response(JSON.stringify({ success: true, message: "Clothing Store Worker is online.", version: "1.0.0-test" }), { status: 200, headers: { "Content-Type": "application/json" } }); } };
