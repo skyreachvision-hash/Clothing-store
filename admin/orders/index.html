@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manage orders for the Clothing Store.">
+  <title>Orders | Clothing Store Admin</title>
+  <link rel="stylesheet" href="../../assets/css/styles.css">
+  <script type="module" src="../../assets/js/firebase-auth.js"></script>
+  <script src="../../assets/js/site.js" defer></script>
+</head>
+<body class="admin-page">
+  <a class="skip-link" href="#orders-main">Skip to content</a>
+  <header class="admin-header"><div class="container header-inner"><a class="brand" href="../../index.html">Clothing Store <span class="admin-label">Admin</span></a><div class="admin-account"><span class="status-dot" aria-hidden="true"></span><span data-admin-account>Admin account</span><button class="button button-small button-outline" type="button" data-admin-logout>Log out</button></div></div></header>
+
+  <main id="orders-main" class="admin-main"><div class="container">
+    <div class="settings-heading">
+      <div><p class="eyebrow">Order management</p><h1>Orders</h1><p class="muted">Review paid orders and keep their fulfillment status up to date.</p></div>
+      <a class="button button-outline" href="../">Back to dashboard</a>
+    </div>
+
+    <section class="settings-panel" aria-labelledby="orders-list-title">
+      <div class="settings-heading">
+        <div><h2 id="orders-list-title">Order list</h2><p class="muted">Orders are created from verified successful payments.</p></div>
+        <button class="button button-outline" type="button" data-refresh>Refresh</button>
+      </div>
+      <form class="search-row" data-search-form>
+        <label class="sr-only" for="order-search">Search orders</label>
+        <input id="order-search" name="search" type="search" placeholder="Search order number, name, email, or phone">
+        <select name="status" aria-label="Filter by order status">
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="processing">Processing</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button class="button button-outline" type="submit">Search</button>
+      </form>
+      <div class="settings-notice" data-list-status role="status">Loading orders…</div>
+      <div class="admin-sections" data-order-list></div>
+    </section>
+
+    <section class="settings-panel" data-order-detail hidden aria-labelledby="order-detail-title">
+      <div class="settings-heading">
+        <div><h2 id="order-detail-title">Order details</h2><p class="muted" data-order-summary></p></div>
+        <button class="button button-outline" type="button" data-close-detail>Close</button>
+      </div>
+      <div class="settings-fields settings-fields-two">
+        <div class="field"><span>Customer</span><strong data-customer-name>—</strong></div>
+        <div class="field"><span>Email</span><strong data-customer-email>—</strong></div>
+        <div class="field"><span>Phone</span><strong data-customer-phone>—</strong></div>
+        <div class="field"><span>Payment</span><strong data-payment-status>—</strong></div>
+        <div class="field field-wide"><span>Delivery address</span><strong data-shipping-address>—</strong></div>
+        <div class="field"><span>Delivery option</span><strong data-shipping-option>—</strong></div>
+        <div class="field"><span>Shipping fee</span><strong data-shipping-fee>—</strong></div>
+        <div class="field"><span>Subtotal</span><strong data-subtotal>—</strong></div>
+        <div class="field"><span>Total</span><strong data-total>—</strong></div>
+        <div class="field field-wide"><span>Customer notes / landmark</span><strong data-customer-notes>—</strong></div>
+      </div>
+      <div class="settings-panel">
+        <div class="settings-heading"><div><h3>Items</h3><p class="muted">Products recorded at checkout.</p></div></div>
+        <div class="admin-sections" data-order-items></div>
+      </div>
+      <form class="settings-form" data-status-form>
+        <label class="field"><span>Order status</span>
+          <select name="order_status" required>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+        <div class="settings-actions"><span class="settings-load-status" data-detail-status>Ready.</span><button class="button button-primary" type="submit">Save status</button></div>
+      </form>
+    </section>
+  </div></main>
+
+  <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
+
+<script type="module">
+const list = document.querySelector('[data-order-list]');
+const listStatus = document.querySelector('[data-list-status]');
+const searchForm = document.querySelector('[data-search-form]');
+const refreshButton = document.querySelector('[data-refresh]');
+const detail = document.querySelector('[data-order-detail]');
+const closeDetail = document.querySelector('[data-close-detail]');
+const statusForm = document.querySelector('[data-status-form]');
+const detailStatus = document.querySelector('[data-detail-status]');
+let orders = [];
+let selectedOrder = null;
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
+}
+
+async function getToken() {
+  if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
+  const token = await window.getAdminIdToken();
+  if (!token) throw new Error('Authentication required. Please sign in again.');
+  return token;
+}
+
+async function apiFetch(url, options = {}) {
+  const token = await getToken();
+  const headers = new Headers(options.headers || {});
+  headers.set('Authorization', 'Bearer ' + token);
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const response = await fetch(url, { ...options, headers });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
+  return payload;
+}
+
+function money(order, value) {
+  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: order.currency || 'ZAR' }).format(Number(value || 0));
+}
+
+function renderOrders() {
+  list.innerHTML = '';
+  if (!orders.length) {
+    list.innerHTML = '<p class="muted">No orders found.</p>';
+    return;
+  }
+  orders.forEach((order, index) => {
+    const panel = document.createElement('section');
+    panel.className = 'admin-panel';
+    panel.innerHTML = `
+      <div class="panel-icon">${String(index + 1).padStart(2, '0')}</div>
+      <div>
+        <h2>${escapeHtml(order.order_number)}</h2>
+        <p class="muted">${escapeHtml(order.customer_full_name || 'Customer')} · ${escapeHtml(order.customer_email)}</p>
+        <p class="muted">${escapeHtml(order.order_status)} · ${escapeHtml(money(order, order.total))} · ${escapeHtml(order.created_at)}</p>
+      </div>
+      <button class="button button-outline" type="button" data-view-order="${order.id}">View order</button>`;
+    list.append(panel);
+  });
+}
+
+async function loadOrders() {
+  listStatus.textContent = 'Loading orders…';
+  try {
+    const search = searchForm.elements.search.value.trim();
+    const status = searchForm.elements.status.value;
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (status) params.set('status', status);
+    params.set('limit', '100');
+    const payload = await apiFetch('/api/admin-orders?' + params.toString());
+    orders = Array.isArray(payload.data) ? payload.data : [];
+    renderOrders();
+    listStatus.textContent = orders.length ? `${orders.length} order${orders.length === 1 ? '' : 's'} loaded.` : 'No orders found.';
+  } catch (error) {
+    listStatus.textContent = error.message;
+  }
+}
+
+function setText(selector, value) {
+  const element = document.querySelector(selector);
+  if (element) element.textContent = value || '—';
+}
+
+function openDetail(order) {
+  selectedOrder = order;
+  detail.hidden = false;
+  setText('[data-order-summary]', `${order.order_number} · ${order.created_at}`);
+  setText('[data-customer-name]', order.customer_full_name || 'Customer');
+  setText('[data-customer-email]', order.customer_email);
+  setText('[data-customer-phone]', order.customer_phone);
+  setText('[data-payment-status]', order.payment_status);
+  setText('[data-shipping-address]', [order.shipping_address, order.shipping_city, order.shipping_province, order.shipping_postal_code, order.shipping_country].filter(Boolean).join(', '));
+  setText('[data-shipping-option]', [order.shipping_method_name, order.shipping_option_name].filter(Boolean).join(' · '));
+  setText('[data-shipping-fee]', money(order, order.shipping_fee));
+  setText('[data-subtotal]', money(order, order.subtotal));
+  setText('[data-total]', money(order, order.total));
+  setText('[data-customer-notes]', [order.customer_notes, order.delivery_landmark ? 'Landmark: ' + order.delivery_landmark : ''].filter(Boolean).join(' · '));
+  statusForm.elements.order_status.value = order.order_status;
+  detailStatus.textContent = 'Ready.';
+  const items = document.querySelector('[data-order-items]');
+  items.innerHTML = '';
+  (order.items || []).forEach((item, index) => {
+    const panel = document.createElement('section');
+    panel.className = 'admin-panel';
+    panel.innerHTML = `
+      <div class="panel-icon">${String(index + 1).padStart(2, '0')}</div>
+      <div><h2>${escapeHtml(item.product_name)}</h2><p class="muted">Quantity: ${escapeHtml(item.quantity)} · Unit price: ${escapeHtml(money(order, item.unit_price))}</p></div>
+      <strong>${escapeHtml(money(order, item.line_total))}</strong>`;
+    items.append(panel);
+  });
+  detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+list.addEventListener('click', async (event) => {
+  const id = event.target.closest('[data-view-order]')?.dataset.viewOrder;
+  if (!id) return;
+  try {
+    listStatus.textContent = 'Loading order…';
+    const payload = await apiFetch('/api/admin-orders?id=' + encodeURIComponent(id));
+    openDetail(payload.data);
+    listStatus.textContent = 'Order loaded.';
+  } catch (error) {
+    listStatus.textContent = error.message;
+  }
+});
+
+searchForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  loadOrders();
+});
+
+refreshButton.addEventListener('click', loadOrders);
+closeDetail.addEventListener('click', () => { detail.hidden = true; selectedOrder = null; });
+
+statusForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!selectedOrder) return;
+  const nextStatus = statusForm.elements.order_status.value;
+  if (!confirm(`Change order ${selectedOrder.order_number} to ${nextStatus}?`)) return;
+  detailStatus.textContent = 'Saving status…';
+  try {
+    const payload = await apiFetch('/api/admin-orders?id=' + encodeURIComponent(selectedOrder.id), {
+      method: 'PUT',
+      body: JSON.stringify({ order_status: nextStatus })
+    });
+    selectedOrder = payload.data;
+    openDetail(selectedOrder);
+    await loadOrders();
+    detailStatus.textContent = 'Order status updated successfully.';
+  } catch (error) {
+    detailStatus.textContent = error.message;
+  }
+});
+
+loadOrders();
+</script>
+</body>
+</html>
