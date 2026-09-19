@@ -28,13 +28,13 @@
     .orders-empty-detail { display:grid; min-height:300px; place-items:center; padding:var(--space-8); border:var(--border-width) dashed var(--color-border-strong); color:var(--color-text-muted); text-align:center; }
     .orders-detail-content[hidden] { display:none; }
     @media (max-width:900px) {
-      .orders-workspace { grid-template-columns:1fr; }
-      .orders-list-panel { position:static; }
+      .orders-workspace { grid-template-columns:minmax(240px,.72fr) minmax(0,1.5fr); gap:var(--space-4); }
+      .orders-list-panel { position:sticky; top:80px; }
       .orders-detail-panel { min-height:0; }
     }
     @media (max-width:700px) {
-      .orders-workspace { gap:var(--space-4); }
-      .orders-list-panel, .orders-detail-panel { padding:var(--space-5); }
+      .orders-workspace { gap:var(--space-3); }
+      .orders-list-panel, .orders-detail-panel { padding:var(--space-3); }
       .orders-list-panel .settings-heading { gap:var(--space-3); }
       .orders-list-panel .search-row { display:grid; grid-template-columns:1fr; }
       .orders-list-panel .search-row input,
