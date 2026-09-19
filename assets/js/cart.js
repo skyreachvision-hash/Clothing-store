@@ -29,7 +29,8 @@ const getProductFromCard = (button) => {
   const productId = Number(button.dataset.productId);
   const name = card.querySelector('.product-info h3 a, .product-info h2 a')?.textContent?.trim();
   const priceText = card.querySelector('.price')?.textContent?.trim() || '';
-  const image = card.querySelector('[data-product-image], .product-image img')?.getAttribute('src')
+  const image = card.querySelector('[data-product-image]')?.style.backgroundImage?.replace(/^url\(["']?/, '').replace(/["']?\)$/, '')
+    || card.querySelector('.product-image img')?.getAttribute('src')
     || card.querySelector('.product-image')?.style.backgroundImage?.replace(/^url\(["']?/, '').replace(/["']?\)$/, '')
     || null;
   if (!Number.isInteger(productId) || productId <= 0 || !name) return null;
