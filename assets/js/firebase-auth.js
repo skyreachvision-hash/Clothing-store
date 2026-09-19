@@ -24,6 +24,10 @@ const adminLoginPath = "/admin/login/";
 const adminPath = "/admin/";
 
 async function getAdminIdToken() {
+  if (window.adminAuthReady) {
+    await window.adminAuthReady;
+  }
+
   const user = auth.currentUser;
   if (!user) throw new Error("No authenticated admin session.");
   return user.getIdToken();
