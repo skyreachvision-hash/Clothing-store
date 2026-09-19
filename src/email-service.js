@@ -17,15 +17,15 @@ function base64UrlEncode(value) {
   const bytes = new TextEncoder().encode(value);
   let binary = "";
   for (let index = 0; index < bytes.length; index += 1) binary += String.fromCharCode(bytes[index]);
-  return btoa(binary).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function normalizeHeader(value) {
-  return clean(value).replace(/[\\r\\n]/g, " ");
+  return clean(value).replace(/[\r\n]/g, " ");
 }
 
 function encodeMimeBody(value) {
-  return String(value || "").replace(/\\r?\\n/g, "\\r\\n");
+  return String(value || "").replace(/\r?\n/g, "\r\n");
 }
 
 export function getEmailSettings(storeSettingsRow) {
@@ -112,7 +112,7 @@ async function sendWithGmail(env, settings, { to, subject, html, text }) {
   ];
   if (settings.reply_to) headers.splice(3, 0, "Reply-To: " + normalizeHeader(settings.reply_to));
 
-  const mime = headers.join("\\r\\n") +
+  const mime = headers.join("\r\n") +
     "\\r\\n\\r\\n--store-email-boundary\\r\\n" +
     "Content-Type: text/plain; charset=UTF-8\\r\\nContent-Transfer-Encoding: 8bit\\r\\n\\r\\n" +
     encodeMimeBody(text) +
