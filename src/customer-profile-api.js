@@ -1,5 +1,7 @@
 import { verifyFirebaseIdToken } from "./index.js";
 
+const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
 }
