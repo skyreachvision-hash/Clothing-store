@@ -32,6 +32,34 @@
       .orders-list-panel { position:static; }
       .orders-detail-panel { min-height:0; }
     }
+    @media (max-width:700px) {
+      .orders-workspace { gap:var(--space-4); }
+      .orders-list-panel, .orders-detail-panel { padding:var(--space-5); }
+      .orders-list-panel .settings-heading { gap:var(--space-3); }
+      .orders-list-panel .search-row { display:grid; grid-template-columns:1fr; }
+      .orders-list-panel .search-row input,
+      .orders-list-panel .search-row select,
+      .orders-list-panel .search-row .button { width:100%; min-width:0; }
+      .order-list-item { grid-template-columns:minmax(0,1fr) auto; padding:var(--space-4); }
+      .order-list-item > div { min-width:0; }
+      .order-list-item h2,
+      .order-list-item p { overflow-wrap:anywhere; }
+      .order-status-badge { max-width:110px; white-space:normal; text-align:center; }
+      .orders-detail-content .settings-heading { align-items:flex-start; }
+      .orders-detail-content .settings-fields-two { grid-template-columns:1fr; }
+      .orders-detail-content .settings-panel { margin-bottom:var(--space-6); padding:var(--space-5); }
+      .orders-detail-content .settings-actions { align-items:stretch; }
+      .orders-detail-content .settings-actions .button { width:100%; }
+      .orders-detail-content .admin-panel { grid-template-columns:36px minmax(0,1fr); }
+      .orders-detail-content .admin-panel > strong { grid-column:2; justify-self:start; }
+    }
+    @media (max-width:480px) {
+      .orders-list-panel, .orders-detail-panel { padding:var(--space-4); }
+      .order-list-item { gap:var(--space-2); }
+      .order-list-item p { overflow-wrap:anywhere; }
+      .orders-detail-content .admin-panel { padding:var(--space-4); }
+      .orders-detail-content .admin-panel .panel-icon { width:36px; height:36px; }
+    }
   </style>
 </head>
 <body class="admin-page">
