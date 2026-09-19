@@ -62,7 +62,7 @@ const renderCart = (cartOverride) => {
         <h2>Order total</h2>
         <div class="cart-summary-row"><span>Subtotal</span><strong>${currency} ${subtotal.toFixed(2)}</strong></div>
         <p class="muted">Shipping and payment are calculated during checkout.</p>
-        <a class="button button-primary" href="checkout.html">Proceed to checkout</a>
+        <a class="button button-primary" href="checkout.html" data-proceed-checkout>Proceed to checkout</a>
       </aside>
     </div>`;
 };
@@ -92,3 +92,16 @@ document.addEventListener('click', (event) => {
 });
 
 renderCart();
+
+
+document.addEventListener('click', async (event) => {
+  const link = event.target.closest('[data-proceed-checkout]');
+  if (!link) return;
+  event.preventDefault();
+  try {
+    const user = window.customerAuthReady ? await window.customerAuthReady : null;
+    window.location.assign(user ? 'checkout.html' : 'account.html?redirect=checkout');
+  } catch {
+    window.location.assign('account.html?redirect=checkout');
+  }
+});
