@@ -59,10 +59,18 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
 }
 async function getToken() {
-  if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
-  const token = await window.getAdminIdToken();
-  if (!token) throw new Error('Authentication required. Please sign in again.');
-  return token;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (typeof window.getAdminIdToken === 'function') {
+      try {
+        const token = await window.getAdminIdToken();
+        if (token) return token;
+      } catch (error) {
+        if (error?.message && error.message !== 'No authenticated admin session.') throw error;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error('Authentication required. Please sign in again.');
 }
 async function apiFetch(url, options = {}) {
   const token = await getToken();
