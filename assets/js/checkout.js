@@ -174,6 +174,13 @@ document.addEventListener('submit', (event) => {
 });
 
 async function init() {
+  const user = await window.customerAuthReady;
+  if (!user) {
+    const currentPath = window.location.pathname.endsWith('/checkout.html') ? 'checkout' : 'checkout';
+    window.location.replace(`account.html?redirect=${currentPath}`);
+    return;
+  }
+
   cart = typeof readCart === 'function' ? readCart() : [];
   if (!cart.length) {
     renderCheckout();
