@@ -20,17 +20,24 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const accountPage = document.querySelector("[data-account-page]");
-const form = document.querySelector("[data-account-form]");
-const status = document.querySelector("[data-account-status]");
-const submitButton = form?.querySelector("button[type=submit]");
-const modeTitle = document.querySelector("[data-account-title]");
-const modeText = document.querySelector("[data-account-text]");
-const toggle = document.querySelector("[data-account-toggle]");
-const logout = document.querySelector("[data-account-logout]");
 let mode = "login";
 
 function setStatus(message) {
+  const status = accountPage?.querySelector("[data-account-status]");
   if (status) status.textContent = message;
+}
+
+function authErrorMessage(error) {
+  const messages = {
+    "auth/email-already-in-use": "That email already has an account. Please sign in instead.",
+    "auth/invalid-credential": "The email or password is incorrect.",
+    "auth/invalid-email": "Please enter a valid email address.",
+    "auth/weak-password": "Your password must be at least 6 characters.",
+    "auth/operation-not-allowed": "Email/password customer sign-in is not enabled in Firebase yet.",
+    "auth/network-request-failed": "The connection to customer sign-in failed. Check your internet connection and try again.",
+    "auth/too-many-requests": "Too many attempts. Please wait a moment and try again."
+  };
+  return messages[error?.code] || "Unable to complete the request. Please try again.";
 }
 
 function render(user) {
@@ -78,9 +85,7 @@ function render(user) {
       const destination = new URLSearchParams(window.location.search).get("redirect");
       window.location.assign(destination === "checkout" ? "checkout.html" : "account.html");
     } catch (error) {
-      setStatus(error?.code === "auth/invalid-credential"
-        ? "The email or password is incorrect."
-        : "Unable to complete that request. Check your details and try again.");
+      setStatus(authErrorMessage(error));
     }
   });
   accountPage.querySelector("[data-account-toggle]")?.addEventListener("click", () => {
