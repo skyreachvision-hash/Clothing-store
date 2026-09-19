@@ -19,7 +19,7 @@ export async function handleAdminCustomers(request, env) {
   }
 
   try {
-    await requireAdmin(request, env);
+    const { token } = await requireAdmin(request, env);
     const url = new URL(request.url);
     const id = clean(url.searchParams.get("firebase_uid"));
     
@@ -61,7 +61,6 @@ export async function handleAdminCustomers(request, env) {
       if (body.action === "suspend") {
         const reason = clean(body?.suspension_reason);
         if (!reason) return json({ success: false, error: "A suspension reason is required." }, 400);
-        const { token } = await requireAdmin(request, env);
         await env.DB.prepare(
           "UPDATE customer_profiles SET status = 'suspended', suspension_reason = ?, suspended_at = CURRENT_TIMESTAMP, suspended_by = ?, updated_at = CURRENT_TIMESTAMP WHERE firebase_uid = ?"
         ).bind(reason, token.sub, firebaseUid).run();
