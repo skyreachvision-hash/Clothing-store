@@ -108,7 +108,7 @@ async function handleStoreSettings(request, env) {
       notify_order_status: Boolean(incomingEmail.notify_order_status),
       notify_new_chat: Boolean(incomingEmail.notify_new_chat)
     };
-    if (!["resend"].includes(emailSettings.provider)) return jsonResponse({ success: false, error: "Unsupported email provider." }, 400);
+    if (!["resend", "gmail"].includes(emailSettings.provider)) return jsonResponse({ success: false, error: "Unsupported email provider." }, 400);
     const additionalSettings = { ...existingAdditionalSettings, hero_headline: String(body?.hero_headline ?? "").trim(), email: emailSettings };
     await env.DB.prepare(`UPDATE store_settings SET store_name = ?, logo_url = ?, tagline = ?, description = ?, contact_email = ?, contact_phone = ?, whatsapp_url = ?, address = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`).bind(...values, JSON.stringify(additionalSettings)).run();
     const socialLinks = Array.isArray(body?.social_links) ? body.social_links : []; const supportedPlatforms = new Set(["facebook", "instagram", "tiktok", "youtube", "whatsapp"]);
