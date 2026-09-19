@@ -19,11 +19,13 @@
       <fieldset class="settings-group">
         <legend>Paystack</legend>
         <div class="settings-fields">
-          <p class="muted">Provider connection setup is the next stage. No payment credentials are required on this page yet.</p>
+          <p class="muted">Configure the secure connection and choose whether Paystack is enabled for checkout.</p>
           <p class="settings-load-status">Provider: <strong>Paystack</strong></p>
           <p class="settings-load-status">Checkout status: <strong data-provider-enabled>Loading…</strong></p>
           <p class="settings-load-status">Connection status: <strong data-provider-status>Checking…</strong></p>
+          <label class="field"><span>Enable Paystack for checkout</span><span class="settings-option-control"><input type="checkbox" data-provider-enabled-toggle aria-label="Enable Paystack for checkout"><span class="settings-readonly" data-provider-toggle-label>Loading…</span></span></label>
           <p class="muted" data-provider-configure-hint>Checking secure configuration…</p>
+          <div class="settings-actions"><span class="settings-load-status" data-provider-save-status aria-live="polite"></span><button class="button button-primary" type="button" data-provider-save disabled>Save Paystack settings</button></div>
         </div>
       </fieldset>
     </section>
@@ -31,6 +33,10 @@
     const status = document.querySelector("[data-provider-status]");
     const enabled = document.querySelector("[data-provider-enabled]");
     const configureHint = document.querySelector("[data-provider-configure-hint]");
+    const toggle = document.querySelector("[data-provider-enabled-toggle]");
+    const toggleLabel = document.querySelector("[data-provider-toggle-label]");
+    const saveButton = document.querySelector("[data-provider-save]");
+    const saveStatus = document.querySelector("[data-provider-save-status]");
 
     async function loadProviderStatus() {
       try {
@@ -44,7 +50,10 @@
         if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to load Paystack configuration.");
         const provider = payload.data;
         if (enabled) enabled.textContent = provider.is_enabled ? "Enabled for checkout" : "Not enabled for checkout";
+        if (toggle) toggle.checked = Boolean(provider.is_enabled);
+        if (toggleLabel) toggleLabel.textContent = provider.is_enabled ? "Enabled" : "Disabled";
         if (status) status.textContent = provider.secret_configured ? "Secret key configured" : "Secret key not configured";
+        if (saveButton) saveButton.disabled = false;
         if (configureHint) configureHint.textContent = provider.secret_configured
           ? "The Paystack secret is present server-side. It is never displayed here."
           : "Add the Paystack secret as a Cloudflare Worker Secret named PAYSTACK_SECRET_KEY before enabling Paystack for checkout.";
@@ -53,6 +62,42 @@
         if (configureHint) configureHint.textContent = "The secure configuration status could not be loaded.";
       }
     }
+
+    toggle?.addEventListener("change", () => {
+      if (toggleLabel) toggleLabel.textContent = toggle.checked ? "Enabled" : "Disabled";
+    });
+
+    saveButton?.addEventListener("click", async () => {
+      saveButton.disabled = true;
+      if (saveStatus) saveStatus.textContent = "Saving…";
+      try {
+        await window.adminAuthReady;
+        const token = await window.getAdminIdToken();
+        const response = await fetch("/api/payment-settings", {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            providers: [{
+              provider_key: "paystack",
+              is_enabled: Boolean(toggle?.checked),
+              sort_order: 1
+            }]
+          })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.success) throw new Error(payload.error || "Unable to save Paystack settings.");
+        if (saveStatus) saveStatus.textContent = "Paystack settings saved.";
+        loadProviderStatus();
+      } catch (error) {
+        if (saveStatus) saveStatus.textContent = error.message || "Unable to save settings.";
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
 
     loadProviderStatus();
   </script>
