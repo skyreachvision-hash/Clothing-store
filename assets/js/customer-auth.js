@@ -38,7 +38,8 @@ function authErrorMessage(error) {
     "auth/too-many-requests": "Too many attempts. Please wait a moment and try again."
   };
   if (error?.code === "auth/unauthorized-domain") return "This website is not authorized in Firebase Authentication. Add the current website domain under Firebase Authentication → Settings → Authorized domains.";
-  if (error?.code === "auth/invalid-api-key") return "Firebase rejected the project API key. Please verify the Firebase configuration".\n  return error?.code ? `Unable to complete the request (${error.code}). Please try again.` : "Unable to complete the request. Please try again.";
+  if (error?.code === "auth/invalid-api-key") return "Firebase rejected the project API key. Please verify the Firebase configuration".
+  return error?.code ? `Unable to complete the request (${error.code}). Please try again.` : "Unable to complete the request. Please try again.";
 }
 
 function render(user) {
