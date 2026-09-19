@@ -63,9 +63,16 @@ async function saveCustomerProfile(user, form) {
     },
     body: JSON.stringify(details)
   });
-  const payload = await response.json().catch(() => ({}));
+  const responseText = await response.text();
+  let payload = {};
+  try {
+    payload = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    payload = {};
+  }
   if (!response.ok || !payload.success) {
-    throw new Error(payload.error || "Unable to save your customer information.");
+    const detail = payload.error || responseText || `HTTP ${response.status}`;
+    throw new Error(`Customer profile request failed: ${detail}`);
   }
   return payload.data || details;
 }
