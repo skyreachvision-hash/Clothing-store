@@ -122,7 +122,10 @@ async function handleInitialize(request, env) {
   ).run();
 
   try {
-    const origin = new URL(request.url).origin;
+    // Return customers to the storefront that initiated checkout, rather than the API Worker origin.
+    // The browser supplies the storefront origin on the same-origin /api/payment/initialize request.
+    const requestOrigin = clean(request.headers.get("Origin"));
+    const origin = requestOrigin || new URL(request.url).origin;
     const query = "?reference=" + encodeURIComponent(reference);
 
     const yocoResponse = await fetch("https://payments.yoco.com/api/checkouts", {
