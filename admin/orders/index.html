@@ -35,6 +35,14 @@
     .order-list-item p:last-child { margin-bottom:0; }
     .order-status-badge { align-self:start; padding:var(--space-1) var(--space-2); background:var(--color-surface-muted); font-size:var(--font-size-xs); font-weight:var(--font-weight-bold); text-transform:capitalize; white-space:nowrap; }
     body.orders-drawer-open { overflow:hidden; }
+    @media (min-width:701px) {
+      .orders-workspace { display:grid; grid-template-columns:minmax(250px,.72fr) minmax(0,1.7fr); gap:var(--space-6); align-items:start; }
+      .orders-detail-panel { min-width:0; }
+      .orders-drawer { position:static; z-index:auto; width:auto; max-height:calc(100vh - 140px); padding:var(--space-6); transform:none; overflow-y:auto; border:var(--border-width) solid var(--color-border); box-shadow:none; }
+      .orders-drawer-backdrop { display:none !important; }
+      .orders-drawer-toggle { display:none; }
+      .orders-drawer-header { position:sticky; top:calc(-1 * var(--space-6)); padding-top:var(--space-1); background:var(--color-surface); z-index:1; }
+    }
     @media (max-width:700px) {
       .orders-detail-toolbar { align-items:stretch; flex-direction:column; }
       .orders-drawer { width:min(430px,94vw); padding:var(--space-5); }
@@ -113,10 +121,8 @@
           </form>
         </div>
       </section>
-    </div>
-
-    <div class="orders-drawer-backdrop" data-orders-backdrop hidden></div>
-    <aside class="orders-drawer" id="orders-drawer" data-orders-drawer aria-hidden="true">
+      <div class="orders-drawer-backdrop" data-orders-backdrop hidden></div>
+      <aside class="orders-drawer" id="orders-drawer" data-orders-drawer aria-hidden="true">
       <div class="orders-drawer-header">
         <div><p class="eyebrow">Order selector</p><h2>Orders</h2></div>
         <button class="button button-outline button-small" type="button" data-orders-close aria-label="Close orders selector">Close</button>
@@ -140,7 +146,8 @@
         </form>
       </div>
       <div class="orders-list" data-order-list></div>
-    </aside>
+      </aside>
+    </div>
   </div></main>
 
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
