@@ -21,10 +21,20 @@ const api = async (url, options = {}) => {
 async function load() {
   const data = await api("/api/customer-communications");
   const conversations = Array.isArray(data.data) ? data.data : [];
-  page.innerHTML = '<div class="account-card customer-chat"><div class="settings-heading"><div><p class="eyebrow">Customer care</p><h1>Live Chat</h1><p class="muted">Ask a question before or after your purchase.</p></div><a class="button button-outline" href="account.html">Back to Account</a></div><div class="customer-chat-layout"><section class="settings-panel customer-chat-list"><div class="settings-heading"><h2>Conversations</h2><button class="button button-outline" type="button" data-new>New chat</button></div><div data-list></div></section><section class="settings-panel customer-chat-panel" data-panel><div class="chat-empty"><h2>Select a conversation</h2><p class="muted">Choose a conversation or start a new chat.</p></div></section></div></div>';
+  page.innerHTML = '<div class="account-card customer-chat"><div class="settings-heading"><div><p class="eyebrow">Customer care</p><h1>Live Chat</h1><p class="muted">Ask a question before or after your purchase.</p></div><a class="button button-outline" href="account.html">Back to Account</a></div><section class="settings-panel customer-chat-panel" data-panel><div class="chat-empty"><button class="button button-outline" type="button" data-conversations-toggle>Conversations</button><h2>Select a conversation</h2><p class="muted">Choose a conversation or start a new chat.</p></div></section><div class="customer-chat-drawer-backdrop" data-customer-chat-backdrop hidden></div><aside class="customer-chat-drawer" data-customer-chat-drawer aria-hidden="true"><div class="customer-chat-drawer-header"><div><p class="eyebrow">Customer care</p><h2>Conversations</h2></div><button class="button button-outline button-small" type="button" data-conversations-close>Close</button></div><div class="customer-chat-drawer-tools"><button class="button button-primary" type="button" data-new>New chat</button></div><div data-list></div></aside></div>';
   const list = page.querySelector("[data-list]");
+  const drawer = page.querySelector("[data-customer-chat-drawer]");
+  const backdrop = page.querySelector("[data-customer-chat-backdrop]");
+  const toggle = page.querySelector("[data-conversations-toggle]");
+  const close = page.querySelector("[data-conversations-close]");
+  const setDrawer = open => { drawer.classList.toggle("is-open", open); backdrop.hidden = !open; backdrop.classList.toggle("is-visible", open); drawer.setAttribute("aria-hidden", String(!open)); toggle.setAttribute("aria-expanded", String(open)); document.body.classList.toggle("customer-chat-drawer-open", open); if (open) setTimeout(() => drawer.querySelector("[data-new]")?.focus(), 80); };
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.onclick = () => setDrawer(true);
+  close.onclick = () => setDrawer(false);
+  backdrop.onclick = () => setDrawer(false);
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && drawer.classList.contains("is-open")) setDrawer(false); });
   list.innerHTML = conversations.length ? conversations.map(c => '<button class="customer-chat-conversation" type="button" data-id="' + c.id + '"><strong>' + esc(c.subject || "Customer question") + '</strong><small>' + esc(c.status) + '</small></button>').join("") : '<p class="muted">No conversations yet.</p>';
-  list.onclick = event => { const id = event.target.closest("[data-id]")?.dataset.id; if (id) openConversation(Number(id)); };
+  list.onclick = event => { const id = event.target.closest("[data-id]")?.dataset.id; if (id) { setDrawer(false); openConversation(Number(id)); } };
   page.querySelector("[data-new]").onclick = newConversation;
 }
 
