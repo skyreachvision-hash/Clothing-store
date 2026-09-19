@@ -6,6 +6,8 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+window.getCustomerIdToken = async () => { const user = auth.currentUser; if (!user) throw new Error("No authenticated customer session."); return user.getIdToken(); };
+
 window.customerAuthReady = new Promise((resolve) => {
   onAuthStateChanged(auth, (user) => resolve(user));
 });
