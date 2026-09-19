@@ -96,6 +96,7 @@ function escapeHtml(value) {
 }
 
 async function getToken() {
+  if (window.adminAuthReady) await window.adminAuthReady;
   if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
   const token = await window.getAdminIdToken();
   if (!token) throw new Error('Authentication required. Please sign in again.');
