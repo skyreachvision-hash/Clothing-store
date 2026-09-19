@@ -173,8 +173,16 @@ document.addEventListener('submit', (event) => {
   notice.textContent = `Delivery selected: ${method.name} — ${option.name}. Payment integration is the next step.`;
 });
 
+async function getCustomerUser() {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (window.customerAuthReady) return window.customerAuthReady;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error('Customer authentication is unavailable.');
+}
+
 async function init() {
-  const user = await window.customerAuthReady;
+  const user = await getCustomerUser();
   if (!user) {
     const currentPath = window.location.pathname.endsWith('/checkout.html') ? 'checkout' : 'checkout';
     window.location.replace(`account.html?redirect=${currentPath}`);
