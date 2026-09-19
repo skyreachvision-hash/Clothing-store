@@ -16,6 +16,32 @@ async function loadShippingMethods() {
   shippingMethods = Array.isArray(payload.data) ? payload.data : [];
 }
 
+async function getCustomerProfile() {
+  const token = await window.getCustomerIdToken();
+  const response = await fetch('/api/customer-profile', { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load your saved details.');
+  return payload.data || {};
+}
+
+function populateCustomerProfile(profile) {
+  const form = document.querySelector('[data-checkout-form]');
+  if (!form) return;
+  for (const field of ['full_name','email','phone','address','city','province','postal_code','country']) {
+    const input = form.elements[field];
+    if (input && profile[field]) input.value = profile[field];
+  }
+}
+
+async function saveCustomerProfile(form) {
+  const token = await window.getCustomerIdToken();
+  const details = Object.fromEntries(new FormData(form).entries());
+  const response = await fetch('/api/customer-profile', { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(details) });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to save your details.');
+  return payload.data;
+}
+
 function selectedShipping() {
   const form = document.querySelector('[data-checkout-form]');
   if (!form) return { method: null, option: null };
@@ -163,6 +189,7 @@ document.addEventListener('submit', (event) => {
   }
 
   const details = Object.fromEntries(new FormData(form).entries());
+  saveCustomerProfile(form).catch(() => {});
   details.shipping_method_name = method.name;
   details.shipping_provider_type = method.provider_type;
   details.shipping_mode = method.mode;
@@ -197,6 +224,7 @@ async function init() {
   try {
     await loadShippingMethods();
     renderCheckout();
+    try { const profile = await getCustomerProfile(); populateCustomerProfile(profile); } catch {}
   } catch (error) {
     checkoutPageElement.innerHTML = `
       <div class="checkout-empty">
