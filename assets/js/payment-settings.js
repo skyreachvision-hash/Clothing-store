@@ -9,12 +9,17 @@ function setStatus(message) {
 
 function renderProviders(providers) {
   if (!list) return;
-  list.innerHTML = providers.map((provider) => `
-    <label class="settings-option">
-      <input type="checkbox" name="payment_provider" value="${provider.provider_key}" ${provider.is_enabled ? "checked" : ""}>
-      <span><strong>${provider.display_name}</strong><small>Allow customers to use this payment provider at checkout.</small></span>
-    </label>
-  `).join("");
+  list.innerHTML = providers.map((provider) =>
+    '<a class="settings-option payment-provider-option" href="/admin/settings/payments/' +
+    encodeURIComponent(provider.provider_key) +
+    '/"><span><strong>' +
+    provider.display_name +
+    '</strong><small>' +
+    (provider.is_enabled ? "Enabled for checkout." : "Not enabled for checkout.") +
+    '</small></span><span class="settings-readonly">' +
+    (provider.is_enabled ? "Enabled" : "Configure") +
+    '</span></a>'
+  ).join("");
 }
 
 async function loadPaymentSettings() {
