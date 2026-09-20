@@ -47,6 +47,18 @@
 
     <section class="settings-panel" aria-labelledby="catalogue-title">
       <div class="settings-heading"><div><h2 id="catalogue-title">Catalogue</h2><p class="muted">Products currently stored in the catalogue.</p></div><button class="button button-outline" type="button" data-refresh-products>Refresh</button></div>
+      <div class="settings-fields settings-fields-two" aria-label="Product filters">
+        <label class="field">
+          <span>Search products</span>
+          <input type="search" data-product-search placeholder="Search by product name or SKU" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Filter by category</span>
+          <select data-product-category-filter>
+            <option value="">All categories</option>
+          </select>
+        </label>
+      </div>
       <div class="settings-notice" data-list-status role="status">Loading products…</div>
       <div class="admin-sections" data-products-list></div>
     </section>
@@ -61,6 +73,8 @@
     const formStatus = document.querySelector('[data-form-status]');
     const listStatus = document.querySelector('[data-list-status]');
     const list = document.querySelector('[data-products-list]');
+    const productSearch = document.querySelector('[data-product-search]');
+    const categoryFilter = document.querySelector('[data-product-category-filter]');
     const categorySelect = form.elements.category_id;
     const imageInput = form.elements.images;
     const imageSelection = document.querySelector('[data-image-selection]');
@@ -95,6 +109,18 @@
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load categories.');
 
       const categories = Array.isArray(payload.data) ? payload.data : [];
+
+      categoryFilter.innerHTML = '<option value="">All categories</option>';
+      const filterCategories = [...categories]
+        .filter((category) => Number(category.is_enabled) === 1)
+        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')) || Number(a.id) - Number(b.id));
+      for (const category of filterCategories) {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = category.name;
+        categoryFilter.append(option);
+      }
+
       const mainCategories = categories
         .filter((category) => Number(category.is_main_category) === 1 && Number(category.is_enabled) === 1)
         .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
@@ -145,7 +171,7 @@
         const results = await Promise.all(['draft', 'active', 'archived'].map((status) => apiFetch(`/api/products?status=${status}&limit=100`)));
         products = results.flatMap((result) => result.data?.products || []).sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id));
         renderProducts();
-        listStatus.textContent = products.length ? `${products.length} product${products.length === 1 ? '' : 's'} loaded.` : 'No products yet. Add your first product above.';
+        updateListStatus();
       } catch (error) {
         listStatus.textContent = error.message;
       }
@@ -155,9 +181,43 @@
       return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
     }
 
+    function getFilteredProducts() {
+      const query = productSearch.value.trim().toLowerCase();
+      const categoryId = categoryFilter.value;
+      return products.filter((product) => {
+        const matchesSearch = !query
+          || String(product.name || '').toLowerCase().includes(query)
+          || String(product.sku || '').toLowerCase().includes(query);
+        const matchesCategory = !categoryId || String(product.category_id || '') === String(categoryId);
+        return matchesSearch && matchesCategory;
+      });
+    }
+
+    function updateListStatus() {
+      const filteredProducts = getFilteredProducts();
+      if (!products.length) {
+        listStatus.textContent = 'No products yet. Add your first product above.';
+        return;
+      }
+      const filtersActive = productSearch.value.trim() || categoryFilter.value;
+      listStatus.textContent = filtersActive
+        ? filteredProducts.length + ' of ' + products.length + ' products shown.'
+        : products.length + ' product' + (products.length === 1 ? '' : 's') + ' loaded.';
+    }
+
     function renderProducts() {
       list.innerHTML = '';
-      for (const product of products) {
+      const filteredProducts = getFilteredProducts();
+      if (!filteredProducts.length) {
+        const empty = document.createElement('p');
+        empty.className = 'muted';
+        empty.textContent = products.length ? 'No products match the current search or category filter.' : '';
+        list.append(empty);
+        updateListStatus();
+        return;
+      }
+
+      for (const product of filteredProducts) {
         const panel = document.createElement('section');
         panel.className = 'admin-panel';
         const imageCount = Array.isArray(product.images) ? product.images.length : 0;
@@ -279,6 +339,8 @@
     });
 
     imageInput.addEventListener('change', updateImageSelectionText);
+    productSearch.addEventListener('input', renderProducts);
+    categoryFilter.addEventListener('change', renderProducts);
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
