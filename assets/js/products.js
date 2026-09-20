@@ -33,7 +33,7 @@ const renderProducts = (products) => {
 
     const productLink = document.createElement('a');
     productLink.className = 'product-image';
-    productLink.href = '#cart';
+    productLink.href = 'product.html?id=' + encodeURIComponent(product.id);
     productLink.setAttribute('aria-label', `View ${product.name}`);
 
     const imageUrl = getPrimaryImage(product);
@@ -57,7 +57,7 @@ const renderProducts = (products) => {
 
     const info = document.createElement('div');
     info.className = 'product-info';
-    info.innerHTML = `<div><p class="product-category">${escapeHtml(product.category_name || 'Uncategorized')}</p><h3><a href="#cart">${escapeHtml(product.name)}</a></h3></div><strong class="price">${formatPrice(product)}</strong>`;
+    info.innerHTML = `<div><p class="product-category">${escapeHtml(product.category_name || 'Uncategorized')}</p><h3><a href="product.html?id=${encodeURIComponent(product.id)}">${escapeHtml(product.name)}</a></h3></div><strong class="price">${formatPrice(product)}</strong>`;
 
     const action = document.createElement('button');
     action.className = 'product-action';
