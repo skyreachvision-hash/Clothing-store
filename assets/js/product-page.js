@@ -8,6 +8,8 @@ const mainImageElement = document.querySelector('[data-product-main-image]');
 const thumbnailsElement = document.querySelector('[data-product-thumbnails]');
 const statusElement = document.querySelector('[data-product-status]');
 const addButton = document.querySelector('[data-add-to-cart]');
+const relatedSection = document.querySelector('[data-related-products-section]');
+const relatedProductsElement = document.querySelector('[data-related-products]');
 let loadedProduct = null;
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
@@ -24,6 +26,32 @@ const formatPrice = (product) => {
   const currency = String(product?.currency || 'ZAR').toUpperCase();
   return Number.isFinite(amount) ? currency + ' ' + amount.toFixed(2) : currency + ' 0.00';
 };
+
+function getPrimaryImage(product) {
+  const images = getImages(product);
+  return images[0]?.image_url || '';
+}
+
+function renderRelatedProducts(product) {
+  if (!relatedSection || !relatedProductsElement) return;
+  const related = Array.isArray(product?.related_products) ? product.related_products : [];
+  if (!related.length) {
+    relatedSection.hidden = true;
+    relatedProductsElement.innerHTML = '';
+    return;
+  }
+  relatedProductsElement.innerHTML = related.map((item) => {
+    const image = getPrimaryImage(item);
+    const imageMarkup = image
+      ? '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(item.name) + '" loading="lazy">'
+      : '<span class="product-image-placeholder">No image</span>';
+    return '<article class="product-card">' +
+      '<a class="product-image" href="product.html?id=' + encodeURIComponent(item.id) + '" aria-label="View ' + escapeHtml(item.name) + '">' + imageMarkup + '</a>' +
+      '<div class="product-info"><div><p class="product-category">' + escapeHtml(item.product_group_name || 'Related product') + '</p><h3><a href="product.html?id=' + encodeURIComponent(item.id) + '">' + escapeHtml(item.name) + '</a></h3></div><strong class="price">' + formatPrice(item) + '</strong></div>' +
+      '</article>';
+  }).join('');
+  relatedSection.hidden = false;
+}
 
 function renderGallery(product) {
   const images = getImages(product);
@@ -71,6 +99,7 @@ async function loadProduct() {
     addButton.setAttribute('aria-label', 'Add ' + product.name + ' to cart');
   }
   renderGallery(product);
+  renderRelatedProducts(product);
   statusElement.textContent = product.track_stock && Number(product.stock_quantity) <= 0 ? 'Out of stock' : 'Available';
   if (product.track_stock && Number(product.stock_quantity) <= 0 && addButton) addButton.disabled = true;
   document.title = product.name + ' | Clothing Store';
