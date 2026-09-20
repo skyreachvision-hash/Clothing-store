@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="View product details." data-product-meta-description>
+  <title>Product | Clothing Store</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="assets/js/site.js" defer></script>
+  <script src="assets/js/cart.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html" aria-label="Clothing Store home" data-store-name>Clothing Store</a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation"><span class="sr-only">Toggle navigation</span><span aria-hidden="true">☰</span></button>
+      <nav id="primary-navigation" class="site-nav" aria-label="Primary navigation">
+        <a href="index.html#categories">Shop</a><a href="index.html#categories">Collections</a><a href="index.html#story">Our story</a>
+        <button class="header-icon" type="button" data-search-toggle aria-label="Open search">⌕</button>
+        <a class="account-link" href="#account"><span aria-hidden="true">○</span><span class="account-label">Account</span></a>
+        <a class="cart-link" href="cart.html" aria-label="Shopping cart"><span aria-hidden="true">Cart</span><span class="cart-count">0</span></a>
+      </nav>
+    </div>
+  </header>
+  <main id="main-content">
+    <section class="section">
+      <div class="container">
+        <div class="product-detail-layout">
+          <div class="product-gallery" aria-label="Product pictures">
+            <div class="product-gallery-main"><img data-product-main-image src="" alt="" loading="eager"></div>
+            <div class="product-gallery-thumbs" data-product-thumbnails></div>
+          </div>
+          <div class="product-detail-copy">
+            <p class="eyebrow" data-product-category>Loading…</p>
+            <h1 data-product-title>Loading…</h1>
+            <p class="product-detail-price" data-product-price></p>
+            <p class="muted" data-product-status>Loading product…</p>
+            <div class="settings-group"><p data-product-description class="section-intro"></p></div>
+            <button class="button button-primary" type="button" data-add-to-cart>Add to cart <span aria-hidden="true">+</span></button>
+            <p><a class="button button-ghost" href="index.html#categories">Continue shopping</a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="container footer-bottom"><p>© <span data-current-year>2026</span> <span data-store-name>Clothing Store</span>. All rights reserved.</p></div></footer>
+  <script type="module" src="assets/js/customer-nav.js"></script>
+  <script src="assets/js/product-page.js" defer></script>
+</body>
+</html>
