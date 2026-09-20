@@ -94,15 +94,15 @@ async function sendWithGoogleAppsScript(env, settings, { to, subject, html, text
     text: String(text || ""),
     sender_name: settings.sender_name,
     sender_email: settings.sender_email,
-    reply_to: settings.reply_to
+    reply_to: settings.reply_to,
+    secret
   };
 
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Accept: "application/json",
-      "X-Store-Email-Secret": secret
+      Accept: "application/json"
     },
     body: JSON.stringify(payload)
   });
