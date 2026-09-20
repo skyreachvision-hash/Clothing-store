@@ -76,6 +76,12 @@
             <option value="">All categories</option>
           </select>
         </label>
+        <label class="field">
+          <span>Filter by Product Group</span>
+          <select data-product-group-filter>
+            <option value="">All product groups</option>
+          </select>
+        </label>
       </div>
       <div class="settings-notice" data-list-status role="status">Loading products…</div>
       <div class="admin-sections" data-products-list></div>
@@ -104,6 +110,7 @@
     const list = document.querySelector('[data-products-list]');
     const productSearch = document.querySelector('[data-product-search]');
     const categoryFilter = document.querySelector('[data-product-category-filter]');
+    const groupFilter = document.querySelector('[data-product-group-filter]');
     const categorySelect = form.elements.category_id;
     const imageInput = form.elements.images;
     const imageSelection = document.querySelector('[data-image-selection]');
@@ -214,40 +221,28 @@ async function getToken() {
         .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
 
       categorySelect.innerHTML = '<option value="">Uncategorized</option>';
-
-      const categoriesByMain = new Map(mainCategories.map((main) => [Number(main.id), []]));
-      const unassigned = [];
+      groupCategorySelect.innerHTML = '<option value="">No category</option>';
+      const enabled = categories.filter((item) => Number(item.is_enabled) === 1).sort((a,b) => Number(a.sort_order)-Number(b.sort_order) || Number(a.id)-Number(b.id));
+      const mainCategories = enabled.filter((item) => Number(item.is_main_category) === 1);
+      const regularCategories = enabled.filter((item) => Number(item.is_main_category) !== 1);
+      const childrenByMain = new Map(mainCategories.map((main) => [Number(main.id), []]));
       for (const category of regularCategories) {
-        const mainId = Number(category.parent_id);
-        if (mainId && categoriesByMain.has(mainId)) categoriesByMain.get(mainId).push(category);
-        else unassigned.push(category);
+        const parent = Number(category.parent_id);
+        if (parent && childrenByMain.has(parent)) childrenByMain.get(parent).push(category);
       }
-
       for (const main of mainCategories) {
-        const children = categoriesByMain.get(Number(main.id)) || [];
-        if (!children.length) continue;
-        const group = document.createElement('optgroup');
-        group.label = main.name;
-        for (const category of children) {
-          const option = document.createElement('option');
-          option.value = category.id;
-          option.textContent = category.name;
-          group.append(option);
+        const group = document.createElement('optgroup'); group.label = main.name;
+        const mainOption = document.createElement('option'); mainOption.value = main.id; mainOption.textContent = main.name; groupCategorySelect.append(mainOption);
+        for (const category of childrenByMain.get(Number(main.id)) || []) {
+          const option = document.createElement('option'); option.value = category.id; option.textContent = '↳ ' + category.name; groupCategorySelect.append(option);
+          const productOption = document.createElement('option'); productOption.value = category.id; productOption.textContent = category.name; categorySelect.append(productOption);
         }
-        categorySelect.append(group);
+      }
+      const unattached = regularCategories.filter((category) => !Number(category.parent_id) || !childrenByMain.has(Number(category.parent_id)));
+      for (const category of unattached) {
+        const option = document.createElement('option'); option.value = category.id; option.textContent = category.name; groupCategorySelect.append(option); categorySelect.append(option.cloneNode(true));
       }
 
-      if (unassigned.length) {
-        const group = document.createElement('optgroup');
-        group.label = 'Other categories';
-        for (const category of unassigned) {
-          const option = document.createElement('option');
-          option.value = category.id;
-          option.textContent = category.name;
-          group.append(option);
-        }
-        categorySelect.append(group);
-      }
     }
 
     async function loadProductGroups() {
@@ -260,6 +255,8 @@ async function getToken() {
         option.textContent = group.name + ' (' + (group.relationship_type === 'size' ? 'Size' : 'Color') + ')';
         productGroupSelect.append(option);
       }
+      groupFilter.innerHTML = '<option value="">All product groups</option>';
+      for (const group of productGroups) { const option = document.createElement('option'); option.value = group.id; option.textContent = group.name; groupFilter.append(option); }
       groupsList.innerHTML = '';
       if (!productGroups.length) { groupsList.innerHTML = '<p class="muted">No product groups yet.</p>'; return; }
       for (const group of productGroups) {
@@ -317,12 +314,14 @@ async function getToken() {
     function getFilteredProducts() {
       const query = productSearch.value.trim().toLowerCase();
       const categoryId = categoryFilter.value;
+      const groupId = groupFilter.value;
       return products.filter((product) => {
         const matchesSearch = !query
           || String(product.name || '').toLowerCase().includes(query)
           || String(product.sku || '').toLowerCase().includes(query);
         const matchesCategory = !categoryId || String(product.category_id || '') === String(categoryId);
-        return matchesSearch && matchesCategory;
+        const matchesGroup = !groupId || String(product.product_group_id || '') === String(groupId);
+        return matchesSearch && matchesCategory && matchesGroup;
       });
     }
 
@@ -332,7 +331,7 @@ async function getToken() {
         listStatus.textContent = 'No products yet. Add your first product above.';
         return;
       }
-      const filtersActive = productSearch.value.trim() || categoryFilter.value;
+      const filtersActive = productSearch.value.trim() || categoryFilter.value || groupFilter.value;
       listStatus.textContent = filtersActive
         ? filteredProducts.length + ' of ' + products.length + ' products shown.'
         : products.length + ' product' + (products.length === 1 ? '' : 's') + ' loaded.';
@@ -481,6 +480,7 @@ async function getToken() {
     imageInput.addEventListener('change', updateImageSelectionText);
     productSearch.addEventListener('input', renderProducts);
     categoryFilter.addEventListener('change', renderProducts);
+    groupFilter.addEventListener('change', renderProducts);
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
