@@ -33,11 +33,11 @@ const renderProductCard = (product) => {
   const badge = product.status === 'active' && product.is_new ? '<span class="product-badge">New</span>' : '';
 
   return `<article class="product-card">
-    <a class="product-image" href="#cart" aria-label="View ${escapeHtml(product.name)}">
+    <a class="product-image" href="product.html?id=${encodeURIComponent(product.id)}" aria-label="View ${escapeHtml(product.name)}">
       ${imageContent}${badge}
     </a>
     <div class="product-info">
-      <div><p class="product-category">${escapeHtml(product.category_name || 'Uncategorized')}</p><h2><a href="#cart">${escapeHtml(product.name)}</a></h2></div>
+      <div><p class="product-category">${escapeHtml(product.category_name || 'Uncategorized')}</p><h2><a href="product.html?id=${encodeURIComponent(product.id)}">${escapeHtml(product.name)}</a></h2></div>
       <strong class="price">${formatPrice(product)}</strong>
     </div>
     <button class="product-action" type="button" data-add-to-cart data-product-id="${escapeHtml(product.id)}" aria-label="Add ${escapeHtml(product.name)} to cart">Add to cart <span aria-hidden="true">+</span></button>
