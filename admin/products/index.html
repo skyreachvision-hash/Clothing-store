@@ -122,11 +122,21 @@
     function renderGroupOptionInputs(options = []) {
       groupOptionsContainer.innerHTML = '';
       const values = options.length ? options : [{value:'',sku:'',quantity:0}];
+      const colorOptions = ['Black','White','Red','Blue','Green','Yellow','Orange','Purple','Pink','Brown','Grey','Beige','Navy','Maroon','Burgundy','Cream','Khaki','Olive','Teal','Turquoise','Gold','Silver'];
       values.forEach((option) => {
         const row = document.createElement('div');
         row.className = 'settings-fields settings-fields-two';
         row.dataset.groupOptionRow = '';
-        row.innerHTML = '<label class="field"><span>Option</span><input data-option-value type="text" maxlength="80" placeholder="' + (groupTypeSelect.value === 'size' ? 'e.g. M' : 'e.g. Black') + '" value="' + escapeHtml(option.value || '') + '"></label><label class="field"><span>SKU</span><input data-option-sku type="text" maxlength="80" placeholder="Option SKU" value="' + escapeHtml(option.sku || '') + '"></label><label class="field"><span>Quantity</span><input data-option-quantity type="number" min="0" step="1" value="' + Number(option.quantity || 0) + '"></label><div class="field"><button class="button button-small button-outline" type="button" data-remove-group-option>Remove</button></div>';
+        const currentValue = String(option.value || '');
+        let optionField = '';
+        if (groupTypeSelect.value === 'color') {
+          const known = colorOptions.includes(currentValue);
+          const choices = known || !currentValue ? colorOptions : [currentValue, ...colorOptions];
+          optionField = '<label class="field"><span>Color</span><select data-option-value>' + choices.map((color) => '<option value="' + escapeHtml(color) + '"' + (color === currentValue ? ' selected' : '') + '>' + escapeHtml(color) + '</option>').join('') + '</select></label>';
+        } else {
+          optionField = '<label class="field"><span>Option</span><input data-option-value type="text" maxlength="80" placeholder="e.g. M" value="' + escapeHtml(currentValue) + '"></label>';
+        }
+        row.innerHTML = optionField + '<label class="field"><span>SKU</span><input data-option-sku type="text" maxlength="80" placeholder="Option SKU" value="' + escapeHtml(option.sku || '') + '"></label><label class="field"><span>Quantity</span><input data-option-quantity type="number" min="0" step="1" value="' + Number(option.quantity || 0) + '"></label><div class="field"><button class="button button-small button-outline" type="button" data-remove-group-option>Remove</button></div>';
         groupOptionsContainer.append(row);
       });
     }
