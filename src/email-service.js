@@ -77,6 +77,48 @@ async function sendWithResend(env, settings, { to, subject, html, text }) {
   return { sent: true, id: String(result.id), provider: "resend" };
 }
 
+
+
+async function sendWithGoogleAppsScript(env, settings, { to, subject, html, text }) {
+  const endpoint = clean(env.GOOGLE_APPS_SCRIPT_URL);
+  const secret = clean(env.GOOGLE_APPS_SCRIPT_SECRET);
+  const recipient = clean(to);
+  if (!endpoint) throw new Error("Google Apps Script endpoint is not configured.");
+  if (!secret) throw new Error("Google Apps Script secret is not configured.");
+  if (!recipient) throw new Error("Recipient email is required.");
+
+  const payload = {
+    to: recipient,
+    subject: clean(subject),
+    html: String(html || ""),
+    text: String(text || ""),
+    sender_name: settings.sender_name,
+    sender_email: settings.sender_email,
+    reply_to: settings.reply_to
+  };
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Store-Email-Secret": secret
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result?.success !== true) {
+    throw new Error(result?.message || "Google Apps Script email delivery failed.");
+  }
+
+  return {
+    sent: true,
+    id: String(result.id || "google-apps-script"),
+    provider: "google_apps_script"
+  };
+}
+
 async function getGoogleAccessToken(env) {
   if (!env.GOOGLE_GMAIL_CLIENT_ID || !env.GOOGLE_GMAIL_CLIENT_SECRET || !env.GOOGLE_GMAIL_REFRESH_TOKEN) {
     throw new Error("Google Gmail credentials are not configured.");
@@ -158,6 +200,9 @@ export async function sendTransactionalEmail(env, { to, subject, html, text, not
   }
   if (settings.provider === "gmail") {
     return sendWithGmail(env, settings, { to, subject, html, text });
+  }
+  if (settings.provider === "google_apps_script") {
+    return sendWithGoogleAppsScript(env, settings, { to, subject, html, text });
   }
   throw new Error("Unsupported email provider.");
 }
