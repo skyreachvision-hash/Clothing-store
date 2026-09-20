@@ -196,7 +196,7 @@
         sku: row.querySelector('[data-option-sku]').value.trim(),
         autoSku: row.querySelector('[data-option-sku]').dataset.autoSku === 'true',
         quantity: Number(row.querySelector('[data-option-quantity]').value || 0)
-      })).filter((option) => option.value);
+      }));
     }
     function updateProductGroupOptions(selectedId = '') {
       const group = getSelectedGroup();
@@ -339,11 +339,12 @@ async function getToken() {
     createGroupButton.addEventListener('click', async () => {
       const name = groupNameInput.value.trim(), relationship_type = groupTypeSelect.value, category_id = groupCategorySelect.value || null, options = readGroupOptions();
       if (!name) { groupStatus.textContent = 'Enter a group name.'; return; }
-      if (!options.length) { groupStatus.textContent = 'Add at least one group option.'; return; }
-      if (options.some((option) => option.quantity < 0)) { groupStatus.textContent = 'Each option needs a valid quantity.'; return; }
+      const validOptions = options.filter((option) => option.value);
+      if (!validOptions.length) { groupStatus.textContent = 'Add at least one group option.'; return; }
+      if (validOptions.some((option) => option.quantity < 0)) { groupStatus.textContent = 'Each option needs a valid quantity.'; return; }
       createGroupButton.disabled = true;
       try {
-        const payloadOptions = options.map((option) => ({ ...option, sku: option.autoSku ? '' : option.sku }));
+        const payloadOptions = validOptions.map((option) => ({ ...option, sku: option.autoSku ? '' : option.sku }));
         await apiFetch('/api/product-groups', { method:'POST', body:JSON.stringify({ name, relationship_type, category_id, options: payloadOptions }) });
         groupNameInput.value = ''; groupCategorySelect.value = ''; renderGroupOptionInputs(); groupStatus.textContent = 'Group created.';
         await loadProductGroups();
