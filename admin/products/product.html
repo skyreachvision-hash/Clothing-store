@@ -234,16 +234,18 @@
     }
 
     editButton.addEventListener('click', async () => {
+      populateForm();
+      viewPanel.hidden = true;
+      editPanel.hidden = false;
+      editButton.hidden = true;
+      form.elements.name.focus();
+      setStatus('Loading categories and product groups…');
       try {
         await Promise.all([loadCategories(), loadProductGroups()]);
         populateForm();
-        viewPanel.hidden = true;
-        editPanel.hidden = false;
-        editButton.hidden = true;
-        form.elements.name.focus();
         setStatus('Editing this product.');
       } catch (error) {
-        setStatus(error.message);
+        setStatus('Editing is available, but some catalogue options could not be loaded: ' + error.message);
       }
     });
 
