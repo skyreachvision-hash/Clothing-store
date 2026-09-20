@@ -135,6 +135,7 @@
     async function loadProductGroups() {
       const result = await apiFetch('/api/product-groups');
       const groups = Array.isArray(result.data) ? result.data : [];
+      productGroups = groups;
       const select = form.elements.product_group_id;
       select.innerHTML = '<option value="">No group</option>';
       for (const group of groups) {
@@ -162,16 +163,16 @@
 
     async function loadProduct() {
       if (!id || !/^\d+$/.test(id)) throw new Error('A valid product was not specified.');
-      const result = await apiFetch('/api/products?status=active&limit=100');
-      const all = result.data?.products || [];
-      const statuses = ['draft','archived'];
+      const statuses = ['active', 'draft', 'archived'];
+      product = null;
       for (const itemStatus of statuses) {
-        if (!all.some((item) => String(item.id) === id)) {
-          const extra = await apiFetch('/api/products?status=' + itemStatus + '&limit=100');
-          all.push(...(extra.data?.products || []));
+        const result = await apiFetch('/api/products?id=' + encodeURIComponent(id) + '&status=' + itemStatus);
+        const found = (result.data?.products || []).find((item) => String(item.id) === id);
+        if (found) {
+          product = found;
+          break;
         }
       }
-      product = all.find((item) => String(item.id) === id);
       if (!product) throw new Error('Product not found.');
       renderProduct();
     }
