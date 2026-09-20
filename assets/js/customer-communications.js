@@ -33,7 +33,7 @@ async function load() {
   close.onclick = () => setDrawer(false);
   backdrop.onclick = () => setDrawer(false);
   document.addEventListener("keydown", event => { if (event.key === "Escape" && drawer.classList.contains("is-open")) setDrawer(false); });
-  list.innerHTML = conversations.length ? conversations.map(c => '<button class="customer-chat-conversation" type="button" data-id="' + c.id + '"><strong>' + esc(c.subject || "Customer question") + '</strong><small>' + esc(c.status) + '</small></button>').join("") : '<p class="muted">No conversations yet.</p>';
+  list.innerHTML = conversations.length ? conversations.map(c => '<button class="customer-chat-conversation" type="button" data-id="' + c.id + '"><strong>Ticket #' + esc(c.id) + '</strong><span>' + esc(c.subject || "Customer question") + '</span><small>' + esc(c.message_count + " message" + (c.message_count === 1 ? "" : "s")) + " · " + esc(c.status) + '</small></button>').join("") : '<p class="muted">No conversations yet.</p>';
   list.onclick = event => { const id = event.target.closest("[data-id]")?.dataset.id; if (id) { setDrawer(false); openConversation(Number(id)); } };
   page.querySelector("[data-new]").onclick = newConversation;
 }
@@ -59,7 +59,7 @@ async function openConversation(id) {
   const conversation = result.data;
   const messages = conversation.messages || [];
   const panel = page.querySelector("[data-panel]");
-  panel.innerHTML = '<div class="chat-heading"><p class="eyebrow">' + esc(conversation.status) + '</p><h2>' + esc(conversation.subject || "Customer question") + '</h2></div><div class="chat-messages" data-messages></div>' + (conversation.status === "open" ? '<form class="chat-reply-form" data-reply><textarea name="body" rows="3" maxlength="4000" required placeholder="Write a reply…"></textarea><div class="settings-actions"><span class="settings-load-status" data-status>Messages update automatically.</span><button class="button button-primary">Send</button></div></form>' : '<p class="settings-notice">This conversation is closed.</p>');
+  panel.innerHTML = '<div class="chat-heading"><p class="eyebrow">Ticket #' + esc(conversation.id) + ' · ' + esc(conversation.status) + '</p><h2>' + esc(conversation.subject || "Customer question") + '</h2></div><div class="chat-messages" data-messages></div>' + (conversation.status === "open" ? '<form class="chat-reply-form" data-reply><textarea name="body" rows="3" maxlength="4000" required placeholder="Write a reply…"></textarea><div class="settings-actions"><span class="settings-load-status" data-status>Messages update automatically.</span><button class="button button-primary">Send</button></div></form>' : '<p class="settings-notice">This conversation is closed.</p>');
   const box = panel.querySelector("[data-messages]");
   box.innerHTML = messages.map(m => '<article class="chat-message ' + (m.sender_type === "customer" ? "is-customer" : "is-admin") + '"><div><strong>' + esc(m.sender_type === "customer" ? "You" : (m.sender_name || "Customer care")) + '</strong></div><p>' + esc(m.body) + '</p></article>').join("");
   box.scrollTop = box.scrollHeight;
