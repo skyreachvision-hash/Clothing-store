@@ -25,7 +25,7 @@
     <section class="settings-panel" data-view-panel aria-labelledby="product-details-title">
       <div class="settings-heading"><div><h2 id="product-details-title">Product details</h2><p class="muted" data-product-meta>Loading…</p></div></div>
       <div class="settings-fields settings-fields-two" data-product-details></div>
-      <div class="settings-group" data-product-images-group hidden><legend>Pictures</legend><div class="product-detail-images" data-product-images></div></div>
+      <div class="settings-group" data-product-images-group hidden><legend>Pictures</legend><p class="muted">The main picture is used first on the storefront. Choose another picture as the main picture when needed.</p><div class="product-image-management" data-product-images></div></div>
       <div class="settings-group" data-product-variants-group hidden><legend>Variants</legend><div class="product-detail-variants" data-product-variants></div></div>
     </section>
 
@@ -149,8 +149,8 @@
         details.append(description);
       }
 
-      existingImages = Array.isArray(product.images) ? product.images.map((image, index) => ({ ...image, sort_order:index, is_primary:index === 0 })) : [];
-      imagesList.innerHTML = existingImages.length ? existingImages.map((image) => '<div class="product-detail-image"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></div>').join('') : '<p class="muted">No pictures.</p>';
+      existingImages = Array.isArray(product.images) ? product.images.map((image, index) => ({ ...image, sort_order:Number(image.sort_order ?? index), is_primary:Number(image.is_primary) === 1 })) : [];
+      imagesList.innerHTML = existingImages.length ? existingImages.map((image, index) => '<div class="product-image-management-item"><div class="product-image-management-preview"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></div><label><input type="radio" name="primary-image" value="' + index + '"' + (image.is_primary ? ' checked' : '') + '> <span class="product-image-management-main">Main picture</span></label></div>').join('') : '<p class="muted">No pictures.</p>';
       imagesGroup.hidden = !existingImages.length;
 
       const variants = Array.isArray(product.variants) ? product.variants : [];
@@ -223,8 +223,10 @@
         for (let index = 0; index < files.length; index += 1) {
           setStatus('Uploading picture ' + (index + 1) + ' of ' + files.length + '…');
           const uploaded = await uploadImage(files[index]);
-          images.push({ image_url:uploaded.image_url, cloudinary_public_id:uploaded.cloudinary_public_id, alt_text:data.name, sort_order:images.length, is_primary:images.length === 0 });
+          images.push({ image_url:uploaded.image_url, cloudinary_public_id:uploaded.cloudinary_public_id, alt_text:data.name, sort_order:images.length, is_primary:false });
         }
+        const selectedPrimary = Number(document.querySelector('input[name="primary-image"]:checked')?.value ?? 0);
+        images = images.map((image, index) => ({ ...image, sort_order:index, is_primary:index === selectedPrimary }));
         data.images = images;
         setStatus('Saving changes…');
         await apiFetch('/api/products?id=' + encodeURIComponent(product.id), { method:'PUT', body:JSON.stringify(data) });
