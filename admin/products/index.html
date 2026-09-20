@@ -213,13 +213,6 @@ async function getToken() {
         categoryFilter.append(option);
       }
 
-      const mainCategories = categories
-        .filter((category) => Number(category.is_main_category) === 1 && Number(category.is_enabled) === 1)
-        .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
-      const regularCategories = categories
-        .filter((category) => Number(category.is_main_category) !== 1 && Number(category.is_enabled) === 1)
-        .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
-
       categorySelect.innerHTML = '<option value="">Uncategorized</option>';
       groupCategorySelect.innerHTML = '<option value="">No category</option>';
       const enabled = categories.filter((item) => Number(item.is_enabled) === 1).sort((a,b) => Number(a.sort_order)-Number(b.sort_order) || Number(a.id)-Number(b.id));
