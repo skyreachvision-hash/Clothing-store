@@ -187,7 +187,10 @@
         }
         groupOptionsContainer.append(row);
       }
-      addGroupOptionButton.hidden = groupTypeSelect.value === 'color';
+      const isColorGroup = groupTypeSelect.value === 'color';
+      addGroupOptionButton.hidden = isColorGroup;
+      addGroupOptionButton.disabled = isColorGroup;
+      addGroupOptionButton.style.display = isColorGroup ? 'none' : '';
     }
 
     function readGroupOptions() {
@@ -276,8 +279,12 @@ async function getToken() {
       headers.set('Authorization', `Bearer ${token}`);
       if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
       const response = await fetch(url, { ...options, headers });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
+      const responseText = await response.text();
+      let payload = {};
+      try { payload = responseText ? JSON.parse(responseText) : {}; } catch {}
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || (responseText ? 'Request failed: ' + response.status : 'Request failed: ' + response.status));
+      }
       return payload;
     }
 
