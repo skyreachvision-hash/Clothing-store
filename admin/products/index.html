@@ -412,7 +412,6 @@ async function getToken() {
         listStatus.textContent = 'No products yet. Add your first product above.';
         return;
       }
-      const filtersActive = productSearch.value.trim() || categoryFilter.value || groupFilter.value;
       const filtersActive = productSearch.value.trim() || (activeProductFilter !== 'all' && (selectedCategoryId || selectedGroupId));
       listStatus.textContent = filtersActive
         ? filteredProducts.length + ' of ' + products.length + ' products shown.'
