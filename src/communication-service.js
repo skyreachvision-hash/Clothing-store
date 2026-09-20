@@ -81,13 +81,66 @@ export async function sendOrderConfirmation(env, transaction, order, checkoutDat
       to: recipient,
       subject: "Order confirmation " + clean(order.order_number),
       html,
-      text
+      text,
+      notification: "order_confirmation"
     });
   } catch (error) {
     console.error("Order confirmation communication failed", {
       order_id: order.id,
       order_number: order.order_number,
       recipient,
+      error: error?.message || String(error)
+    });
+    return { sent: false, failed: true, reason: error?.message || "Delivery failed." };
+  }
+}
+
+
+export async function sendOrderStatusUpdate(env, order, previousStatus, newStatus) {
+  const recipient = clean(order?.customer_email);
+  const orderNumber = clean(order?.order_number);
+  const nextStatus = clean(newStatus).toLowerCase();
+  const oldStatus = clean(previousStatus).toLowerCase();
+
+  if (!recipient || !orderNumber || !nextStatus || nextStatus === oldStatus) {
+    return { sent: false, skipped: true, reason: "Order status notification is not required." };
+  }
+
+  const label = nextStatus.charAt(0).toUpperCase() + nextStatus.slice(1);
+  const customerName = clean(order?.customer_full_name);
+  const greeting = customerName ? "Hi " + escapeHtml(customerName) + "," : "Hello,";
+
+  const html = "<div style=\"font-family:Arial,sans-serif;line-height:1.6;color:#222\">" +
+    "<h2>Order status updated</h2>" +
+    "<p>" + greeting + "</p>" +
+    "<p>Your order status has been updated.</p>" +
+    "<p><strong>Order number:</strong> " + escapeHtml(orderNumber) + "</p>" +
+    "<p><strong>Status:</strong> " + escapeHtml(label) + "</p>" +
+    "<p>Thank you for shopping with us.</p>" +
+    "</div>";
+
+  const text = "Order status updated\n\n" +
+    (customerName ? "Hi " + customerName + ",\n\n" : "") +
+    "Your order status has been updated.\n\n" +
+    "Order number: " + orderNumber + "\n" +
+    "Status: " + label + "\n\n" +
+    "Thank you for shopping with us.";
+
+  try {
+    return await sendTransactionalEmail(env, {
+      to: recipient,
+      subject: "Order " + orderNumber + " — " + label,
+      html,
+      text,
+      notification: "order_status"
+    });
+  } catch (error) {
+    console.error("Order status communication failed", {
+      order_id: order.id,
+      order_number: orderNumber,
+      recipient,
+      previous_status: oldStatus,
+      new_status: nextStatus,
       error: error?.message || String(error)
     });
     return { sent: false, failed: true, reason: error?.message || "Delivery failed." };
