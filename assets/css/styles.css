@@ -417,3 +417,30 @@ body.communications-drawer-open,body.customer-chat-drawer-open{overflow:hidden}
   .communications-detail-toolbar .button[data-communications-toggle] { display:none; }
   .communications-drawer-header { position:sticky; top:0; background:var(--color-surface); z-index:1; }
 }
+
+
+/* Product image gallery */
+.product-gallery { display:grid; grid-template-columns:minmax(0,1fr) 96px; gap:var(--space-4); align-items:start; }
+.product-gallery-main { aspect-ratio:4 / 5; overflow:hidden; background:var(--color-surface-muted); border:var(--border-width) solid var(--color-border); }
+.product-gallery-main img { display:block; width:100%; height:100%; object-fit:cover; }
+.product-gallery-thumbs { display:grid; gap:var(--space-3); }
+.product-gallery-thumb { display:block; width:100%; aspect-ratio:4 / 5; padding:0; overflow:hidden; border:var(--border-width) solid var(--color-border); background:var(--color-surface-muted); cursor:pointer; }
+.product-gallery-thumb.is-active { border-color:var(--color-brand-primary); }
+.product-gallery-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
+.product-gallery-empty { display:flex; align-items:center; justify-content:center; min-height:360px; background:var(--color-surface-muted); color:var(--color-text-muted); }
+.product-detail-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr); gap:clamp(2rem,6vw,5rem); align-items:start; }
+.product-detail-copy { position:sticky; top:var(--space-6); }
+.product-detail-copy h1 { margin-top:var(--space-2); }
+.product-detail-price { font-size:1.25rem; margin:var(--space-4) 0; }
+.product-image-management { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--space-4); margin-top:var(--space-4); }
+.product-image-management-item { border:var(--border-width) solid var(--color-border); padding:var(--space-3); background:var(--color-surface); }
+.product-image-management-preview { aspect-ratio:4 / 5; overflow:hidden; background:var(--color-surface-muted); margin-bottom:var(--space-3); }
+.product-image-management-preview img { display:block; width:100%; height:100%; object-fit:cover; }
+.product-image-management-main { font-weight:700; }
+@media (max-width:700px) {
+  .product-gallery { grid-template-columns:1fr; }
+  .product-gallery-thumbs { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .product-detail-layout { grid-template-columns:1fr; }
+  .product-detail-copy { position:static; }
+  .product-image-management { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
