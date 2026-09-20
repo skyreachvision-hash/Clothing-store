@@ -40,6 +40,8 @@
           <div class="settings-fields settings-fields-two">
             <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" placeholder="Product name"></label>
             <label class="field"><span>SKU</span><input name="sku" type="text" maxlength="80" placeholder="Optional SKU"></label>
+            <label class="field field-wide"><span>Color</span><div class="color-palette" data-product-color-palette></div><input name="product_color" type="text" maxlength="80" placeholder="e.g. Black" autocomplete="off"><small class="muted">Select a color above, or type a custom color name. This is independent of product grouping.</small></label>
+            <label class="field"><span>Size</span><select name="product_size"><option value="">No size</option><option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option><option>XXXL</option></select><input name="product_size_custom" type="text" maxlength="80" placeholder="Or type a custom size" autocomplete="off"><small class="muted">Color and size can be set even when this product has no group.</small></label>
             <label class="field"><span>Product group</span><select name="product_group_id"><option value="">No group</option></select><small class="muted">Select an existing group. You do not need to type the group name again.</small></label>
             <label class="field field-wide"><span data-group-value-label>Group value</span><div class="color-palette" data-color-palette hidden><button class="button button-small button-outline color-choice" type="button" data-color-value="Black" aria-label="Select Black" title="Black"><span class="color-swatch" style="background-color:#111111"></span><span>Black</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="White" aria-label="Select White" title="White"><span class="color-swatch" style="background-color:#ffffff"></span><span>White</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Gray" aria-label="Select Gray" title="Gray"><span class="color-swatch" style="background-color:#808080"></span><span>Gray</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Silver" aria-label="Select Silver" title="Silver"><span class="color-swatch" style="background-color:#c0c0c0"></span><span>Silver</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Red" aria-label="Select Red" title="Red"><span class="color-swatch" style="background-color:#e53935"></span><span>Red</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Orange" aria-label="Select Orange" title="Orange"><span class="color-swatch" style="background-color:#fb8c00"></span><span>Orange</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Yellow" aria-label="Select Yellow" title="Yellow"><span class="color-swatch" style="background-color:#fdd835"></span><span>Yellow</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Green" aria-label="Select Green" title="Green"><span class="color-swatch" style="background-color:#43a047"></span><span>Green</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Blue" aria-label="Select Blue" title="Blue"><span class="color-swatch" style="background-color:#1e88e5"></span><span>Blue</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Navy" aria-label="Select Navy" title="Navy"><span class="color-swatch" style="background-color:#1a237e"></span><span>Navy</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Purple" aria-label="Select Purple" title="Purple"><span class="color-swatch" style="background-color:#8e24aa"></span><span>Purple</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Pink" aria-label="Select Pink" title="Pink"><span class="color-swatch" style="background-color:#ec407a"></span><span>Pink</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Brown" aria-label="Select Brown" title="Brown"><span class="color-swatch" style="background-color:#6d4c41"></span><span>Brown</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Beige" aria-label="Select Beige" title="Beige"><span class="color-swatch" style="background-color:#d7c4a3"></span><span>Beige</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Cream" aria-label="Select Cream" title="Cream"><span class="color-swatch" style="background-color:#fff4d6"></span><span>Cream</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Gold" aria-label="Select Gold" title="Gold"><span class="color-swatch" style="background-color:#d4af37"></span><span>Gold</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Turquoise" aria-label="Select Turquoise" title="Turquoise"><span class="color-swatch" style="background-color:#26a69a"></span><span>Turquoise</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Teal" aria-label="Select Teal" title="Teal"><span class="color-swatch" style="background-color:#00897b"></span><span>Teal</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Maroon" aria-label="Select Maroon" title="Maroon"><span class="color-swatch" style="background-color:#800000"></span><span>Maroon</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Olive" aria-label="Select Olive" title="Olive"><span class="color-swatch" style="background-color:#808000"></span><span>Olive</span></button></div><input name="product_group_value" type="text" maxlength="80" placeholder="e.g. Black" autocomplete="off"><small class="muted" data-group-value-help>Choose a color above, or type a custom value. For Size groups, type the size.</small></label>
             <label class="field"><span>Category</span><select name="category_id"><option value="">Uncategorized</option></select></label>
@@ -88,6 +90,10 @@
     const createGroupButton = document.querySelector('[data-create-group]');
     const productGroupSelect = form.elements.product_group_id;
     const productGroupValueInput = form.elements.product_group_value;
+    const productColorInput = form.elements.product_color;
+    const productSizeSelect = form.elements.product_size;
+    const productSizeCustomInput = form.elements.product_size_custom;
+    const productColorPalette = document.querySelector('[data-product-color-palette]');
     const groupValueLabel = document.querySelector('[data-group-value-label]');
     const groupValueHelp = document.querySelector('[data-group-value-help]');
     const colorPalette = document.querySelector('[data-color-palette]');
@@ -105,8 +111,36 @@
     let products = [];
     let existingImages = [];
     let productGroups = [];
+    const standardColors = [
+      ['Black','#111111'],['White','#ffffff'],['Gray','#808080'],['Silver','#c0c0c0'],['Red','#e53935'],['Orange','#fb8c00'],['Yellow','#fdd835'],['Green','#43a047'],['Blue','#1e88e5'],['Navy','#1a237e'],['Purple','#8e24aa'],['Pink','#ec407a'],['Brown','#6d4c41'],['Beige','#d7c4a3'],['Cream','#fff4d6'],['Gold','#d4af37'],['Turquoise','#26a69a'],['Teal','#00897b'],['Maroon','#800000'],['Olive','#808000']
+    ];
 
     function setFormStatus(message) { formStatus.textContent = message; }
+    function renderProductColorPalette() {
+      productColorPalette.innerHTML = standardColors.map(([name, hex]) => '<button class="button button-small button-outline color-choice" type="button" data-product-color-value="' + name + '" title="' + name + '"><span class="color-swatch" style="background-color:' + hex + '"></span><span>' + name + '</span></button>').join('');
+    }
+    function syncProductColorPalette() {
+      productColorPalette.querySelectorAll('[data-product-color-value]').forEach((button) => {
+        button.classList.toggle('button-primary', button.dataset.productColorValue.toLowerCase() === productColorInput.value.trim().toLowerCase());
+      });
+    }
+    productColorPalette.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-product-color-value]');
+      if (!button) return;
+      productColorInput.value = button.dataset.productColorValue;
+      syncProductColorPalette();
+    });
+    productColorInput.addEventListener('input', syncProductColorPalette);
+    function getSizeValue() {
+      return productSizeCustomInput.value.trim() || productSizeSelect.value;
+    }
+    function setSizeValue(value) {
+      const normalized = String(value || '').trim();
+      const standard = Array.from(productSizeSelect.options).some((option) => option.value === normalized && option.value);
+      productSizeSelect.value = standard ? normalized : '';
+      productSizeCustomInput.value = standard ? '' : normalized;
+    }
+    productSizeSelect.addEventListener('change', () => { if (productSizeSelect.value) productSizeCustomInput.value = ''; });
 
     function getSelectedGroup() {
       return productGroups.find((group) => String(group.id) === String(productGroupSelect.value)) || null;
@@ -397,6 +431,9 @@
       form.elements.stock_quantity.value = '0';
       form.elements.sort_order.value = '0';
       form.elements.status.value = 'draft';
+      form.elements.product_color.value = '';
+      setSizeValue('');
+      syncProductColorPalette();
       form.elements.track_stock.checked = true;
       existingImages = [];
       updateImageSelectionText();
@@ -412,6 +449,9 @@
       form.elements.id.value = product.id;
       form.elements.name.value = product.name || '';
       form.elements.sku.value = product.sku || '';
+      form.elements.product_color.value = product.product_color || '';
+      syncProductColorPalette();
+      setSizeValue(product.product_size || '');
       form.elements.product_group_id.value = product.product_group_id || '';
       form.elements.product_group_value.value = product.product_group_value || '';
       updateGroupValueUI();
@@ -449,6 +489,8 @@
       const data = {
         name: form.elements.name.value.trim(),
         sku: form.elements.sku.value.trim(),
+        product_color: form.elements.product_color.value.trim(),
+        product_size: getSizeValue(),
         product_group_id: form.elements.product_group_id.value || null,
         product_group_value: form.elements.product_group_value.value.trim(),
         category_id: form.elements.category_id.value || null,
@@ -481,6 +523,7 @@
       resetForm();
       hideForm();
     });
+    renderProductColorPalette();
     document.querySelector('[data-refresh-products]').addEventListener('click', loadProducts);
     list.addEventListener('click', async (event) => {
       const editId = event.target.closest('[data-edit]')?.dataset.edit;
