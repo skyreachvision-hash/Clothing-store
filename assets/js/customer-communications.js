@@ -56,8 +56,8 @@ function newConversation() {
 async function openConversation(id) {
   selectedId = id;
   const result = await api("/api/customer-communications?id=" + id);
-  const conversation = result.data.conversation;
-  const messages = result.data.messages || [];
+  const conversation = result.data;
+  const messages = conversation.messages || [];
   const panel = page.querySelector("[data-panel]");
   panel.innerHTML = '<div class="chat-heading"><p class="eyebrow">' + esc(conversation.status) + '</p><h2>' + esc(conversation.subject || "Customer question") + '</h2></div><div class="chat-messages" data-messages></div>' + (conversation.status === "open" ? '<form class="chat-reply-form" data-reply><textarea name="body" rows="3" maxlength="4000" required placeholder="Write a reply…"></textarea><div class="settings-actions"><span class="settings-load-status" data-status>Messages update automatically.</span><button class="button button-primary">Send</button></div></form>' : '<p class="settings-notice">This conversation is closed.</p>');
   const box = panel.querySelector("[data-messages]");
