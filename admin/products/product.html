@@ -68,15 +68,16 @@
     const variantsGroup = document.querySelector('[data-product-variants-group]');
     const variantsList = document.querySelector('[data-product-variants]');
     const editButton = document.querySelector('[data-edit-product]');
+    const form = document.querySelector('[data-product-form]');
     const productGroupValueInput = form.elements.product_group_value;
     const groupValueLabel = document.querySelector('[data-group-value-label]');
     const groupValueHelp = document.querySelector('[data-group-value-help]');
     const colorPalette = document.querySelector('[data-color-palette]');
     const cancelButton = document.querySelector('[data-cancel-edit]');
-    const form = document.querySelector('[data-product-form]');
     const status = document.querySelector('[data-form-status]');
     let product = null;
     let existingImages = [];
+    let productGroups = [];
 
     function setStatus(message) { status.textContent = message; }
 
