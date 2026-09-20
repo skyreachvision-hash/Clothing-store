@@ -1,4 +1,5 @@
 import { requireAdmin } from "./admin-auth.js";
+import { sendOrderStatusUpdate } from "./communication-service.js";
 
 const JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -128,16 +129,39 @@ export async function handleAdminOrders(request, env) {
     }
 
     const existing = await env.DB.prepare(
-      "SELECT id FROM orders WHERE id = ?"
+      "SELECT id, order_status FROM orders WHERE id = ?"
     ).bind(id).first();
 
     if (!existing) return json({ success: false, error: "Order not found." }, 404);
 
-    await env.DB.prepare(
-      "UPDATE orders SET order_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
-    ).bind(orderStatus, id).run();
+    if (existing.order_status !== orderStatus) {
+      const orderBeforeUpdate = await env.DB.prepare(
+        `SELECT ${ORDER_FIELDS} FROM orders o WHERE o.id = ?`
+      ).bind(id).first();
 
-    return json({ success: true, data: await getOrder(env, id) });
+      await env.DB.prepare(
+        "UPDATE orders SET order_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+      ).bind(orderStatus, id).run();
+
+      const communication = await sendOrderStatusUpdate(
+        env,
+        orderBeforeUpdate,
+        existing.order_status,
+        orderStatus
+      );
+
+      return json({
+        success: true,
+        data: await getOrder(env, id),
+        communication
+      });
+    }
+
+    return json({
+      success: true,
+      data: await getOrder(env, id),
+      communication: { sent: false, skipped: true, reason: "Order status was unchanged." }
+    });
   } catch (error) {
     if (error?.code === "ADMIN_AUTH_REQUIRED") {
       return json({ success: false, error: error.message }, 403);
