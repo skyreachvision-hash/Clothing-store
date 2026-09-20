@@ -92,12 +92,12 @@ export async function handleCustomerCommunications(request, env) {
     if (!message) return json({ success: false, error: "Message is required." }, 400);
 
     if (conversationId) {
-      const conversation = await env.DB.prepare(
+      const existingConversation = await env.DB.prepare(
         "SELECT id, status FROM conversations WHERE id = ? AND customer_firebase_uid = ?"
       ).bind(conversationId, token.sub).first();
 
-      if (!conversation) return json({ success: false, error: "Conversation not found." }, 404);
-      if (conversation.status === "closed") return json({ success: false, error: "This conversation is closed." }, 409);
+      if (!existingConversation) return json({ success: false, error: "Conversation not found." }, 404);
+      if (existingConversation.status === "closed") return json({ success: false, error: "This conversation is closed." }, 409);
 
       await env.DB.prepare(
         `INSERT INTO conversation_messages
