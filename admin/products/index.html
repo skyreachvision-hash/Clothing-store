@@ -15,11 +15,14 @@
 
   <main id="products-main" class="admin-main"><div class="container">
     <div class="settings-heading">
-      <div><p class="eyebrow">Catalogue management</p><h1>Products</h1><p class="muted">Add, edit, publish, and manage stock for products in your store.</p></div>
-      <a class="button button-outline" href="../">Back to dashboard</a>
+      <div><p class="eyebrow">Catalogue management</p><h1>Products</h1><p class="muted">View and manage the products currently in your store.</p></div>
+      <div>
+        <a class="button button-outline" href="../">Back to dashboard</a>
+        <button class="button button-primary" type="button" data-add-product>+ Add New Product</button>
+      </div>
     </div>
 
-    <section class="settings-panel" aria-labelledby="product-form-title">
+    <section class="settings-panel" aria-labelledby="product-form-title" data-product-form-panel hidden>
       <div class="settings-heading"><div><h2 id="product-form-title">Add product</h2><p class="muted">Add the product details and one or more pictures. Images are stored securely through Cloudinary.</p></div><span class="settings-readonly">Admin access</span></div>
       <form class="settings-form" data-product-form>
         <input type="hidden" name="id">
@@ -53,6 +56,8 @@
 
   <script type="module">
     const form = document.querySelector('[data-product-form]');
+    const formPanel = document.querySelector('[data-product-form-panel]');
+    const addProductButton = document.querySelector('[data-add-product]');
     const formStatus = document.querySelector('[data-form-status]');
     const listStatus = document.querySelector('[data-list-status]');
     const list = document.querySelector('[data-products-list]');
@@ -220,6 +225,15 @@
       }
     }
 
+    function showForm() {
+      formPanel.hidden = false;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function hideForm() {
+      formPanel.hidden = true;
+    }
+
     function resetForm() {
       form.reset();
       form.elements.id.value = '';
@@ -237,6 +251,7 @@
     }
 
     function editProduct(product) {
+      showForm();
       form.elements.id.value = product.id;
       form.elements.name.value = product.name || '';
       form.elements.sku.value = product.sku || '';
@@ -256,6 +271,12 @@
       setFormStatus('Editing this product.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+    addProductButton.addEventListener('click', () => {
+      resetForm();
+      showForm();
+      form.elements.name.focus();
+    });
 
     imageInput.addEventListener('change', updateImageSelectionText);
 
@@ -283,8 +304,8 @@
         const productId = id || saved.data.id;
         await saveProductImages(productId, files);
         resetForm();
+        hideForm();
         await loadProducts();
-        setFormStatus(id ? 'Product updated successfully.' : 'Product created successfully.');
       } catch (error) {
         setFormStatus(error.message);
       } finally {
@@ -292,7 +313,10 @@
       }
     });
 
-    cancelButton.addEventListener('click', resetForm);
+    cancelButton.addEventListener('click', () => {
+      resetForm();
+      hideForm();
+    });
     document.querySelector('[data-refresh-products]').addEventListener('click', loadProducts);
     list.addEventListener('click', async (event) => {
       const editId = event.target.closest('[data-edit]')?.dataset.edit;
@@ -307,7 +331,10 @@
         if (!product || !confirm(`Delete “${product.name}”? This cannot be undone.`)) return;
         try {
           await apiFetch(`/api/products?id=${encodeURIComponent(deleteId)}`, { method: 'DELETE' });
-          if (String(form.elements.id.value) === String(deleteId)) resetForm();
+          if (String(form.elements.id.value) === String(deleteId)) {
+            resetForm();
+            hideForm();
+          }
           await loadProducts();
         } catch (error) {
           listStatus.textContent = error.message;
