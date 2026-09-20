@@ -38,7 +38,7 @@
             <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160"></label>
             <label class="field"><span>SKU</span><input name="sku" type="text" maxlength="80"></label>
             <label class="field"><span>Product group</span><select name="product_group_id"><option value="">No group</option></select><small class="muted">Select an existing group instead of typing its name.</small></label>
-            <label class="field"><span>Group value</span><input name="product_group_value" type="text" maxlength="80" placeholder="e.g. Black"><small class="muted">For Color groups, enter the product's color. For Size groups, enter its size.</small></label>
+            <label class="field field-wide"><span data-group-value-label>Group value</span><div class="color-palette" data-color-palette hidden><button class="button button-small button-outline color-choice" type="button" data-color-value="Black" aria-label="Select Black" title="Black"><span class="color-swatch" style="background-color:#111111"></span><span>Black</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="White" aria-label="Select White" title="White"><span class="color-swatch" style="background-color:#ffffff"></span><span>White</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Gray" aria-label="Select Gray" title="Gray"><span class="color-swatch" style="background-color:#808080"></span><span>Gray</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Silver" aria-label="Select Silver" title="Silver"><span class="color-swatch" style="background-color:#c0c0c0"></span><span>Silver</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Red" aria-label="Select Red" title="Red"><span class="color-swatch" style="background-color:#e53935"></span><span>Red</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Orange" aria-label="Select Orange" title="Orange"><span class="color-swatch" style="background-color:#fb8c00"></span><span>Orange</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Yellow" aria-label="Select Yellow" title="Yellow"><span class="color-swatch" style="background-color:#fdd835"></span><span>Yellow</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Green" aria-label="Select Green" title="Green"><span class="color-swatch" style="background-color:#43a047"></span><span>Green</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Blue" aria-label="Select Blue" title="Blue"><span class="color-swatch" style="background-color:#1e88e5"></span><span>Blue</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Navy" aria-label="Select Navy" title="Navy"><span class="color-swatch" style="background-color:#1a237e"></span><span>Navy</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Purple" aria-label="Select Purple" title="Purple"><span class="color-swatch" style="background-color:#8e24aa"></span><span>Purple</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Pink" aria-label="Select Pink" title="Pink"><span class="color-swatch" style="background-color:#ec407a"></span><span>Pink</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Brown" aria-label="Select Brown" title="Brown"><span class="color-swatch" style="background-color:#6d4c41"></span><span>Brown</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Beige" aria-label="Select Beige" title="Beige"><span class="color-swatch" style="background-color:#d7c4a3"></span><span>Beige</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Cream" aria-label="Select Cream" title="Cream"><span class="color-swatch" style="background-color:#fff4d6"></span><span>Cream</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Gold" aria-label="Select Gold" title="Gold"><span class="color-swatch" style="background-color:#d4af37"></span><span>Gold</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Turquoise" aria-label="Select Turquoise" title="Turquoise"><span class="color-swatch" style="background-color:#26a69a"></span><span>Turquoise</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Teal" aria-label="Select Teal" title="Teal"><span class="color-swatch" style="background-color:#00897b"></span><span>Teal</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Maroon" aria-label="Select Maroon" title="Maroon"><span class="color-swatch" style="background-color:#800000"></span><span>Maroon</span></button><button class="button button-small button-outline color-choice" type="button" data-color-value="Olive" aria-label="Select Olive" title="Olive"><span class="color-swatch" style="background-color:#808000"></span><span>Olive</span></button></div><input name="product_group_value" type="text" maxlength="80" placeholder="e.g. Black" autocomplete="off"><small class="muted" data-group-value-help>Choose a color above, or type a custom value. For Size groups, type the size.</small></label>
             <label class="field"><span>Category</span><select name="category_id"><option value="">Uncategorized</option></select></label>
             <label class="field"><span>Status</span><select name="status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label>
             <label class="field"><span>Price (ZAR)</span><input name="price" type="number" min="0" step="0.01" inputmode="decimal"></label>
@@ -68,6 +68,10 @@
     const variantsGroup = document.querySelector('[data-product-variants-group]');
     const variantsList = document.querySelector('[data-product-variants]');
     const editButton = document.querySelector('[data-edit-product]');
+    const productGroupValueInput = form.elements.product_group_value;
+    const groupValueLabel = document.querySelector('[data-group-value-label]');
+    const groupValueHelp = document.querySelector('[data-group-value-help]');
+    const colorPalette = document.querySelector('[data-color-palette]');
     const cancelButton = document.querySelector('[data-cancel-edit]');
     const form = document.querySelector('[data-product-form]');
     const status = document.querySelector('[data-form-status]');
@@ -97,6 +101,35 @@
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[character]));
     }
+
+    function getSelectedGroup() {
+      return productGroups.find((group) => String(group.id) === String(form.elements.product_group_id.value)) || null;
+    }
+
+    function updateGroupValueUI() {
+      const group = getSelectedGroup();
+      const isColor = group?.relationship_type === 'color';
+      colorPalette.hidden = !isColor;
+      groupValueLabel.textContent = isColor ? 'Color' : group?.relationship_type === 'size' ? 'Size' : 'Group value';
+      groupValueHelp.textContent = isColor
+        ? 'Select a color above, or type a custom color name if it is not listed.'
+        : group?.relationship_type === 'size'
+          ? 'Type the size for this product.'
+          : 'Select a product group first, then enter its value.';
+      colorPalette.querySelectorAll('[data-color-value]').forEach((button) => {
+        button.classList.toggle('button-primary', isColor && button.dataset.colorValue.toLowerCase() === productGroupValueInput.value.trim().toLowerCase());
+      });
+    }
+
+    colorPalette.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-color-value]');
+      if (!button) return;
+      productGroupValueInput.value = button.dataset.colorValue;
+      updateGroupValueUI();
+    });
+
+    form.elements.product_group_id.addEventListener('change', updateGroupValueUI);
+    productGroupValueInput.addEventListener('input', updateGroupValueUI);
 
     async function loadProductGroups() {
       const result = await apiFetch('/api/product-groups');
@@ -180,6 +213,7 @@
       form.elements.sku.value = product.sku || '';
       form.elements.product_group_id.value = product.product_group_id || '';
       form.elements.product_group_value.value = product.product_group_value || '';
+      updateGroupValueUI();
       form.elements.category_id.value = product.category_id || '';
       form.elements.status.value = product.status || 'draft';
       form.elements.price.value = product.price ?? 0;
