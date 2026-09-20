@@ -119,27 +119,64 @@
     let existingImages = [];
     let productGroups = [];
     function getSelectedGroup() { return productGroups.find((group) => String(group.id) === String(productGroupSelect.value)) || null; }
+    const colorOptions = [
+      ['Black', '#000000'], ['White', '#ffffff'], ['Red', '#dc2626'], ['Blue', '#2563eb'],
+      ['Green', '#16a34a'], ['Yellow', '#facc15'], ['Orange', '#f97316'], ['Purple', '#9333ea'],
+      ['Pink', '#ec4899'], ['Brown', '#92400e'], ['Grey', '#6b7280'], ['Beige', '#d6c3a5'],
+      ['Navy', '#1e3a8a'], ['Maroon', '#7f1d1d'], ['Burgundy', '#800020'], ['Cream', '#fff7d6'],
+      ['Khaki', '#c3b091'], ['Olive', '#808000'], ['Teal', '#0f766e'], ['Turquoise', '#14b8a6'],
+      ['Gold', '#d4af37'], ['Silver', '#c0c0c0']
+    ];
+
     function renderGroupOptionInputs(options = []) {
       groupOptionsContainer.innerHTML = '';
-      const values = options.length ? options : [{value:'',sku:'',quantity:0}];
-      const colorOptions = ['Black','White','Red','Blue','Green','Yellow','Orange','Purple','Pink','Brown','Grey','Beige','Navy','Maroon','Burgundy','Cream','Khaki','Olive','Teal','Turquoise','Gold','Silver'];
-      values.forEach((option) => {
+      const values = groupTypeSelect.value === 'color'
+        ? options.filter((option, index, all) => option.value && all.findIndex((item) => String(item.value).toLowerCase() === String(option.value).toLowerCase()) === index)
+        : (options.length ? options : [{value:'',sku:'',quantity:0}]);
+
+      if (groupTypeSelect.value === 'color') {
+        const palette = document.createElement('div');
+        palette.className = 'product-color-palette';
+        palette.setAttribute('aria-label', 'Select group colors');
+        for (const [name, hex] of colorOptions) {
+          const selected = values.some((option) => String(option.value).toLowerCase() === name.toLowerCase());
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'product-color-swatch' + (selected ? ' is-selected' : '');
+          button.dataset.colorValue = name;
+          button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+          button.title = name;
+          button.innerHTML = '<span class="product-color-swatch-dot" style="background:' + hex + ';"></span><span>' + escapeHtml(name) + '</span>';
+          palette.append(button);
+        }
+        groupOptionsContainer.append(palette);
+
+        if (!values.length) {
+          const hint = document.createElement('p');
+          hint.className = 'muted';
+          hint.textContent = 'Select one or more colors above. Each selected color will get its own SKU and quantity.';
+          groupOptionsContainer.append(hint);
+        }
+      }
+
+      for (const option of values) {
         const row = document.createElement('div');
-        row.className = 'settings-fields settings-fields-two';
+        row.className = 'settings-fields settings-fields-two product-group-option-row';
         row.dataset.groupOptionRow = '';
         const currentValue = String(option.value || '');
-        let optionField = '';
-        if (groupTypeSelect.value === 'color') {
-          const known = colorOptions.includes(currentValue);
-          const choices = known || !currentValue ? colorOptions : [currentValue, ...colorOptions];
-          optionField = '<label class="field"><span>Color</span><select data-option-value>' + choices.map((color) => '<option value="' + escapeHtml(color) + '"' + (color === currentValue ? ' selected' : '') + '>' + escapeHtml(color) + '</option>').join('') + '</select></label>';
-        } else {
-          optionField = '<label class="field"><span>Option</span><input data-option-value type="text" maxlength="80" placeholder="e.g. M" value="' + escapeHtml(currentValue) + '"></label>';
-        }
+        const optionField = groupTypeSelect.value === 'color'
+          ? '<label class="field"><span>Color</span><div class="product-color-selected"><span class="product-color-selected-dot" data-color-dot></span><strong>' + escapeHtml(currentValue) + '</strong><input data-option-value type="hidden" value="' + escapeHtml(currentValue) + '"></div></label>'
+          : '<label class="field"><span>Option</span><input data-option-value type="text" maxlength="80" placeholder="e.g. M" value="' + escapeHtml(currentValue) + '"></label>';
         row.innerHTML = optionField + '<label class="field"><span>SKU</span><input data-option-sku type="text" maxlength="80" placeholder="Option SKU" value="' + escapeHtml(option.sku || '') + '"></label><label class="field"><span>Quantity</span><input data-option-quantity type="number" min="0" step="1" value="' + Number(option.quantity || 0) + '"></label><div class="field"><button class="button button-small button-outline" type="button" data-remove-group-option>Remove</button></div>';
+        if (groupTypeSelect.value === 'color') {
+          const color = colorOptions.find((item) => item[0].toLowerCase() === currentValue.toLowerCase());
+          if (color) row.querySelector('[data-color-dot]').style.background = color[1];
+        }
         groupOptionsContainer.append(row);
-      });
+      }
+      addGroupOptionButton.hidden = groupTypeSelect.value === 'color';
     }
+
     function readGroupOptions() {
       return Array.from(groupOptionsContainer.querySelectorAll('[data-group-option-row]')).map((row) => ({
         value: row.querySelector('[data-option-value]').value.trim(),
@@ -177,6 +214,16 @@
       if (option?.dataset.sku && !form.elements.id.value) form.elements.sku.value = option.dataset.sku;
     });
     addGroupOptionButton.addEventListener('click', () => renderGroupOptionInputs([...readGroupOptions(), {value:'',sku:'',quantity:0}]));
+    groupOptionsContainer.addEventListener('click', (event) => {
+      const colorButton = event.target.closest('[data-color-value]');
+      if (!colorButton) return;
+      const selected = readGroupOptions();
+      const value = colorButton.dataset.colorValue;
+      const existing = selected.findIndex((option) => String(option.value).toLowerCase() === value.toLowerCase());
+      if (existing >= 0) selected.splice(existing, 1);
+      else selected.push({ value, sku: '', quantity: 0 });
+      renderGroupOptionInputs(selected);
+    });
     groupOptionsContainer.addEventListener('click', (event) => {
       const button = event.target.closest('[data-remove-group-option]');
       if (!button) return;
