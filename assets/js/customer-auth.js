@@ -41,6 +41,7 @@ function renderAccountMenu(user) {
       <div class="account-options">
         <a class="account-option" href="customer-information.html"><span><strong>Account Information</strong><small>Contact and delivery details saved to your account.</small></span><span aria-hidden="true">→</span></a>
         <a class="account-option" href="customer-orders.html"><span><strong>My Orders</strong><small>View your purchases, order status and order details.</small></span><span aria-hidden="true">→</span></a>
+        <a class="account-option" href="customer-communications.html"><span><strong>Live Chat</strong><small>Contact the store about questions, orders and support.</small></span><span aria-hidden="true">→</span></a>
       </div>
     </div>`;
 
