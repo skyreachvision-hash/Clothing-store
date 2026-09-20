@@ -1,5 +1,5 @@
 const params = new URLSearchParams(window.location.search);
-const productId = params.get('id');
+let currentProductId = params.get('id');
 const titleElement = document.querySelector('[data-product-title]');
 const categoryElement = document.querySelector('[data-product-category]');
 const priceElement = document.querySelector('[data-product-price]');
@@ -10,6 +10,9 @@ const statusElement = document.querySelector('[data-product-status]');
 const addButton = document.querySelector('[data-add-to-cart]');
 const relatedSection = document.querySelector('[data-related-products-section]');
 const relatedProductsElement = document.querySelector('[data-related-products]');
+const groupOptionsElement = document.querySelector('[data-product-group-options]');
+const groupLabelElement = document.querySelector('[data-product-group-label]');
+const groupValuesElement = document.querySelector('[data-product-group-values]');
 let loadedProduct = null;
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
@@ -81,28 +84,68 @@ function renderGallery(product) {
   });
 }
 
-async function loadProduct() {
-  if (!productId || !/^\d+$/.test(productId)) throw new Error('A valid product was not specified.');
-  const response = await fetch('/api/products?id=' + encodeURIComponent(productId), { headers:{Accept:'application/json'}, cache:'no-store' });
+async function loadProduct(id = currentProductId, updateHistory = false) {
+  if (!id || !/^\d+$/.test(id)) throw new Error('A valid product was not specified.');
+  const response = await fetch('/api/products?id=' + encodeURIComponent(id), { headers:{Accept:'application/json'}, cache:'no-store' });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load product.');
   const products = Array.isArray(payload.data?.products) ? payload.data.products : [];
-  const product = products.find((item) => String(item.id) === String(productId));
+  const product = products.find((item) => String(item.id) === String(id));
   if (!product) throw new Error('Product not found.');
+  currentProductId = String(product.id);
   loadedProduct = product;
   titleElement.textContent = product.name;
   categoryElement.textContent = product.category_name || 'Uncategorized';
   priceElement.textContent = formatPrice(product);
   descriptionElement.textContent = product.description || 'No description available.';
+  statusElement.textContent = product.track_stock && Number(product.stock_quantity) <= 0 ? 'Out of stock' : 'Available';
   if (addButton) {
     addButton.dataset.productId = product.id;
     addButton.setAttribute('aria-label', 'Add ' + product.name + ' to cart');
+    addButton.disabled = Boolean(product.track_stock && Number(product.stock_quantity) <= 0);
+    addButton.firstChild.textContent = 'Add to cart ';
   }
   renderGallery(product);
   renderRelatedProducts(product);
-  statusElement.textContent = product.track_stock && Number(product.stock_quantity) <= 0 ? 'Out of stock' : 'Available';
-  if (product.track_stock && Number(product.stock_quantity) <= 0 && addButton) addButton.disabled = true;
+  renderGroupOptions(product);
   document.title = product.name + ' | Clothing Store';
+  if (updateHistory) window.history.pushState({ productId: product.id }, '', 'product.html?id=' + encodeURIComponent(product.id));
+}
+
+function renderGroupOptions(product) {
+  if (!groupOptionsElement || !groupLabelElement || !groupValuesElement) return;
+  const groupName = product.product_group_name;
+  const type = String(product.product_group_relationship_type || '').toLowerCase();
+  const related = Array.isArray(product.related_products) ? product.related_products : [];
+  if (!groupName || !related.length || !['color','size'].includes(type)) {
+    groupOptionsElement.hidden = true;
+    groupValuesElement.innerHTML = '';
+    return;
+  }
+  const label = type === 'size' ? 'Size' : 'Color';
+  groupLabelElement.textContent = label;
+  const options = [product, ...related].filter((item, index, array) => array.findIndex((candidate) => String(candidate.id) === String(item.id)) === index);
+  groupValuesElement.innerHTML = options.map((item) => {
+    const value = item.product_group_value || item.name;
+    const active = String(item.id) === String(product.id);
+    return '<button class="button button-small ' + (active ? 'button-primary' : 'button-outline') + '" type="button" data-group-product-id="' + escapeHtml(item.id) + '" aria-pressed="' + active + '">' + escapeHtml(value) + '</button>';
+  }).join('');
+  groupOptionsElement.hidden = false;
+  groupValuesElement.querySelectorAll('[data-group-product-id]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const id = button.dataset.groupProductId;
+      if (id === currentProductId) return;
+      groupValuesElement.querySelectorAll('button').forEach((item) => item.disabled = true);
+      try {
+        await loadProduct(id, true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (error) {
+        statusElement.textContent = error.message || 'Unable to switch product.';
+      } finally {
+        groupValuesElement.querySelectorAll('button').forEach((item) => item.disabled = false);
+      }
+    });
+  });
 }
 
 loadProduct().catch((error) => {
@@ -136,3 +179,12 @@ if (addButton) {
     } catch {}
   });
 }
+
+
+window.addEventListener('popstate', () => {
+  const id = new URLSearchParams(window.location.search).get('id');
+  loadProduct(id, false).catch((error) => {
+    titleElement.textContent = 'Product unavailable';
+    statusElement.textContent = error.message || 'Unable to load this product.';
+  });
+});
