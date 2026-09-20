@@ -19,6 +19,16 @@ export default { async fetch(request, env, ctx) {
   if (url.pathname === "/api/payment-settings") return handlePaymentSettings(request, env);
   if (url.pathname === "/api/customer-communications") return handleCustomerCommunications(request, env);
   if (url.pathname === "/api/admin-communications") return handleAdminCommunications(request, env);
+  if (url.pathname === "/api/product-groups" && request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type"
+      }
+    });
+  }
   if (url.pathname.startsWith("/api/payment/")) return handlePaymentApi(request, env);
   return originalWorker.fetch(request, env, ctx);
 } };
