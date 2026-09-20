@@ -146,3 +146,66 @@ export async function sendOrderStatusUpdate(env, order, previousStatus, newStatu
     return { sent: false, failed: true, reason: error?.message || "Delivery failed." };
   }
 }
+
+
+export async function sendNewChatNotification(env, conversation, message) {
+  const customerName = clean(conversation?.customer_name);
+  const customerEmail = clean(conversation?.customer_email);
+  const subjectText = clean(conversation?.subject);
+  const body = clean(message);
+
+  if (!body) {
+    return { sent: false, skipped: true, reason: "Chat message is missing." };
+  }
+
+  try {
+    const settingsRow = await env.DB.prepare(
+      "SELECT contact_email, store_name FROM store_settings WHERE id = 1"
+    ).first();
+    const recipient = clean(settingsRow?.contact_email);
+
+    if (!recipient) {
+      return { sent: false, skipped: true, reason: "Store contact email is not configured." };
+    }
+
+    const storeName = clean(settingsRow?.store_name) || "Store";
+    const senderLabel = customerName || customerEmail || "Customer";
+    const subject = subjectText
+      ? "New customer message — " + subjectText
+      : "New customer message from " + senderLabel;
+
+    const html = "<div style=\"font-family:Arial,sans-serif;line-height:1.6;color:#222\">" +
+      "<h2>New customer message</h2>" +
+      "<p><strong>Customer:</strong> " + escapeHtml(senderLabel) + "</p>" +
+      (customerEmail ? "<p><strong>Email:</strong> " + escapeHtml(customerEmail) + "</p>" : "") +
+      (subjectText ? "<p><strong>Subject:</strong> " + escapeHtml(subjectText) + "</p>" : "") +
+      (conversation?.order_id ? "<p><strong>Order ID:</strong> " + escapeHtml(conversation.order_id) + "</p>" : "") +
+      "<p><strong>Message:</strong></p><p>" + escapeHtml(body).replace(/\\n/g, "<br>") + "</p>" +
+      "<p>Open the admin Communications area to reply.</p>" +
+      "<p>" + escapeHtml(storeName) + "</p>" +
+      "</div>";
+
+    const text = "New customer message\n\n" +
+      "Customer: " + senderLabel + "\n" +
+      (customerEmail ? "Email: " + customerEmail + "\n" : "") +
+      (subjectText ? "Subject: " + subjectText + "\n" : "") +
+      (conversation?.order_id ? "Order ID: " + conversation.order_id + "\n" : "") +
+      "\nMessage:\n" + body + "\n\n" +
+      "Open the admin Communications area to reply.";
+
+    return await sendTransactionalEmail(env, {
+      to: recipient,
+      subject,
+      html,
+      text,
+      notification: "new_chat"
+    });
+  } catch (error) {
+    console.error("New chat communication failed", {
+      conversation_id: conversation?.id,
+      customer_email: customerEmail,
+      error: error?.message || String(error)
+    });
+    return { sent: false, failed: true, reason: error?.message || "Delivery failed." };
+  }
+}
