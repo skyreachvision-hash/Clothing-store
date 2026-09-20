@@ -109,8 +109,9 @@ export async function handleCustomerCommunications(request, env) {
         "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?"
       ).bind(conversationId).run();
 
+      const conversation = await getConversation(env, conversationId);
       const communication = await sendNewChatNotification(env, conversation, message);
-      return json({ success: true, data: await getConversation(env, conversationId), communication }, 201);
+      return json({ success: true, data: conversation, communication }, 201);
     }
 
     const profile = await env.DB.prepare(
