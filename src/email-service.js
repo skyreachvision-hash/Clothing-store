@@ -138,10 +138,19 @@ async function sendWithGmail(env, settings, { to, subject, html, text }) {
   return { sent: true, id: String(result.id), provider: "gmail" };
 }
 
-export async function sendTransactionalEmail(env, { to, subject, html, text }) {
+export async function sendTransactionalEmail(env, { to, subject, html, text, notification = null }) {
   const row = await env.DB.prepare("SELECT settings_json FROM store_settings WHERE id = 1").first();
   const settings = getEmailSettings(row);
   if (!settings.enabled) return { sent: false, skipped: true, reason: "Email notifications are disabled." };
+  if (notification === "order_confirmation" && !settings.notify_order_confirmation) {
+    return { sent: false, skipped: true, reason: "Order confirmation notifications are disabled." };
+  }
+  if (notification === "order_status" && !settings.notify_order_status) {
+    return { sent: false, skipped: true, reason: "Order status notifications are disabled." };
+  }
+  if (notification === "new_chat" && !settings.notify_new_chat) {
+    return { sent: false, skipped: true, reason: "New chat notifications are disabled." };
+  }
   if (!settings.sender_email) throw new Error("Transactional sender email is not configured.");
 
   if (settings.provider === "resend") {
