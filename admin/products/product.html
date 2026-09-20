@@ -100,33 +100,8 @@
     }
 
     function getSelectedGroup() {
-      return productGroups.find((group) => String(group.id) === String(form.elements.product_group_id.value)) || null;
+      return productGroups.find((group) => String(group.id) === String(productGroupSelect.value)) || null;
     }
-
-    function updateGroupValueUI() {
-      const group = getSelectedGroup();
-      const isColor = group?.relationship_type === 'color';
-      colorPalette.hidden = !isColor;
-      groupValueLabel.textContent = isColor ? 'Color' : group?.relationship_type === 'size' ? 'Size' : 'Group value';
-      groupValueHelp.textContent = isColor
-        ? 'Select a color above, or type a custom color name if it is not listed.'
-        : group?.relationship_type === 'size'
-          ? 'Type the size for this product.'
-          : 'Select a product group first, then enter its value.';
-      colorPalette.querySelectorAll('[data-color-value]').forEach((button) => {
-        button.classList.toggle('button-primary', isColor && button.dataset.colorValue.toLowerCase() === productGroupValueInput.value.trim().toLowerCase());
-      });
-    }
-
-    colorPalette.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-color-value]');
-      if (!button) return;
-      productGroupValueInput.value = button.dataset.colorValue;
-      updateGroupValueUI();
-    });
-
-    form.elements.product_group_id.addEventListener('change', updateGroupValueUI);
-    productGroupValueInput.addEventListener('input', updateGroupValueUI);
 
     async function loadProductGroups() {
       const result = await apiFetch('/api/product-groups');
