@@ -7,6 +7,7 @@ const descriptionElement = document.querySelector('[data-product-description]');
 const mainImageElement = document.querySelector('[data-product-main-image]');
 const thumbnailsElement = document.querySelector('[data-product-thumbnails]');
 const statusElement = document.querySelector('[data-product-status]');
+const attributesElement = document.querySelector('[data-product-attributes]');
 const addButton = document.querySelector('[data-add-to-cart]');
 const relatedSection = document.querySelector('[data-related-products-section]');
 const relatedProductsElement = document.querySelector('[data-related-products]');
@@ -99,6 +100,13 @@ async function loadProduct(id = currentProductId, updateHistory = false) {
   priceElement.textContent = formatPrice(product);
   descriptionElement.textContent = product.description || 'No description available.';
   statusElement.textContent = product.track_stock && Number(product.stock_quantity) <= 0 ? 'Out of stock' : 'Available';
+  if (attributesElement) {
+    const attributes = [];
+    if (product.product_color) attributes.push('Color: ' + product.product_color);
+    if (product.product_size) attributes.push('Size: ' + product.product_size);
+    attributesElement.textContent = attributes.join(' · ');
+    attributesElement.hidden = !attributes.length;
+  }
   if (addButton) {
     addButton.dataset.productId = product.id;
     addButton.setAttribute('aria-label', 'Add ' + product.name + ' to cart');
