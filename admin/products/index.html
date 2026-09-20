@@ -45,7 +45,7 @@
         <fieldset class="settings-group"><legend>Product details</legend>
           <div class="settings-fields settings-fields-two">
             <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" placeholder="Product name"></label>
-            <label class="field"><span>SKU</span><input name="sku" type="text" maxlength="80" placeholder="Optional SKU"></label>
+            <label class="field"><span>SKU</span><input name="sku" type="text" maxlength="80" placeholder="Auto-generated SKU"><small class="muted">Generated from the product name. You can edit it if needed.</small></label>
             <label class="field"><span>Product group</span><select name="product_group_id"><option value="">No group</option></select><small class="muted">Optional. When a group is selected, choose one of its predefined options.</small></label>
             <label class="field"><span>Group option</span><select name="product_group_option_id" disabled><option value="">No group option</option></select><small class="muted" data-group-option-help>Select a product group first.</small></label>
             <label class="field"><span>Category / subcategory</span><select name="category_id"><option value="">Uncategorized</option></select></label>
@@ -119,6 +119,17 @@
     let existingImages = [];
     let productGroups = [];
     function getSelectedGroup() { return productGroups.find((group) => String(group.id) === String(productGroupSelect.value)) || null; }
+    function skuToken(value) {
+      const words = String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim().split(/\\s+/).filter(Boolean);
+      if (!words.length) return 'PROD';
+      if (words.length === 1) return words[0].slice(0, 6);
+      return words.map((word) => word[0]).join('').slice(0, 6);
+    }
+    function previewSku(name, option = '') {
+      const base = skuToken(name);
+      const optionToken = option ? skuToken(option).slice(0, 6) : '';
+      return optionToken ? base + '-' + optionToken + '-001' : base + '-001';
+    }
     const colorOptions = [
       ['Black', '#000000'], ['White', '#ffffff'], ['Red', '#dc2626'], ['Blue', '#2563eb'],
       ['Green', '#16a34a'], ['Yellow', '#facc15'], ['Orange', '#f97316'], ['Purple', '#9333ea'],
@@ -164,10 +175,12 @@
         row.className = 'settings-fields settings-fields-two product-group-option-row';
         row.dataset.groupOptionRow = '';
         const currentValue = String(option.value || '');
+        const autoSku = option.autoSku !== false;
+        const generatedSku = autoSku ? previewSku(groupNameInput.value, currentValue) : String(option.sku || '');
         const optionField = groupTypeSelect.value === 'color'
           ? '<label class="field"><span>Color</span><div class="product-color-selected"><span class="product-color-selected-dot" data-color-dot></span><strong>' + escapeHtml(currentValue) + '</strong><input data-option-value type="hidden" value="' + escapeHtml(currentValue) + '"></div></label>'
           : '<label class="field"><span>Option</span><input data-option-value type="text" maxlength="80" placeholder="e.g. M" value="' + escapeHtml(currentValue) + '"></label>';
-        row.innerHTML = optionField + '<label class="field"><span>SKU</span><input data-option-sku type="text" maxlength="80" placeholder="Option SKU" value="' + escapeHtml(option.sku || '') + '"></label><label class="field"><span>Quantity</span><input data-option-quantity type="number" min="0" step="1" value="' + Number(option.quantity || 0) + '"></label><div class="field"><button class="button button-small button-outline" type="button" data-remove-group-option>Remove</button></div>';
+        row.innerHTML = optionField + '<label class="field"><span>SKU</span><input data-option-sku data-auto-sku="' + (autoSku ? 'true' : 'false') + '" type="text" maxlength="80" placeholder="Auto-generated SKU" value="' + escapeHtml(generatedSku) + '"><small class="muted">Generated automatically. You can edit it if needed.</small></label><label class="field"><span>Quantity</span><input data-option-quantity type="number" min="0" step="1" value="' + Number(option.quantity || 0) + '"></label><div class="field"><button class="button button-small button-outline" type="button" data-remove-group-option>Remove</button></div>';
         if (groupTypeSelect.value === 'color') {
           const color = colorOptions.find((item) => item[0].toLowerCase() === currentValue.toLowerCase());
           if (color) row.querySelector('[data-color-dot]').style.background = color[1];
@@ -181,6 +194,7 @@
       return Array.from(groupOptionsContainer.querySelectorAll('[data-group-option-row]')).map((row) => ({
         value: row.querySelector('[data-option-value]').value.trim(),
         sku: row.querySelector('[data-option-sku]').value.trim(),
+        autoSku: row.querySelector('[data-option-sku]').dataset.autoSku === 'true',
         quantity: Number(row.querySelector('[data-option-quantity]').value || 0)
       })).filter((option) => option.value);
     }
@@ -202,11 +216,27 @@
       }
       if (!productGroupOptionSelect.value && group.options?.length === 1) productGroupOptionSelect.value = String(group.options[0].id);
     }
+    groupNameInput.addEventListener('input', () => {
+      renderGroupOptionInputs(readGroupOptions());
+    });
+    groupOptionsContainer.addEventListener('input', (event) => {
+      const skuInput = event.target.closest('[data-option-sku]');
+      if (skuInput) skuInput.dataset.autoSku = 'false';
+    });
+    form.elements.sku.addEventListener('input', () => {
+      form.elements.sku.dataset.autoGenerated = 'false';
+    });
+    form.elements.name.addEventListener('input', () => {
+      if (form.elements.sku.dataset.autoGenerated !== 'false') {
+        form.elements.sku.value = previewSku(form.elements.name.value);
+        form.elements.sku.dataset.autoGenerated = 'true';
+      }
+    });
     productGroupSelect.addEventListener('change', () => {
       updateProductGroupOptions();
       const option = productGroupOptionSelect.selectedOptions[0];
       if (option?.dataset.quantity !== undefined && !form.elements.id.value) form.elements.stock_quantity.value = option.dataset.quantity;
-      if (option?.dataset.sku && !form.elements.id.value) form.elements.sku.value = option.dataset.sku;
+      if (option?.dataset.sku && !form.elements.id.value) { form.elements.sku.value = option.dataset.sku; form.elements.sku.dataset.autoGenerated = 'true'; }
     });
     productGroupOptionSelect.addEventListener('change', () => {
       const option = productGroupOptionSelect.selectedOptions[0];
@@ -310,7 +340,7 @@ async function getToken() {
       const name = groupNameInput.value.trim(), relationship_type = groupTypeSelect.value, category_id = groupCategorySelect.value || null, options = readGroupOptions();
       if (!name) { groupStatus.textContent = 'Enter a group name.'; return; }
       if (!options.length) { groupStatus.textContent = 'Add at least one group option.'; return; }
-      if (options.some((option) => !option.sku || option.quantity < 0)) { groupStatus.textContent = 'Each option needs a SKU and quantity.'; return; }
+      if (options.some((option) => option.quantity < 0)) { groupStatus.textContent = 'Each option needs a valid quantity.'; return; }
       createGroupButton.disabled = true;
       try {
         await apiFetch('/api/product-groups', { method:'POST', body:JSON.stringify({ name, relationship_type, category_id, options }) });
@@ -569,6 +599,8 @@ async function getToken() {
     function resetForm() {
       form.reset();
       form.elements.id.value = '';
+      form.elements.sku.dataset.autoGenerated = 'true';
+      form.elements.sku.value = form.elements.name.value ? previewSku(form.elements.name.value) : '';
       form.elements.price.value = '0';
       form.elements.stock_quantity.value = '0';
       form.elements.sort_order.value = '0';
@@ -590,6 +622,7 @@ async function getToken() {
       form.elements.id.value = product.id;
       form.elements.name.value = product.name || '';
       form.elements.sku.value = product.sku || '';
+      form.elements.sku.dataset.autoGenerated = product.sku ? 'false' : 'true';
       form.elements.product_group_id.value = product.product_group_id || '';
       updateProductGroupOptions(product.product_group_option_id || '');
       form.elements.category_id.value = product.category_id || '';
