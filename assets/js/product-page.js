@@ -8,6 +8,7 @@ const mainImageElement = document.querySelector('[data-product-main-image]');
 const thumbnailsElement = document.querySelector('[data-product-thumbnails]');
 const statusElement = document.querySelector('[data-product-status]');
 const addButton = document.querySelector('[data-add-to-cart]');
+let loadedProduct = null;
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
   '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
@@ -60,6 +61,7 @@ async function loadProduct() {
   const products = Array.isArray(payload.data?.products) ? payload.data.products : [];
   const product = products.find((item) => String(item.id) === String(productId));
   if (!product) throw new Error('Product not found.');
+  loadedProduct = product;
   titleElement.textContent = product.name;
   categoryElement.textContent = product.category_name || 'Uncategorized';
   priceElement.textContent = formatPrice(product);
@@ -79,3 +81,29 @@ loadProduct().catch((error) => {
   statusElement.textContent = error.message || 'Unable to load this product.';
   if (addButton) addButton.disabled = true;
 });
+
+
+if (addButton) {
+  addButton.addEventListener('click', () => {
+    if (!loadedProduct || addButton.disabled) return;
+    try {
+      const key = 'clothing-store-cart';
+      const cart = JSON.parse(localStorage.getItem(key) || '[]');
+      const existing = Array.isArray(cart) ? cart.find((item) => Number(item.product_id) === Number(loadedProduct.id)) : null;
+      if (existing) existing.quantity = Number(existing.quantity || 0) + 1;
+      else cart.push({
+        product_id: loadedProduct.id,
+        name: loadedProduct.name,
+        price: Number(loadedProduct.price) || 0,
+        currency: String(loadedProduct.currency || 'ZAR').toUpperCase(),
+        image_url: getImages(loadedProduct)[0]?.image_url || null,
+        quantity: 1
+      });
+      localStorage.setItem(key, JSON.stringify(cart));
+      document.querySelectorAll('.cart-count').forEach((element) => {
+        element.textContent = String(cart.reduce((total, item) => total + Number(item.quantity || 0), 0));
+      });
+      addButton.firstChild.textContent = 'Added to cart ';
+    } catch {}
+  });
+}
