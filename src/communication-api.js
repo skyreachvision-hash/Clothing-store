@@ -78,8 +78,9 @@ export async function handleCustomerCommunications(request, env) {
       }
 
       const conversations = await env.DB.prepare(
-        `SELECT id, customer_email, customer_name, order_id, subject, status, created_at, updated_at
-         FROM conversations WHERE customer_firebase_uid = ? ORDER BY updated_at DESC, id DESC LIMIT 100`
+        `SELECT c.id, c.customer_email, c.customer_name, c.order_id, c.subject, c.status, c.created_at, c.updated_at,
+                (SELECT COUNT(*) FROM conversation_messages m WHERE m.conversation_id = c.id) AS message_count
+         FROM conversations c WHERE c.customer_firebase_uid = ? ORDER BY c.updated_at DESC, c.id DESC LIMIT 100`
       ).bind(token.sub).all();
 
       return json({ success: true, data: conversations.results ?? [] });
@@ -128,6 +129,28 @@ export async function handleCustomerCommunications(request, env) {
         "SELECT id FROM orders WHERE id = ? AND firebase_uid = ?"
       ).bind(orderId, token.sub).first();
       if (!ownedOrder) return json({ success: false, error: "Order not found." }, 404);
+    }
+
+    const openConversation = await env.DB.prepare(
+      `SELECT id FROM conversations
+       WHERE customer_firebase_uid = ? AND status = 'open'
+       ORDER BY updated_at DESC, id DESC LIMIT 1`
+    ).bind(token.sub).first();
+
+    if (openConversation) {
+      await env.DB.prepare(
+        `INSERT INTO conversation_messages
+         (conversation_id, sender_type, sender_firebase_uid, sender_name, body)
+         VALUES (?, 'customer', ?, ?, ?)`
+      ).bind(openConversation.id, token.sub, name, message).run();
+
+      await env.DB.prepare(
+        "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+      ).bind(openConversation.id).run();
+
+      const conversation = await getConversation(env, openConversation.id);
+      const communication = await sendNewChatNotification(env, conversation, message);
+      return json({ success: true, data: conversation, communication }, 201);
     }
 
     const created = await env.DB.prepare(
@@ -191,8 +214,9 @@ export async function handleAdminCommunications(request, env) {
 
       const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
       const conversations = await env.DB.prepare(
-        `SELECT id, customer_firebase_uid, customer_email, customer_name, order_id, subject, status, created_at, updated_at
-         FROM conversations ${where} ORDER BY updated_at DESC, id DESC LIMIT 100`
+        `SELECT c.id, c.customer_firebase_uid, c.customer_email, c.customer_name, c.order_id, c.subject, c.status, c.created_at, c.updated_at,
+                (SELECT COUNT(*) FROM conversation_messages m WHERE m.conversation_id = c.id) AS message_count
+         FROM conversations c ${where} ORDER BY c.updated_at DESC, c.id DESC LIMIT 100`
       ).bind(...bindings).all();
 
       return json({ success: true, data: conversations.results ?? [] });
