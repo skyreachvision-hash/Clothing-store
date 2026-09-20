@@ -224,7 +224,7 @@
         panel.innerHTML = `
           <div class="panel-icon">${escapeHtml(String(product.id).padStart(2, '0'))}</div>
           <div>
-            <h2>${escapeHtml(product.name)}</h2>
+            <h2><a href="./product.html?id=${encodeURIComponent(product.id)}">${escapeHtml(product.name)}</a></h2>
             <p class="muted">${escapeHtml(product.category_name || 'Uncategorized')} · ${escapeHtml(product.status)} · ${escapeHtml(product.currency)} ${Number(product.price).toFixed(2)}</p>
             <p class="muted">${product.track_stock ? `Stock: ${escapeHtml(product.stock_quantity)}` : 'Stock tracking off'}${product.sku ? ` · SKU: ${escapeHtml(product.sku)}` : ''} · ${imageCount} picture${imageCount === 1 ? '' : 's'}</p>
           </div>
