@@ -1,5 +1,6 @@
 import { verifyFirebaseIdToken } from "./index.js";
 import { requireAdmin } from "./admin-auth.js";
+import { sendNewChatNotification } from "./communication-service.js";
 
 const JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -108,7 +109,8 @@ export async function handleCustomerCommunications(request, env) {
         "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?"
       ).bind(conversationId).run();
 
-      return json({ success: true, data: await getConversation(env, conversationId) }, 201);
+      const communication = await sendNewChatNotification(env, conversation, message);
+      return json({ success: true, data: await getConversation(env, conversationId), communication }, 201);
     }
 
     const profile = await env.DB.prepare(
@@ -139,7 +141,9 @@ export async function handleCustomerCommunications(request, env) {
        VALUES (?, 'customer', ?, ?, ?)`
     ).bind(created.id, token.sub, name, message).run();
 
-    return json({ success: true, data: await getConversation(env, created.id) }, 201);
+    const conversation = await getConversation(env, created.id);
+    const communication = await sendNewChatNotification(env, conversation, message);
+    return json({ success: true, data: conversation, communication }, 201);
   } catch (error) {
     if (error?.message === "Authentication required.") {
       return json({ success: false, error: error.message }, 401);
