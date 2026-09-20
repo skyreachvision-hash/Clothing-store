@@ -71,46 +71,14 @@
     const variantsList = document.querySelector('[data-product-variants]');
     const editButton = document.querySelector('[data-edit-product]');
     const form = document.querySelector('[data-product-form]');
-    const productGroupValueInput = form.elements.product_group_value;
-    const productColorInput = form.elements.product_color;
-    const productSizeSelect = form.elements.product_size;
-    const productSizeCustomInput = form.elements.product_size_custom;
-    const productColorPalette = document.querySelector('[data-product-color-palette]');
-    const groupValueLabel = document.querySelector('[data-group-value-label]');
-    const groupValueHelp = document.querySelector('[data-group-value-help]');
-    const colorPalette = document.querySelector('[data-color-palette]');
+    const productGroupSelect = form.elements.product_group_id;
+    const productGroupOptionSelect = form.elements.product_group_option_id;
+    const groupOptionHelp = document.querySelector('[data-group-option-help]');
     const cancelButton = document.querySelector('[data-cancel-edit]');
     const status = document.querySelector('[data-form-status]');
     let product = null;
     let existingImages = [];
     let productGroups = [];
-    const standardColors = [
-      ['Black','#111111'],['White','#ffffff'],['Gray','#808080'],['Silver','#c0c0c0'],['Red','#e53935'],['Orange','#fb8c00'],['Yellow','#fdd835'],['Green','#43a047'],['Blue','#1e88e5'],['Navy','#1a237e'],['Purple','#8e24aa'],['Pink','#ec407a'],['Brown','#6d4c41'],['Beige','#d7c4a3'],['Cream','#fff4d6'],['Gold','#d4af37'],['Turquoise','#26a69a'],['Teal','#00897b'],['Maroon','#800000'],['Olive','#808000']
-    ];
-
-    function setStatus(message) { status.textContent = message; }
-    function renderProductColorPalette() {
-      productColorPalette.innerHTML = standardColors.map(([name, hex]) => '<button class="button button-small button-outline color-choice" type="button" data-product-color-value="' + name + '" title="' + name + '"><span class="color-swatch" style="background-color:' + hex + '"></span><span>' + name + '</span></button>').join('');
-    }
-    function syncProductColorPalette() {
-      productColorPalette.querySelectorAll('[data-product-color-value]').forEach((button) => button.classList.toggle('button-primary', button.dataset.productColorValue.toLowerCase() === productColorInput.value.trim().toLowerCase()));
-    }
-    productColorPalette.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-product-color-value]');
-      if (!button) return;
-      productColorInput.value = button.dataset.productColorValue;
-      syncProductColorPalette();
-    });
-    productColorInput.addEventListener('input', syncProductColorPalette);
-    function setSizeValue(value) {
-      const normalized = String(value || '').trim();
-      const standard = Array.from(productSizeSelect.options).some((option) => option.value === normalized && option.value);
-      productSizeSelect.value = standard ? normalized : '';
-      productSizeCustomInput.value = standard ? '' : normalized;
-    }
-    function getSizeValue() { return productSizeCustomInput.value.trim() || productSizeSelect.value; }
-    productSizeSelect.addEventListener('change', () => { if (productSizeSelect.value) productSizeCustomInput.value = ''; });
-
     async function getToken() {
       if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
       const token = await window.getAdminIdToken();
@@ -164,18 +132,30 @@
 
     async function loadProductGroups() {
       const result = await apiFetch('/api/product-groups');
-      const groups = Array.isArray(result.data) ? result.data : [];
-      productGroups = groups;
-      const select = form.elements.product_group_id;
-      select.innerHTML = '<option value="">No group</option>';
-      for (const group of groups) {
+      productGroups = Array.isArray(result.data) ? result.data : [];
+      productGroupSelect.innerHTML = '<option value="">No group</option>';
+      for (const group of productGroups) {
         const option = document.createElement('option');
         option.value = group.id;
         option.textContent = group.name + ' (' + (group.relationship_type === 'size' ? 'Size' : 'Color') + ')';
-        select.append(option);
+        productGroupSelect.append(option);
+      }
+      updateProductGroupOptions();
+    }
+    function updateProductGroupOptions(selectedId = '') {
+      const group = productGroups.find((item) => String(item.id) === String(productGroupSelect.value));
+      productGroupOptionSelect.innerHTML = '<option value="">No group option</option>';
+      productGroupOptionSelect.disabled = !group;
+      if (!group) { groupOptionHelp.textContent = 'Select a group first.'; return; }
+      groupOptionHelp.textContent = 'Choose the predefined option for this product.';
+      for (const option of (group.options || [])) {
+        const item = document.createElement('option');
+        item.value = option.id; item.textContent = option.value + (option.sku ? ' · ' + option.sku : '');
+        if (String(option.id) === String(selectedId)) item.selected = true;
+        productGroupOptionSelect.append(item);
       }
     }
-
+    productGroupSelect.addEventListener('change', () => updateProductGroupOptions());
     async function loadCategories() {
       const response = await fetch('/api/categories', { headers: { Accept: 'application/json' }, cache: 'no-store' });
       const payload = await response.json().catch(() => ({}));
@@ -213,9 +193,8 @@
       const rows = [
         ['Product ID', product.id],
         ['SKU', product.sku || '—'],
-        ['Color', product.product_color || '—'],
-        ['Size', product.product_size || '—'],
-        ['Product group', product.product_group_name ? product.product_group_name + (product.product_group_value ? ' · ' + product.product_group_value : '') : '—'],
+        
+        ['Product group', product.product_group_name ? product.product_group_name + (product.product_group_option_value ? ' · ' + product.product_group_option_value : '') : '—'],
         ['Category', product.category_name || 'Uncategorized'],
         ['Status', product.status],
         ['Price', product.currency + ' ' + Number(product.price).toFixed(2)],
@@ -242,15 +221,10 @@
     }
 
     function populateForm() {
-      form.elements.id.value = product.id;
       form.elements.name.value = product.name || '';
       form.elements.sku.value = product.sku || '';
-      form.elements.product_color.value = product.product_color || '';
-      syncProductColorPalette();
-      setSizeValue(product.product_size || '');
-      form.elements.product_group_id.value = product.product_group_id || '';
-      form.elements.product_group_value.value = product.product_group_value || '';
-      updateGroupValueUI();
+      productGroupSelect.value = product.product_group_id || '';
+      updateProductGroupOptions(product.product_group_option_id || '');
       form.elements.category_id.value = product.category_id || '';
       form.elements.status.value = product.status || 'draft';
       form.elements.price.value = product.price ?? 0;
@@ -258,7 +232,8 @@
       form.elements.sort_order.value = product.sort_order ?? 0;
       form.elements.track_stock.checked = Boolean(product.track_stock);
       form.elements.description.value = product.description || '';
-      form.elements.images.value = '';
+      existingImages = Array.isArray(product.images) ? product.images.map((image,index)=>({...image,sort_order:index,is_primary:index===0})) : [];
+      imageInput.value = '';
     }
 
     async function uploadImage(file) {
@@ -299,10 +274,8 @@
       const data = {
         name: form.elements.name.value.trim(),
         sku: form.elements.sku.value.trim(),
-        product_color: form.elements.product_color.value.trim(),
-        product_size: getSizeValue(),
-        product_group_id: form.elements.product_group_id.value || null,
-        product_group_value: form.elements.product_group_value.value.trim(),
+        product_group_id: productGroupSelect.value || null,
+        product_group_option_id: productGroupOptionSelect.value || null,
         category_id: form.elements.category_id.value || null,
         status: form.elements.status.value,
         price: Number(form.elements.price.value || 0),
