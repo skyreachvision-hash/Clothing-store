@@ -213,6 +213,8 @@
       const rows = [
         ['Product ID', product.id],
         ['SKU', product.sku || '—'],
+        ['Color', product.product_color || '—'],
+        ['Size', product.product_size || '—'],
         ['Product group', product.product_group_name ? product.product_group_name + (product.product_group_value ? ' · ' + product.product_group_value : '') : '—'],
         ['Category', product.category_name || 'Uncategorized'],
         ['Status', product.status],
