@@ -262,9 +262,9 @@
         description: form.elements.description.value.trim()
       };
       if (!data.name) return setStatus('Product name is required.');
-      if (!confirm('Save changes to this product?')) return;
       const saveButton = form.querySelector('button[type="submit"]');
       saveButton.disabled = true;
+      setStatus('Saving changes…');
       try {
         let images = [...existingImages];
         for (let index = 0; index < files.length; index += 1) {
@@ -279,7 +279,6 @@
           images = images.map((image, index) => ({ ...image, sort_order:index, is_primary:Boolean(image.is_primary) }));
         }
         data.images = images;
-        setStatus('Saving changes…');
         await apiFetch('/api/products?id=' + encodeURIComponent(product.id), { method:'PUT', body:JSON.stringify(data) });
         const refreshed = await apiFetch('/api/products?status=' + encodeURIComponent(data.status) + '&limit=100');
         product = (refreshed.data?.products || []).find((item) => String(item.id) === String(id));
