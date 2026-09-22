@@ -64,7 +64,8 @@
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="./">Back to Products</a></div></footer>
 
   <script type="module">
-    const groupId = new URLSearchParams(location.search).get('id');
+    const params = new URLSearchParams(location.search);
+    const groupId = params.get('id') || params.get('group_id');
     const title = document.querySelector('[data-group-title]');
     const meta = document.querySelector('[data-group-meta]');
     const details = document.querySelector('[data-group-details]');
