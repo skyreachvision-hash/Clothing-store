@@ -706,14 +706,12 @@ async function getToken() {
     productFilterPanel.addEventListener('click', (event) => {
       const categoryToggle = event.target.closest('[data-category-toggle]');
       if (categoryToggle) {
-        const children = categoryToggle.parentElement.querySelector('.product-filter-category-children');
+        const children = categoryToggle.closest('.product-filter-category')?.querySelector('.product-filter-category-children');
         if (children) {
           const expanded = children.hidden;
           children.hidden = !expanded;
           categoryToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
         }
-        const mainCategoryId = categoryToggle.dataset.categoryToggle;
-        return;
         return;
       }
 
