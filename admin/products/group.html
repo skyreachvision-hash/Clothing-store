@@ -317,13 +317,27 @@
       }
 
       try {
-        const groupPayload = await apiFetch('/api/product-groups?id=' + encodeURIComponent(groupId));
-        group = groupPayload.data?.group || null;
+        const groupsPayload = await apiFetch('/api/product-groups');
+        const groups = Array.isArray(groupsPayload.data) ? groupsPayload.data : [];
+        group = groups.find((item) => String(item.id) === String(groupId)) || null;
         if (!group) throw new Error('Product group not found.');
         renderGroup();
 
-        groupProducts = Array.isArray(groupPayload.data?.products) ? groupPayload.data.products
-          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id)) : [];
+        const productResults = await Promise.all(
+          ['draft', 'active', 'archived'].map((status) =>
+            fetch('/api/products?status=' + encodeURIComponent(status) + '&product_group_id=' + encodeURIComponent(groupId) + '&limit=100', {
+              headers: { Accept: 'application/json' },
+              cache: 'no-store'
+            }).then(async (response) => {
+              const payload = await response.json().catch(() => ({}));
+              if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load group products.');
+              return payload.data?.products || [];
+            })
+          )
+        );
+
+        groupProducts = productResults.flat()
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id));
         renderProducts(groupProducts);
         renderOptionChoices();
         productCategory.value = getCategoryLabel();
