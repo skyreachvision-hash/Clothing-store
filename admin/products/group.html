@@ -106,17 +106,7 @@
       const headers = new Headers(options.headers || {});
       headers.set('Authorization', 'Bearer ' + token);
       if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      let response;
-      try {
-        response = await fetch(url, { ...options, headers, signal: controller.signal });
-      } catch (error) {
-        if (error?.name === 'AbortError') throw new Error('Request timed out while loading the group. Please refresh and try again.');
-        throw error;
-      } finally {
-        clearTimeout(timeout);
-      }
+      const response = await fetch(url, { ...options, headers });
       const text = await response.text();
       let payload = {};
       try { payload = text ? JSON.parse(text) : {}; } catch {}
@@ -327,17 +317,13 @@
       }
 
       try {
-        const groupPayload = await apiFetch('/api/product-groups');
-        const groups = Array.isArray(groupPayload.data) ? groupPayload.data : [];
-        group = groups.find((item) => String(item.id) === String(groupId));
+        const groupPayload = await apiFetch('/api/product-groups?id=' + encodeURIComponent(groupId));
+        group = groupPayload.data?.group || null;
         if (!group) throw new Error('Product group not found.');
         renderGroup();
 
-        const results = await Promise.all(['draft', 'active', 'archived'].map((status) =>
-          apiFetch('/api/products?status=' + encodeURIComponent(status) + '&product_group_id=' + encodeURIComponent(groupId) + '&limit=100')
-        ));
-        groupProducts = results.flatMap((result) => result.data?.products || [])
-          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id));
+        groupProducts = Array.isArray(groupPayload.data?.products) ? groupPayload.data.products
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id)) : [];
         renderProducts(groupProducts);
         renderOptionChoices();
         productCategory.value = getCategoryLabel();
