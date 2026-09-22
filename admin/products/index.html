@@ -744,24 +744,34 @@ async function getToken() {
     });
 
     async function init() {
+      const params = new URLSearchParams(location.search);
+      const groupId = params.get('group_id');
+      const addingProduct = params.get('add') === '1';
+
       try {
-        await Promise.all([loadCategories(), loadProductGroups(), loadProducts()]);
-        const params = new URLSearchParams(location.search);
-        const groupId = params.get('group_id');
-        if (params.get('add') === '1') {
-          resetForm();
-          showForm();
-          if (groupId && productGroups.some((group) => String(group.id) === String(groupId))) {
-            productGroupSelect.value = groupId;
-            updateProductGroupOptions();
-            document.querySelector('#product-form-title').textContent = 'Add product to group';
-            setFormStatus('Adding a product to ' + (getSelectedGroup()?.name || 'this group') + '.');
-          }
-          form.elements.name.focus();
-          history.replaceState({}, '', './');
-        }
+        await Promise.all([loadCategories(), loadProductGroups()]);
       } catch (error) {
         setFormStatus(error.message);
+        listStatus.textContent = error.message;
+        return;
+      }
+
+      if (addingProduct) {
+        resetForm();
+        showForm();
+        if (groupId && productGroups.some((group) => String(group.id) === String(groupId))) {
+          productGroupSelect.value = groupId;
+          updateProductGroupOptions();
+          document.querySelector('#product-form-title').textContent = 'Add product to group';
+          setFormStatus('Adding a product to ' + (getSelectedGroup()?.name || 'this group') + '.');
+        }
+        form.elements.name.focus();
+        history.replaceState({}, '', './');
+      }
+
+      try {
+        await loadProducts();
+      } catch (error) {
         listStatus.textContent = error.message;
       }
     }
