@@ -461,14 +461,26 @@ async function getToken() {
             const wrapper = document.createElement('div');
             wrapper.className = 'product-filter-category';
             
+            const mainRow = document.createElement('div');
+            mainRow.className = 'product-filter-category-row';
+
             const mainButton = document.createElement('button');
             mainButton.type = 'button';
-            mainButton.className = 'product-filter-option product-filter-category-toggle';
+            mainButton.className = 'product-filter-option product-filter-category-toggle' + (String(selectedCategoryId) === String(main.id) ? ' is-selected' : '');
             mainButton.dataset.categoryToggle = main.id;
             mainButton.setAttribute('aria-expanded', 'false');
             mainButton.innerHTML =
               '<span>' + escapeHtml(main.name) + '</span><span class="product-filter-category-chevron" aria-hidden="true">⌄</span>';
-            wrapper.append(mainButton);
+            mainRow.append(mainButton);
+
+            const allButton = document.createElement('button');
+            allButton.type = 'button';
+            allButton.className = 'button button-small button-outline product-filter-category-all' + (String(selectedCategoryId) === String(main.id) ? ' is-selected' : '');
+            allButton.dataset.categoryId = main.id;
+            allButton.textContent = 'All';
+            allButton.setAttribute('aria-label', 'Show all products in ' + main.name);
+            mainRow.append(allButton);
+            wrapper.append(mainRow);
 
             const childrenContainer = document.createElement('div');
             childrenContainer.className = 'product-filter-category-children';
@@ -485,7 +497,6 @@ async function getToken() {
               childrenContainer.append(childButton);
             }
 
-            if (children.length) wrapper.append(childrenContainer);
             items.append(wrapper);
 
             if (children.some((child) => String(child.id) === String(selectedCategoryId))) {
@@ -701,16 +712,7 @@ async function getToken() {
           categoryToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
         }
         const mainCategoryId = categoryToggle.dataset.categoryToggle;
-        const mainCategoryProducts = products.filter((product) => {
-          const categoryId = Number(product.category_id);
-          const categories = window.__productCategories || [];
-          const category = categories.find((item) => Number(item.id) === categoryId);
-          return category && (Number(category.id) === Number(mainCategoryId) || Number(category.parent_id) === Number(mainCategoryId));
-        });
-        selectedCategoryId = String(selectedCategoryId) === String(mainCategoryId) ? '' : mainCategoryId;
-        renderProductFilterPanel();
-        renderProducts();
-        updateListStatus();
+        return;
         return;
       }
 
