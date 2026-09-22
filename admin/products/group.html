@@ -64,8 +64,7 @@
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="./">Back to Products</a></div></footer>
 
   <script type="module">
-    const params = new URLSearchParams(location.search);
-    const groupId = params.get('id') || params.get('group_id');
+    const groupId = new URLSearchParams(location.search).get('id');
     const title = document.querySelector('[data-group-title]');
     const meta = document.querySelector('[data-group-meta]');
     const details = document.querySelector('[data-group-details]');
@@ -297,10 +296,10 @@
         const option = product.product_group_option_value || product.product_group_value || 'No option';
         const status = product.status || 'draft';
         panel.innerHTML =
-          '<div><h3><a href="./product.html?id=' + encodeURIComponent(product.id) + '&group_id=' + encodeURIComponent(groupId)">' + escapeHtml(product.name) + '</a></h3>' +
+          '<div><h3><a href="./product.html?id=' + encodeURIComponent(product.id) + '">' + escapeHtml(product.name) + '</a></h3>' +
           '<p class="muted">SKU ' + escapeHtml(product.sku || '—') + ' · ' + escapeHtml(option) + ' · ' + escapeHtml(status) + '</p>' +
           '<p class="muted">' + escapeHtml(product.currency || 'ZAR') + ' ' + Number(product.price || 0).toFixed(2) + ' · Stock ' + Number(product.stock_quantity || 0) + '</p></div>' +
-          '<div><a class="button button-small button-outline" href="./product.html?id=' + encodeURIComponent(product.id) + '&group_id=' + encodeURIComponent(groupId)">Manage Product</a></div>';
+          '<div><a class="button button-small button-outline" href="./product.html?id=' + encodeURIComponent(product.id) + '">Manage Product</a></div>';
         productsList.append(panel);
       }
     }
@@ -317,13 +316,17 @@
       }
 
       try {
-        const groupPayload = await apiFetch('/api/product-groups?id=' + encodeURIComponent(groupId));
-        group = groupPayload.data?.group || null;
+        const groupPayload = await apiFetch('/api/product-groups');
+        const groups = Array.isArray(groupPayload.data) ? groupPayload.data : [];
+        group = groups.find((item) => String(item.id) === String(groupId));
         if (!group) throw new Error('Product group not found.');
         renderGroup();
 
-        groupProducts = Array.isArray(groupPayload.data?.products) ? groupPayload.data.products
-          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id)) : [];
+        const results = await Promise.all(['draft', 'active', 'archived'].map((status) =>
+          apiFetch('/api/products?status=' + encodeURIComponent(status) + '&product_group_id=' + encodeURIComponent(groupId) + '&limit=100')
+        ));
+        groupProducts = results.flatMap((result) => result.data?.products || [])
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id));
         renderProducts(groupProducts);
         renderOptionChoices();
         productCategory.value = getCategoryLabel();
