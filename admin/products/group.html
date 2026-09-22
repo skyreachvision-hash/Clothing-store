@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="View and manage a product group.">
+  <title>Product Group | Clothing Store Admin</title>
+  <link rel="stylesheet" href="../../assets/css/styles.css">
+  <script type="module" src="../../assets/js/firebase-auth.js"></script>
+  <script src="../../assets/js/site.js" defer></script>
+</head>
+<body class="admin-page">
+  <a class="skip-link" href="#group-main">Skip to content</a>
+  <header class="admin-header"><div class="container header-inner"><a class="brand" href="../../index.html">Clothing Store <span class="admin-label">Admin</span></a><div class="admin-account"><span class="status-dot" aria-hidden="true"></span><span data-admin-account>Admin account</span><button class="button button-small button-outline" type="button" data-admin-logout>Log out</button></div></div></header>
+
+  <main id="group-main" class="admin-main"><div class="container">
+    <div class="settings-heading">
+      <div><p class="eyebrow">Catalogue management</p><h1 data-group-title>Product Group</h1><p class="muted" data-group-meta>Loading…</p></div>
+      <div><a class="button button-outline" href="./">Back to Products</a></div>
+    </div>
+
+    <section class="settings-panel" aria-labelledby="group-options-title">
+      <div class="settings-heading"><div><h2 id="group-options-title">Group options</h2><p class="muted">These options belong to the group. Products remain separate catalogue products.</p></div></div>
+      <div class="settings-fields settings-fields-two" data-group-details></div>
+      <div class="admin-sections" data-options-list></div>
+    </section>
+
+    <section class="settings-panel" aria-labelledby="group-products-title">
+      <div class="settings-heading">
+        <div><h2 id="group-products-title">Products in this group</h2><p class="muted">Products assigned to this group are still normal products and remain visible in the main catalogue.</p></div>
+        <a class="button button-primary" data-add-product href="./">Add Product</a>
+      </div>
+      <div class="settings-notice" data-products-status role="status">Loading products…</div>
+      <div class="admin-sections" data-products-list></div>
+    </section>
+  </div></main>
+
+  <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="./">Back to Products</a></div></footer>
+
+  <script type="module">
+    const groupId = new URLSearchParams(location.search).get('id');
+    const title = document.querySelector('[data-group-title]');
+    const meta = document.querySelector('[data-group-meta]');
+    const details = document.querySelector('[data-group-details]');
+    const optionsList = document.querySelector('[data-options-list]');
+    const productsList = document.querySelector('[data-products-list]');
+    const productsStatus = document.querySelector('[data-products-status]');
+    const addProduct = document.querySelector('[data-add-product]');
+    let group = null;
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+    }
+
+    async function getToken() {
+      if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
+      const token = await window.getAdminIdToken();
+      if (!token) throw new Error('Authentication required. Please sign in again.');
+      return token;
+    }
+
+    async function apiFetch(url, options = {}) {
+      const token = await getToken();
+      const headers = new Headers(options.headers || {});
+      headers.set('Authorization', 'Bearer ' + token);
+      if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+      const response = await fetch(url, { ...options, headers });
+      const text = await response.text();
+      let payload = {};
+      try { payload = text ? JSON.parse(text) : {}; } catch {}
+      if (!response.ok) throw new Error(payload.error || 'Request failed: ' + response.status);
+      return payload;
+    }
+
+    function renderGroup() {
+      const type = group.relationship_type === 'size' ? 'Size' : 'Color';
+      title.textContent = group.name;
+      meta.textContent = type + (group.category_name ? ' · ' + group.category_name : '') + ' · ' + (group.options?.length || 0) + ' option(s)';
+
+      details.innerHTML =
+        '<div class="field"><span>Group name</span><strong>' + escapeHtml(group.name) + '</strong></div>' +
+        '<div class="field"><span>Grouping type</span><strong>' + escapeHtml(type) + '</strong></div>' +
+        '<div class="field"><span>Category</span><strong>' + escapeHtml(group.category_name || 'No category') + '</strong></div>' +
+        '<div class="field"><span>Slug</span><strong>' + escapeHtml(group.slug || '') + '</strong></div>';
+
+      optionsList.innerHTML = '';
+      for (const option of (group.options || [])) {
+        const panel = document.createElement('div');
+        panel.className = 'admin-panel';
+        panel.innerHTML =
+          '<div><h3>' + escapeHtml(option.value) + '</h3><p class="muted">SKU ' + escapeHtml(option.sku || '—') + ' · Quantity ' + Number(option.quantity || 0) + '</p></div>' +
+          '<div><span class="settings-readonly">Option</span></div>';
+        optionsList.append(panel);
+      }
+      if (!group.options?.length) optionsList.innerHTML = '<p class="muted">No options have been added to this group.</p>';
+
+      addProduct.href = './?add=1&group_id=' + encodeURIComponent(group.id);
+    }
+
+    function renderProducts(products) {
+      productsList.innerHTML = '';
+      if (!products.length) {
+        productsList.innerHTML = '<p class="muted">No products are assigned to this group yet.</p>';
+        return;
+      }
+      for (const product of products) {
+        const panel = document.createElement('div');
+        panel.className = 'admin-panel';
+        const option = product.product_group_option_value || product.product_group_value || 'No option';
+        const status = product.status || 'draft';
+        panel.innerHTML =
+          '<div><h3><a href="./product.html?id=' + encodeURIComponent(product.id) + '">' + escapeHtml(product.name) + '</a></h3>' +
+          '<p class="muted">SKU ' + escapeHtml(product.sku || '—') + ' · ' + escapeHtml(option) + ' · ' + escapeHtml(status) + '</p>' +
+          '<p class="muted">' + escapeHtml(product.currency || 'ZAR') + ' ' + Number(product.price || 0).toFixed(2) + ' · Stock ' + Number(product.stock_quantity || 0) + '</p></div>' +
+          '<div><a class="button button-small button-outline" href="./product.html?id=' + encodeURIComponent(product.id) + '">Manage Product</a></div>';
+        productsList.append(panel);
+      }
+    }
+
+    async function load() {
+      if (!groupId) {
+        title.textContent = 'Product Group';
+        meta.textContent = 'No group was selected.';
+        details.innerHTML = '<p class="muted">Open a product group from the Products page.</p>';
+        optionsList.innerHTML = '';
+        productsStatus.textContent = 'No group selected.';
+        addProduct.hidden = true;
+        return;
+      }
+
+      try {
+        const groupPayload = await apiFetch('/api/product-groups');
+        const groups = Array.isArray(groupPayload.data) ? groupPayload.data : [];
+        group = groups.find((item) => String(item.id) === String(groupId));
+        if (!group) throw new Error('Product group not found.');
+        renderGroup();
+
+        const results = await Promise.all(['draft', 'active', 'archived'].map((status) =>
+          apiFetch('/api/products?status=' + encodeURIComponent(status) + '&product_group_id=' + encodeURIComponent(groupId) + '&limit=100')
+        ));
+        const products = results.flatMap((result) => result.data?.products || [])
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id));
+        renderProducts(products);
+        productsStatus.textContent = products.length + ' product(s) in this group.';
+      } catch (error) {
+        meta.textContent = 'Unable to load this product group.';
+        details.innerHTML = '<p class="muted">' + escapeHtml(error.message) + '</p>';
+        optionsList.innerHTML = '';
+        productsList.innerHTML = '';
+        productsStatus.textContent = error.message;
+        addProduct.hidden = true;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
