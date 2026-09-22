@@ -497,6 +497,7 @@ async function getToken() {
               childrenContainer.append(childButton);
             }
 
+            if (children.length) wrapper.append(childrenContainer);
             items.append(wrapper);
 
             if (children.some((child) => String(child.id) === String(selectedCategoryId))) {
