@@ -700,7 +700,8 @@ async function getToken() {
 
       const categoryButton = event.target.closest('[data-category-id]');
       if (categoryButton) {
-        selectedCategoryId = categoryButton.dataset.categoryId;
+        const categoryId = categoryButton.dataset.categoryId;
+        selectedCategoryId = String(selectedCategoryId) === String(categoryId) ? '' : categoryId;
         renderProductFilterPanel();
         renderProducts();
         updateListStatus();
