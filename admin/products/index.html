@@ -695,6 +695,19 @@ async function getToken() {
           children.hidden = !expanded;
           categoryToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
         }
+        const mainCategoryId = categoryToggle.dataset.categoryToggle;
+        const mainCategoryProducts = products.filter((product) => {
+          const categoryId = Number(product.category_id);
+          const categories = window.__productCategories || [];
+          const category = categories.find((item) => Number(item.id) === categoryId);
+          return category && (Number(category.id) === Number(mainCategoryId) || Number(category.parent_id) === Number(mainCategoryId));
+        });
+        if (mainCategoryProducts.length) {
+          selectedCategoryId = String(selectedCategoryId) === String(mainCategoryId) ? '' : mainCategoryId;
+          renderProductFilterPanel();
+          renderProducts();
+          updateListStatus();
+        }
         return;
       }
 
