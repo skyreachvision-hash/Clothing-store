@@ -25,10 +25,36 @@
       <div class="admin-sections" data-options-list></div>
     </section>
 
+    <section class="settings-panel" aria-labelledby="group-add-product-title" data-group-product-form hidden>
+      <div class="settings-heading">
+        <div><h2 id="group-add-product-title">Add product to this group</h2><p class="muted">Choose one of the options already configured for this group. Its SKU, quantity and category are supplied automatically.</p></div>
+        <span class="settings-readonly">Group product</span>
+      </div>
+      <form class="settings-form" data-group-product-form>
+        <fieldset class="settings-group"><legend>Group product setup</legend>
+          <div class="settings-fields settings-fields-two">
+            <label class="field"><span>Group option</span><select name="group_option_id" required data-group-option-select><option value="">Choose an available option</option></select><small class="muted" data-group-option-status>Select an option from this group's predefined options.</small></label>
+            <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" data-group-product-name></label>
+            <label class="field"><span>SKU</span><input name="sku" type="text" readonly data-group-product-sku><small class="muted">Taken from the selected group option.</small></label>
+            <label class="field"><span>Quantity</span><input name="stock_quantity" type="number" readonly data-group-product-quantity><small class="muted">Taken from the selected group option.</small></label>
+            <label class="field"><span>Category / subcategory</span><input name="category_name" type="text" readonly data-group-product-category><small class="muted">Taken from the group setup.</small></label>
+            <label class="field"><span>Status</span><select name="status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label>
+            <label class="field"><span>Price (ZAR)</span><input name="price" type="number" min="0" step="0.01" inputmode="decimal" value="0"></label>
+            <label class="field"><span>Sort order</span><input name="sort_order" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
+            <label class="field"><span><input name="track_stock" type="checkbox" checked> Track stock</span></label>
+            <label class="field field-wide"><span>Description</span><textarea name="description" rows="5" maxlength="5000" placeholder="Describe this product"></textarea></label>
+            <label class="field field-wide"><span>Product pictures</span><input name="images" type="file" accept="image/*" multiple><small class="muted">You can select multiple pictures. Maximum 10 MB per picture.</small></label>
+            <div class="field field-wide"><span>Selected pictures</span><p class="muted" data-image-selection>No pictures selected.</p></div>
+          </div>
+        </fieldset>
+        <div class="settings-actions"><span class="settings-load-status" data-group-form-status aria-live="polite">Choose an available group option.</span><div><button class="button button-outline" type="button" data-cancel-group-product>Cancel</button> <button class="button button-primary" type="submit" data-save-group-product>Save product</button></div></div>
+      </form>
+    </section>
+
     <section class="settings-panel" aria-labelledby="group-products-title">
       <div class="settings-heading">
         <div><h2 id="group-products-title">Products in this group</h2><p class="muted">Products assigned to this group are still normal products and remain visible in the main catalogue.</p></div>
-        <a class="button button-primary" data-add-product href="./">Add Product</a>
+        <button class="button button-primary" type="button" data-add-product>Add Product</button>
       </div>
       <div class="settings-notice" data-products-status role="status">Loading products…</div>
       <div class="admin-sections" data-products-list></div>
@@ -46,7 +72,21 @@
     const productsList = document.querySelector('[data-products-list]');
     const productsStatus = document.querySelector('[data-products-status]');
     const addProduct = document.querySelector('[data-add-product]');
+    const productFormPanel = document.querySelector('[data-group-product-form]');
+    const productForm = document.querySelector('[data-group-product-form]');
+    const optionSelect = document.querySelector('[data-group-option-select]');
+    const optionStatus = document.querySelector('[data-group-option-status]');
+    const productName = document.querySelector('[data-group-product-name]');
+    const productSku = document.querySelector('[data-group-product-sku]');
+    const productQuantity = document.querySelector('[data-group-product-quantity]');
+    const productCategory = document.querySelector('[data-group-product-category]');
+    const imageInput = productForm.elements.images;
+    const imageSelection = document.querySelector('[data-image-selection]');
+    const formStatus = document.querySelector('[data-group-form-status]');
+    const saveProductButton = document.querySelector('[data-save-group-product]');
+    const cancelProductButton = document.querySelector('[data-cancel-group-product]');
     let group = null;
+    let groupProducts = [];
 
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
@@ -63,13 +103,18 @@
       const token = await getToken();
       const headers = new Headers(options.headers || {});
       headers.set('Authorization', 'Bearer ' + token);
-      if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+      if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
       const response = await fetch(url, { ...options, headers });
       const text = await response.text();
       let payload = {};
       try { payload = text ? JSON.parse(text) : {}; } catch {}
-      if (!response.ok) throw new Error(payload.error || 'Request failed: ' + response.status);
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed: ' + response.status);
       return payload;
+    }
+
+    function getCategoryLabel() {
+      if (!group) return 'No category';
+      return group.category_name || 'No category';
     }
 
     function renderGroup() {
@@ -93,8 +138,116 @@
         optionsList.append(panel);
       }
       if (!group.options?.length) optionsList.innerHTML = '<p class="muted">No options have been added to this group.</p>';
+    }
 
-      addProduct.href = './?add=1&group_id=' + encodeURIComponent(group.id);
+    function renderOptionChoices() {
+      optionSelect.innerHTML = '<option value="">Choose an available option</option>';
+      const assignedOptionIds = new Set(groupProducts.map((product) => String(product.product_group_option_id)).filter(Boolean));
+      const available = (group?.options || []).filter((option) => !assignedOptionIds.has(String(option.id)));
+
+      for (const option of available) {
+        const item = document.createElement('option');
+        item.value = option.id;
+        item.textContent = option.value + (option.sku ? ' · ' + option.sku : '') + ' · Qty ' + Number(option.quantity || 0);
+        item.dataset.sku = option.sku || '';
+        item.dataset.quantity = String(option.quantity ?? 0);
+        item.dataset.value = option.value || '';
+        optionSelect.append(item);
+      }
+
+      optionSelect.disabled = !available.length;
+      addProduct.disabled = !available.length;
+      optionStatus.textContent = available.length
+        ? 'Choose an option that does not already have a product.'
+        : 'All group options already have products.';
+      if (!available.length) productFormPanel.hidden = true;
+    }
+
+    function updateSelectedOption() {
+      const option = optionSelect.selectedOptions[0];
+      if (!option?.value) {
+        productSku.value = '';
+        productQuantity.value = '';
+        productName.value = group?.name || '';
+        return;
+      }
+      productSku.value = option.dataset.sku || '';
+      productQuantity.value = option.dataset.quantity || '0';
+      productName.value = group?.name || '';
+      formStatus.textContent = 'Ready to create the ' + (option.dataset.value || 'selected') + ' product.';
+    }
+
+    function resetProductForm() {
+      productForm.reset();
+      productName.value = group?.name || '';
+      productCategory.value = getCategoryLabel();
+      productSku.value = '';
+      productQuantity.value = '';
+      productForm.elements.price.value = '0';
+      productForm.elements.status.value = 'draft';
+      productForm.elements.sort_order.value = '0';
+      productForm.elements.track_stock.checked = true;
+      imageSelection.textContent = 'No pictures selected.';
+      formStatus.textContent = 'Choose an available group option.';
+      updateSelectedOption();
+    }
+
+    function updateImageSelectionText() {
+      const files = Array.from(imageInput.files || []);
+      imageSelection.textContent = files.length
+        ? files.length + ' picture' + (files.length === 1 ? '' : 's') + ' selected: ' + files.map((file) => file.name).join(', ')
+        : 'No pictures selected.';
+    }
+
+    async function uploadImage(file) {
+      const data = new FormData();
+      data.append('file', file, file.name);
+      const payload = await apiFetch('/api/upload-image', { method: 'POST', body: data });
+      return payload.data;
+    }
+
+    async function saveProductImages(productId, files) {
+      if (!files.length) return;
+      const images = [];
+      for (let index = 0; index < files.length; index += 1) {
+        formStatus.textContent = 'Uploading picture ' + (index + 1) + ' of ' + files.length + '…';
+        const uploaded = await uploadImage(files[index]);
+        images.push({
+          image_url: uploaded.image_url,
+          cloudinary_public_id: uploaded.cloudinary_public_id,
+          alt_text: productName.value.trim(),
+          sort_order: index,
+          is_primary: index === 0
+        });
+      }
+      await apiFetch('/api/products?id=' + encodeURIComponent(productId), {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: productName.value.trim(),
+          sku: productSku.value.trim(),
+          product_group_id: group.id,
+          product_group_option_id: optionSelect.value,
+          category_id: group.category_id || null,
+          status: productForm.elements.status.value,
+          price: Number(productForm.elements.price.value || 0),
+          stock_quantity: Number(productQuantity.value || 0),
+          sort_order: Number(productForm.elements.sort_order.value || 0),
+          track_stock: productForm.elements.track_stock.checked,
+          description: productForm.elements.description.value.trim(),
+          images
+        })
+      });
+    }
+
+    function showProductForm() {
+      productFormPanel.hidden = false;
+      window.scrollTo({ top: productFormPanel.getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+      optionSelect.focus();
+    }
+
+    function hideProductForm() {
+      productFormPanel.hidden = true;
+      resetProductForm();
     }
 
     function renderProducts(products) {
@@ -138,10 +291,12 @@
         const results = await Promise.all(['draft', 'active', 'archived'].map((status) =>
           apiFetch('/api/products?status=' + encodeURIComponent(status) + '&product_group_id=' + encodeURIComponent(groupId) + '&limit=100')
         ));
-        const products = results.flatMap((result) => result.data?.products || [])
+        groupProducts = results.flatMap((result) => result.data?.products || [])
           .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(b.id) - Number(a.id));
-        renderProducts(products);
-        productsStatus.textContent = products.length + ' product(s) in this group.';
+        renderProducts(groupProducts);
+        renderOptionChoices();
+        productCategory.value = getCategoryLabel();
+        productsStatus.textContent = groupProducts.length + ' product(s) in this group.';
       } catch (error) {
         meta.textContent = 'Unable to load this product group.';
         details.innerHTML = '<p class="muted">' + escapeHtml(error.message) + '</p>';
@@ -151,6 +306,58 @@
         addProduct.hidden = true;
       }
     }
+
+    addProduct.addEventListener('click', () => {
+      resetProductForm();
+      showProductForm();
+    });
+
+    cancelProductButton.addEventListener('click', hideProductForm);
+    optionSelect.addEventListener('change', updateSelectedOption);
+    imageInput.addEventListener('change', updateImageSelectionText);
+
+    productForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const option = optionSelect.selectedOptions[0];
+      if (!option?.value) {
+        formStatus.textContent = 'Choose an available group option first.';
+        return;
+      }
+      const files = Array.from(imageInput.files || []);
+      const data = {
+        name: productName.value.trim(),
+        sku: productSku.value.trim(),
+        product_group_id: group.id,
+        product_group_option_id: optionSelect.value,
+        category_id: group.category_id || null,
+        status: productForm.elements.status.value,
+        price: Number(productForm.elements.price.value || 0),
+        stock_quantity: Number(productQuantity.value || 0),
+        sort_order: Number(productForm.elements.sort_order.value || 0),
+        track_stock: productForm.elements.track_stock.checked,
+        description: productForm.elements.description.value.trim()
+      };
+      if (!data.name) {
+        formStatus.textContent = 'Product name is required.';
+        return;
+      }
+      if (!confirm('Create this product for the ' + (option.dataset.value || 'selected') + ' option?')) return;
+
+      saveProductButton.disabled = true;
+      setTimeout(() => {}, 0);
+      formStatus.textContent = 'Creating product…';
+      try {
+        const saved = await apiFetch('/api/products', { method: 'POST', body: JSON.stringify(data) });
+        if (files.length) await saveProductImages(saved.data.id, files);
+        await load();
+        hideProductForm();
+        formStatus.textContent = 'Product created.';
+      } catch (error) {
+        formStatus.textContent = error.message;
+      } finally {
+        saveProductButton.disabled = false;
+      }
+    });
 
     load();
   </script>
