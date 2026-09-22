@@ -74,7 +74,12 @@
     const groupOptionHelp = document.querySelector('[data-group-option-help]');
     const cancelButton = document.querySelector('[data-cancel-edit]');
     const status = document.querySelector('[data-form-status]');
+    const imageInput = form.elements.images;
     let product = null;
+
+    function setStatus(message) {
+      status.textContent = String(message || '');
+    }
     let existingImages = [];
     let productGroups = [];
     async function getToken() {
