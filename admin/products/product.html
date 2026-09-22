@@ -278,10 +278,12 @@
         } else {
           images = images.map((image, index) => ({ ...image, sort_order:index, is_primary:Boolean(image.is_primary) }));
         }
-        data.images = images;
         setStatus('Saving changes…');
         await apiFetch('/api/products?id=' + encodeURIComponent(product.id), { method:'PUT', body:JSON.stringify(data) });
-        const refreshed = await apiFetch('/api/products?status=' + encodeURIComponent(data.status) + '&limit=100');
+        if (files.length || images.length !== existingImages.length || images.some((image, index) => Boolean(image.is_primary) !== Boolean(existingImages[index]?.is_primary))) {
+          await apiFetch('/api/products?id=' + encodeURIComponent(product.id), { method:'PUT', body:JSON.stringify({ ...data, images }) });
+        }
+        const refreshed = await apiFetch('/api/products?id=' + encodeURIComponent(product.id) + '&status=' + encodeURIComponent(data.status));
         product = (refreshed.data?.products || []).find((item) => String(item.id) === String(id));
         if (!product) throw new Error('Product was saved, but could not be reloaded.');
         renderProduct();
