@@ -439,31 +439,56 @@ async function getToken() {
         const query = search.value.trim().toLowerCase();
         if (activeProductFilter === 'categories') {
           const enabled = window.__productCategories || [];
-          const filtered = enabled.filter((category) => !query || String(category.name || '').toLowerCase().includes(query));
-          const mainCategories = filtered.filter((category) => Number(category.is_main_category) === 1);
-          const regularCategories = filtered.filter((category) => Number(category.is_main_category) !== 1);
-          const childrenByMain = new Map(mainCategories.map((main) => [Number(main.id), []]));
-          for (const category of regularCategories) {
+          const mainCategories = enabled
+            .filter((category) => Number(category.is_main_category) === 1)
+            .filter((category) => !query || String(category.name || '').toLowerCase().includes(query));
+          const childrenByMain = new Map(
+            mainCategories.map((main) => [Number(main.id), []])
+          );
+          for (const category of enabled.filter((item) => Number(item.is_main_category) !== 1)) {
             const parent = Number(category.parent_id);
             if (parent && childrenByMain.has(parent)) childrenByMain.get(parent).push(category);
           }
-          const addButton = (category, label, depth = 0) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'product-filter-option' + (String(selectedCategoryId) === String(category.id) ? ' is-selected' : '');
-            button.dataset.categoryId = category.id;
-            button.innerHTML = '<span>' + escapeHtml(label) + '</span><span aria-hidden="true">→</span>';
-            if (depth) button.classList.add('is-child');
-            items.append(button);
-          };
+
           for (const main of mainCategories) {
-            addButton(main, main.name);
-            for (const child of childrenByMain.get(Number(main.id)) || []) addButton(child, '↳ ' + child.name, 1);
+            const children = childrenByMain.get(Number(main.id)) || [];
+            const wrapper = document.createElement('div');
+            wrapper.className = 'product-filter-category';
+            
+            const mainButton = document.createElement('button');
+            mainButton.type = 'button';
+            mainButton.className = 'product-filter-option product-filter-category-toggle';
+            mainButton.dataset.categoryToggle = main.id;
+            mainButton.setAttribute('aria-expanded', 'false');
+            mainButton.innerHTML =
+              '<span>' + escapeHtml(main.name) + '</span><span class="product-filter-category-chevron" aria-hidden="true">⌄</span>';
+            wrapper.append(mainButton);
+
+            const childrenContainer = document.createElement('div');
+            childrenContainer.className = 'product-filter-category-children';
+            childrenContainer.hidden = true;
+            childrenContainer.setAttribute('role', 'group');
+            childrenContainer.setAttribute('aria-label', main.name + ' subcategories');
+
+            for (const child of children) {
+              const childButton = document.createElement('button');
+              childButton.type = 'button';
+              childButton.className = 'product-filter-option is-child' + (String(selectedCategoryId) === String(child.id) ? ' is-selected' : '');
+              childButton.dataset.categoryId = child.id;
+              childButton.innerHTML = '<span>' + escapeHtml(child.name) + '</span><span aria-hidden="true">→</span>';
+              childrenContainer.append(childButton);
+            }
+
+            if (children.length) wrapper.append(childrenContainer);
+            items.append(wrapper);
+
+            if (children.some((child) => String(child.id) === String(selectedCategoryId))) {
+              childrenContainer.hidden = false;
+              mainButton.setAttribute('aria-expanded', 'true');
+            }
           }
-          for (const category of filtered.filter((item) => !Number(item.parent_id) || !childrenByMain.has(Number(item.parent_id)))) {
-            if (!mainCategories.some((main) => Number(main.id) === Number(category.id))) addButton(category, category.name);
-          }
-          if (!items.children.length) items.innerHTML = '<p class="muted">No categories available.</p>';
+
+          if (!items.children.length) items.innerHTML = '<p class="muted">No main categories available.</p>';
         } else {
           const filtered = productGroups.filter((group) => !query || String(group.name || '').toLowerCase().includes(query));
           for (const group of filtered) {
@@ -661,6 +686,17 @@ async function getToken() {
     productSearch.addEventListener('input', renderProducts);
     productFilterTabs.forEach((tab) => tab.addEventListener('click', () => setProductFilter(tab.dataset.productFilterTab)));
     productFilterPanel.addEventListener('click', (event) => {
+      const categoryToggle = event.target.closest('[data-category-toggle]');
+      if (categoryToggle) {
+        const children = categoryToggle.parentElement.querySelector('.product-filter-category-children');
+        if (children) {
+          const expanded = children.hidden;
+          children.hidden = !expanded;
+          categoryToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+        return;
+      }
+
       const categoryButton = event.target.closest('[data-category-id]');
       if (categoryButton) {
         selectedCategoryId = categoryButton.dataset.categoryId;
@@ -669,6 +705,7 @@ async function getToken() {
         updateListStatus();
         return;
       }
+
       const groupButton = event.target.closest('[data-group-id]');
       if (groupButton) {
         selectedGroupId = groupButton.dataset.groupId;
