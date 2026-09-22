@@ -210,7 +210,7 @@
       form.elements.sort_order.value = product.sort_order ?? 0;
       form.elements.track_stock.checked = Boolean(product.track_stock);
       form.elements.description.value = product.description || '';
-      existingImages = Array.isArray(product.images) ? product.images.map((image,index)=>({...image,sort_order:index,is_primary:index===0})) : [];
+      existingImages = Array.isArray(product.images) ? product.images.map((image,index)=>({...image,sort_order:Number(image.sort_order ?? index),is_primary:Number(image.is_primary) === 1})) : [];
       imageInput.value = '';
     }
 
@@ -272,8 +272,12 @@
           const uploaded = await uploadImage(files[index]);
           images.push({ image_url:uploaded.image_url, cloudinary_public_id:uploaded.cloudinary_public_id, alt_text:data.name, sort_order:images.length, is_primary:false });
         }
-        const selectedPrimary = Number(document.querySelector('input[name="primary-image"]:checked')?.value ?? 0);
-        images = images.map((image, index) => ({ ...image, sort_order:index, is_primary:index === selectedPrimary }));
+        const selectedPrimary = Number(document.querySelector('input[name="primary-image"]:checked')?.value ?? -1);
+        if (selectedPrimary >= 0 && selectedPrimary < images.length) {
+          images = images.map((image, index) => ({ ...image, sort_order:index, is_primary:index === selectedPrimary }));
+        } else {
+          images = images.map((image, index) => ({ ...image, sort_order:index, is_primary:Boolean(image.is_primary) }));
+        }
         data.images = images;
         setStatus('Saving changes…');
         await apiFetch('/api/products?id=' + encodeURIComponent(product.id), { method:'PUT', body:JSON.stringify(data) });
