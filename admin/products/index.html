@@ -746,6 +746,20 @@ async function getToken() {
     async function init() {
       try {
         await Promise.all([loadCategories(), loadProductGroups(), loadProducts()]);
+        const params = new URLSearchParams(location.search);
+        const groupId = params.get('group_id');
+        if (params.get('add') === '1') {
+          resetForm();
+          showForm();
+          if (groupId && productGroups.some((group) => String(group.id) === String(groupId))) {
+            productGroupSelect.value = groupId;
+            updateProductGroupOptions();
+            document.querySelector('#product-form-title').textContent = 'Add product to group';
+            setFormStatus('Adding a product to ' + (getSelectedGroup()?.name || 'this group') + '.');
+          }
+          form.elements.name.focus();
+          history.replaceState({}, '', './');
+        }
       } catch (error) {
         setFormStatus(error.message);
         listStatus.textContent = error.message;
