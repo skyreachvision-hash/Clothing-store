@@ -749,11 +749,15 @@ async function getToken() {
       const addingProduct = params.get('add') === '1';
 
       try {
-        await Promise.all([loadCategories(), loadProductGroups()]);
+        await loadCategories();
       } catch (error) {
         setFormStatus(error.message);
-        listStatus.textContent = error.message;
-        return;
+      }
+
+      try {
+        await loadProductGroups();
+      } catch (error) {
+        setFormStatus(error.message);
       }
 
       if (addingProduct) {
@@ -769,11 +773,7 @@ async function getToken() {
         history.replaceState({}, '', './');
       }
 
-      try {
-        await loadProducts();
-      } catch (error) {
-        listStatus.textContent = error.message;
-      }
+      await loadProducts();
     }
     init();
   </script>
