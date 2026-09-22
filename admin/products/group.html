@@ -33,8 +33,8 @@
       <form class="settings-form" data-group-product-form>
         <fieldset class="settings-group"><legend>Group product setup</legend>
           <div class="settings-fields settings-fields-two">
-            <label class="field"><span>Group option</span><select name="group_option_id" required data-group-option-select><option value="">Choose an available option</option></select><small class="muted" data-group-option-status>Select an option from this group's predefined options.</small></label>
-            <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" data-group-product-name></label>
+            <label class="field"><span data-group-option-label>Group option</span><select name="group_option_id" required data-group-option-select><option value="">Choose an available option</option></select><small class="muted" data-group-option-status>Select an option from this group's predefined options.</small></label>
+            <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" readonly data-group-product-name><small class="muted">Built automatically from the group name and selected option.</small></label></label>
             <label class="field"><span>SKU</span><input name="sku" type="text" readonly data-group-product-sku><small class="muted">Taken from the selected group option.</small></label>
             <label class="field"><span>Quantity</span><input name="stock_quantity" type="number" readonly data-group-product-quantity><small class="muted">Taken from the selected group option.</small></label>
             <label class="field"><span>Category / subcategory</span><input name="category_name" type="text" readonly data-group-product-category><small class="muted">Taken from the group setup.</small></label>
@@ -140,7 +140,13 @@
       if (!group.options?.length) optionsList.innerHTML = '<p class="muted">No options have been added to this group.</p>';
     }
 
+    function updateGroupOptionLabel() {
+      const label = document.querySelector('[data-group-option-label]');
+      if (label) label.textContent = group?.relationship_type === 'size' ? 'Size' : 'Color';
+    }
+
     function renderOptionChoices() {
+      updateGroupOptionLabel();
       optionSelect.innerHTML = '<option value="">Choose an available option</option>';
       const assignedOptionIds = new Set(groupProducts.map((product) => String(product.product_group_option_id)).filter(Boolean));
       const available = (group?.options || []).filter((option) => !assignedOptionIds.has(String(option.id)));
@@ -168,12 +174,14 @@
         productSku.value = '';
         productQuantity.value = '';
         productName.value = group?.name || '';
+        formStatus.textContent = 'Choose the product option/colour first.';
         return;
       }
+      const optionValue = option.dataset.value || '';
       productSku.value = option.dataset.sku || '';
       productQuantity.value = option.dataset.quantity || '0';
-      productName.value = group?.name || '';
-      formStatus.textContent = 'Ready to create the ' + (option.dataset.value || 'selected') + ' product.';
+      productName.value = group?.name ? group.name + ' — ' + optionValue : optionValue;
+      formStatus.textContent = 'Ready to create the ' + optionValue + ' product.';
     }
 
     function resetProductForm() {
@@ -184,6 +192,7 @@
       productQuantity.value = '';
       productForm.elements.price.value = '0';
       productForm.elements.status.value = 'draft';
+      productForm.elements.description.value = '';
       productForm.elements.sort_order.value = '0';
       productForm.elements.track_stock.checked = true;
       imageSelection.textContent = 'No pictures selected.';
