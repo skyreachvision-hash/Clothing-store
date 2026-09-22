@@ -18,6 +18,7 @@
       <div><p class="eyebrow">Catalogue management</p><h1 data-product-title>Product</h1><p class="muted">View the complete product information and edit it when needed.</p></div>
       <div>
         <a class="button button-outline" href="./">Back to Products</a>
+        <a class="button button-outline" href="./group.html" data-back-to-group hidden>Back to Group</a>
         <button class="button button-primary" type="button" data-edit-product>Edit Product</button>
       </div>
     </div>
@@ -57,7 +58,14 @@
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="./">Back to Products</a></div></footer>
 
   <script type="module">
-    const id = new URLSearchParams(location.search).get('id');
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    const groupId = params.get('group_id');
+    const backToGroup = document.querySelector('[data-back-to-group]');
+    if (groupId && /^\d+$/.test(groupId)) {
+      backToGroup.href = './group.html?id=' + encodeURIComponent(groupId);
+      backToGroup.hidden = false;
+    }
     const viewPanel = document.querySelector('[data-view-panel]');
     const editPanel = document.querySelector('[data-edit-panel]');
     const title = document.querySelector('[data-product-title]');
