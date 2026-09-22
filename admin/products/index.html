@@ -397,7 +397,12 @@ async function getToken() {
           || String(product.name || '').toLowerCase().includes(query)
           || String(product.sku || '').toLowerCase().includes(query);
         const matchesCategory = activeProductFilter !== 'categories'
-          || String(product.category_id || '') === String(selectedCategoryId);
+          || (() => {
+            const productCategory = (window.__productCategories || []).find((category) => String(category.id) === String(product.category_id));
+            const selectedCategory = (window.__productCategories || []).find((category) => String(category.id) === String(selectedCategoryId));
+            return String(product.category_id || '') === String(selectedCategoryId)
+              || (selectedCategory && Number(selectedCategory.is_main_category) === 1 && productCategory && String(productCategory.parent_id || '') === String(selectedCategoryId));
+          })();
         const matchesGroup = activeProductFilter !== 'groups'
           || String(product.product_group_id || '') === String(selectedGroupId);
         return matchesSearch && matchesCategory && matchesGroup;
@@ -702,12 +707,10 @@ async function getToken() {
           const category = categories.find((item) => Number(item.id) === categoryId);
           return category && (Number(category.id) === Number(mainCategoryId) || Number(category.parent_id) === Number(mainCategoryId));
         });
-        if (mainCategoryProducts.length) {
-          selectedCategoryId = String(selectedCategoryId) === String(mainCategoryId) ? '' : mainCategoryId;
-          renderProductFilterPanel();
-          renderProducts();
-          updateListStatus();
-        }
+        selectedCategoryId = String(selectedCategoryId) === String(mainCategoryId) ? '' : mainCategoryId;
+        renderProductFilterPanel();
+        renderProducts();
+        updateListStatus();
         return;
       }
 
