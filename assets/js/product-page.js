@@ -101,10 +101,10 @@ async function loadProduct(id = currentProductId, updateHistory = false) {
   descriptionElement.textContent = product.description || 'No description available.';
   statusElement.textContent = product.track_stock && Number(product.stock_quantity) <= 0 ? 'Out of stock' : 'Available';
   if (attributesElement) {
-    const attributes = [];
-    if (product.product_color) attributes.push('Color: ' + product.product_color);
-    if (product.product_size) attributes.push('Size: ' + product.product_size);
-    attributesElement.textContent = attributes.join(' · ');
+    const attributes = Array.isArray(product.attributes) ? product.attributes : [];
+    attributesElement.innerHTML = attributes.length
+      ? attributes.map((attribute) => '<span><strong>' + escapeHtml(attribute.name) + ':</strong> ' + escapeHtml(attribute.value) + '</span>').join(' · ')
+      : '';
     attributesElement.hidden = !attributes.length;
   }
   if (addButton) {
