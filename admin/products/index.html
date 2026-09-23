@@ -46,8 +46,8 @@
           <div class="settings-fields settings-fields-two">
             <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" placeholder="Product name"></label>
             <label class="field"><span>SKU</span><input name="sku" type="text" maxlength="80" placeholder="Auto-generated SKU"><small class="muted">Generated from the product name. You can edit it if needed.</small></label>
-            <label class="field"><span>Product group</span><select name="product_group_id"><option value="">No group</option></select><small class="muted">Optional. When a group is selected, choose one of its predefined options.</small></label>
-            <label class="field"><span>Group option</span><select name="product_group_option_id" disabled><option value="">No group option</option></select><small class="muted" data-group-option-help>Select a product group first.</small></label>
+            <label class="field" data-group-form-field hidden><span>Product group</span><select name="product_group_id"><option value="">No group</option></select><small class="muted">Optional. When a group is selected, choose one of its predefined options.</small></label>
+            <label class="field" data-group-form-field hidden><span>Group option</span><select name="product_group_option_id" disabled><option value="">No group option</option></select><small class="muted" data-group-option-help>Select a product group first.</small></label>
             <label class="field"><span>Category / subcategory</span><select name="category_id"><option value="">Uncategorized</option></select></label>
             <label class="field"><span>Status</span><select name="status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label>
             <label class="field"><span>Price (ZAR)</span><input name="price" type="number" min="0" step="0.01" inputmode="decimal" value="0"></label>
@@ -102,7 +102,12 @@
     const groupOptionHelp = document.querySelector('[data-group-option-help]');
     const addProductButton = document.querySelector('[data-add-product]');
     const formStatus = document.querySelector('[data-form-status]');
+    const groupFormFields = Array.from(document.querySelectorAll('[data-group-form-field]'));
     function setFormStatus(message) { formStatus.textContent = message; }
+    function setProductFormMode(mode) {
+      const isGroupMode = mode === 'group';
+      for (const field of groupFormFields) field.hidden = !isGroupMode;
+    }
     const listStatus = document.querySelector('[data-list-status]');
     const list = document.querySelector('[data-products-list]');
     const productSearch = document.querySelector('[data-product-search]');
@@ -670,6 +675,7 @@ async function getToken() {
     }
 
     function editProduct(product) {
+      setProductFormMode(product.product_group_id ? 'group' : 'normal');
       showForm();
       form.elements.id.value = product.id;
       form.elements.name.value = product.name || '';
@@ -696,6 +702,7 @@ async function getToken() {
 
     addProductButton.addEventListener('click', () => {
       resetForm();
+      setProductFormMode('normal');
       showForm();
       form.elements.name.focus();
     });
@@ -794,6 +801,7 @@ async function getToken() {
 
     cancelButton.addEventListener('click', () => {
       resetForm();
+      setProductFormMode('normal');
       hideForm();
     });
     renderGroupOptionInputs();
@@ -841,6 +849,7 @@ async function getToken() {
 
       if (addingProduct) {
         resetForm();
+        setProductFormMode(groupId ? 'group' : 'normal');
         showForm();
         if (groupId && productGroups.some((group) => String(group.id) === String(groupId))) {
           productGroupSelect.value = groupId;
