@@ -189,6 +189,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .settings-fields { display: grid; gap: var(--space-4); }
 .settings-fields-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .field { display: grid; gap: var(--space-2); }
+
+[data-group-form-field][hidden] { display: none !important; }
 .field > span { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }
 .field input, .field select, .field textarea { width: 100%; border: var(--border-width) solid var(--color-border-strong); padding: var(--space-3) var(--space-4); background: var(--color-surface); color: var(--color-text); }
 .field-wide { grid-column: 1 / -1; }
