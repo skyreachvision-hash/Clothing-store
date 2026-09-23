@@ -248,7 +248,6 @@
     const productGroupSelect = form.elements.product_group_id;
     const productGroupOptionSelect = form.elements.product_group_option_id;
     const groupOptionHelp = document.querySelector('[data-group-option-help]');
-    const addProductButton = document.querySelector('[data-add-product]');
     const formStatus = document.querySelector('[data-form-status]');
     const groupFormFields = Array.from(document.querySelectorAll('[data-group-form-field]'));
     function setFormStatus(message) { formStatus.textContent = message; }
@@ -850,13 +849,6 @@ async function getToken() {
       setFormStatus('Editing this product.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-
-    addProductButton.addEventListener('click', () => {
-      resetForm();
-      setProductFormMode('normal');
-      showForm();
-      form.elements.name.focus();
-    });
 
     imageInput.addEventListener('change', updateImageSelectionText);
     productSearch.addEventListener('input', renderProducts);
