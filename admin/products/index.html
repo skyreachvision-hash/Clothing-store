@@ -709,20 +709,20 @@ async function getToken() {
         const wrapper = categoryToggle.closest('.product-filter-category');
         const children = wrapper?.querySelector('.product-filter-category-children');
         if (children) {
-          const expanded = children.hidden;
-          if (expanded) {
-            if (selectedCategoryId) {
-              selectedCategoryId = '';
-              renderProductFilterPanel();
-              renderProducts();
-              updateListStatus();
-              return;
-            }
-            children.hidden = false;
-            categoryToggle.setAttribute('aria-expanded', 'true');
-          } else {
-            children.hidden = true;
-            categoryToggle.setAttribute('aria-expanded', 'false');
+          const shouldExpand = children.hidden;
+          selectedCategoryId = '';
+          renderProductFilterPanel();
+          renderProducts();
+          updateListStatus();
+
+          const refreshedWrapper = Array.from(productFilterPanel.querySelectorAll('.product-filter-category')).find(
+            (item) => item.querySelector('[data-category-toggle]')?.dataset.categoryToggle === categoryToggle.dataset.categoryToggle
+          );
+          const refreshedToggle = refreshedWrapper?.querySelector('[data-category-toggle]');
+          const refreshedChildren = refreshedWrapper?.querySelector('.product-filter-category-children');
+          if (refreshedChildren) {
+            refreshedChildren.hidden = !shouldExpand;
+            refreshedToggle?.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
           }
         }
         return;
