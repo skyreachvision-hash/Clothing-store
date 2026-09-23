@@ -95,6 +95,46 @@
     const productAttributesContainer = document.querySelector('[data-product-attributes]');
     const addProductAttributeButton = document.querySelector('[data-add-product-attribute]');
     const productAttributeNames = ['Color', 'Size', 'Material', 'Weight', 'Dimensions', 'Capacity'];
+    const productAttributeUnits = {
+      Weight: ['g', 'kg', 'mg', 'lb', 'oz'],
+      Dimensions: ['mm', 'cm', 'm', 'in', 'ft'],
+      Capacity: ['mL', 'L', 'cL', 'dL', 'gal', 'fl oz']
+    };
+    const productAttributeColors = [
+      ['Black', '#000000'], ['White', '#ffffff'], ['Red', '#dc2626'], ['Blue', '#2563eb'],
+      ['Green', '#16a34a'], ['Yellow', '#facc15'], ['Orange', '#f97316'], ['Purple', '#9333ea'],
+      ['Pink', '#ec4899'], ['Brown', '#92400e'], ['Grey', '#6b7280'], ['Beige', '#d6c3a5'],
+      ['Navy', '#1e3a8a'], ['Maroon', '#7f1d1d'], ['Burgundy', '#800020'], ['Cream', '#fff7d6'],
+      ['Khaki', '#c3b091'], ['Olive', '#808000'], ['Teal', '#0f766e'], ['Turquoise', '#14b8a6'],
+      ['Gold', '#d4af37'], ['Silver', '#c0c0c0']
+    ];
+
+    function parseAttributeMeasurement(value, units) {
+      const text = String(value || '').trim();
+      const match = text.match(/^([+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+))\\s*(.+)$/);
+      if (!match) return { number: text, unit: units[0] };
+      const unit = units.find((item) => item.toLowerCase() === match[2].trim().toLowerCase());
+      return { number: match[1], unit: unit || units[0] };
+    }
+
+    function attributeValueMarkup(name, value) {
+      if (name.toLowerCase() === 'color') {
+        const selectedColor = productAttributeColors.find((item) => item[0].toLowerCase() === String(value || '').trim().toLowerCase());
+        const buttons = productAttributeColors.map(([colorName, hex]) => {
+          const selected = selectedColor?.[0].toLowerCase() === colorName.toLowerCase();
+          return '<button class="product-color-swatch product-attribute-color-swatch' + (selected ? ' is-selected' : '') + '" type="button" data-product-attribute-color="' + escapeHtml(colorName) + '" aria-pressed="' + (selected ? 'true' : 'false') + '" title="' + escapeHtml(colorName) + '"><span class="product-color-swatch-dot" style="background:' + hex + ';"></span><span>' + escapeHtml(colorName) + '</span></button>';
+        }).join('');
+        return '<div class="product-color-palette product-attribute-color-palette" data-product-attribute-color-palette>' + buttons + '</div><input data-product-attribute-value type="hidden" value="' + escapeHtml(selectedColor?.[0] || String(value || '')) + '">';
+      }
+
+      const units = productAttributeUnits[name];
+      if (units) {
+        const parsed = parseAttributeMeasurement(value, units);
+        return '<div class="settings-fields settings-fields-two product-attribute-measurement"><label class="field"><span>Value</span><input data-product-attribute-number type="number" step="any" inputmode="decimal" value="' + escapeHtml(parsed.number) + '" placeholder="Enter number"></label><label class="field"><span>Unit</span><select data-product-attribute-unit>' + units.map((unit) => '<option value="' + escapeHtml(unit) + '"' + (unit.toLowerCase() === parsed.unit.toLowerCase() ? ' selected' : '') + '>' + escapeHtml(unit) + '</option>').join('') + '</select></label></div>';
+      }
+
+      return '<input data-product-attribute-value type="text" maxlength="500" placeholder="Enter ' + escapeHtml(name.toLowerCase()) + '" value="' + escapeHtml(value || '') + '">';
+    }
 
     function addProductAttributeRow(attribute = {}) {
       const row = document.createElement('div');
@@ -112,20 +152,64 @@
           </select>
           <input data-product-attribute-custom type="text" maxlength="80" placeholder="Custom attribute name" value="${selectedName && !productAttributeNames.some((name) => name.toLowerCase() === selectedName.toLowerCase()) ? escapeHtml(selectedName) : ''}" hidden>
         </label>
-        <label class="field">
+        <label class="field field-wide" data-product-attribute-value-field>
           <span>Value</span>
-          <input data-product-attribute-value type="text" maxlength="500" placeholder="e.g. Black, Cotton, 500 g" value="${escapeHtml(value)}">
+          <div data-product-attribute-editor>${attributeValueMarkup(selectedName, value)}</div>
         </label>
         <div class="field">
           <button class="button button-small button-outline" type="button" data-remove-product-attribute>Remove</button>
         </div>`;
       productAttributesContainer.append(row);
+
       const select = row.querySelector('[data-product-attribute-name]');
       const customInput = row.querySelector('[data-product-attribute-custom]');
-      const syncCustom = () => { customInput.hidden = select.value !== 'custom'; };
-      select.addEventListener('change', syncCustom);
+      const editor = row.querySelector('[data-product-attribute-editor]');
+      const syncCustom = () => {
+        customInput.hidden = select.value !== 'custom';
+      };
+      const renderValueEditor = (preserveValue = true) => {
+        const oldName = row.dataset.attributeName || '';
+        const oldValue = preserveValue ? readAttributeRowValue(row) : '';
+        row.dataset.attributeName = select.value;
+        editor.innerHTML = attributeValueMarkup(select.value, oldName && oldName.toLowerCase() === select.value.toLowerCase() ? oldValue : '');
+        row.querySelector('[data-product-attribute-value-field] > span').textContent = select.value === 'Color' ? 'Color' : select.value || 'Value';
+      };
+
+      row.dataset.attributeName = selectedName;
+      select.addEventListener('change', () => {
+        syncCustom();
+        renderValueEditor(true);
+      });
+      row.addEventListener('click', (event) => {
+        const colorButton = event.target.closest('[data-product-attribute-color]');
+        if (!colorButton) return;
+        const valueInput = row.querySelector('[data-product-attribute-value]');
+        if (!valueInput) return;
+        valueInput.value = colorButton.dataset.productAttributeColor;
+        row.querySelectorAll('[data-product-attribute-color]').forEach((button) => {
+          const selected = button === colorButton;
+          button.classList.toggle('is-selected', selected);
+          button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+      });
       syncCustom();
       return row;
+    }
+
+    function readAttributeRowValue(row) {
+      const name = row.dataset.attributeName || row.querySelector('[data-product-attribute-name]')?.value || '';
+      const colorValue = row.querySelector('[data-product-attribute-value]');
+      if (name.toLowerCase() === 'color' && colorValue) return colorValue.value.trim();
+
+      const numberInput = row.querySelector('[data-product-attribute-number]');
+      const unitSelect = row.querySelector('[data-product-attribute-unit]');
+      if (numberInput && unitSelect) {
+        const number = numberInput.value.trim();
+        const unit = unitSelect.value.trim();
+        return number ? number + ' ' + unit : '';
+      }
+
+      return colorValue?.value.trim() || row.querySelector('[data-product-attribute-custom]')?.value.trim() || '';
     }
 
     function readProductAttributes() {
@@ -133,9 +217,9 @@
         .map((row) => {
           const select = row.querySelector('[data-product-attribute-name]');
           const custom = row.querySelector('[data-product-attribute-custom]');
-          const value = row.querySelector('[data-product-attribute-value]').value.trim();
           const name = select.value === 'custom' ? custom.value.trim() : select.value.trim();
-          return { name, value };
+          row.dataset.attributeName = name;
+          return { name, value: readAttributeRowValue(row) };
         })
         .filter((attribute) => attribute.name && attribute.value);
     }
@@ -149,6 +233,7 @@
       const button = event.target.closest('[data-remove-product-attribute]');
       if (button) button.closest('[data-product-attribute-row]')?.remove();
     });
+
 
     const form = document.querySelector('[data-product-form]');
     const formPanel = document.querySelector('[data-product-form-panel]');
