@@ -10,6 +10,15 @@ const statusElement = document.querySelector('[data-product-status]');
 const attributesElement = document.querySelector('[data-product-attributes]');
 const addButton = document.querySelector('[data-add-to-cart]');
 const relatedSection = document.querySelector('[data-related-products-section]');
+const groupColorPalette = [
+  ['Black', '#000000'], ['White', '#ffffff'], ['Red', '#dc2626'], ['Blue', '#2563eb'],
+  ['Green', '#16a34a'], ['Yellow', '#facc15'], ['Orange', '#f97316'], ['Purple', '#9333ea'],
+  ['Pink', '#ec4899'], ['Brown', '#92400e'], ['Grey', '#6b7280'], ['Beige', '#d6c3a5'],
+  ['Navy', '#1e3a8a'], ['Maroon', '#7f1d1d'], ['Burgundy', '#800020'], ['Cream', '#fff7d6'],
+  ['Khaki', '#c3b091'], ['Olive', '#808000'], ['Teal', '#0f766e'], ['Turquoise', '#14b8a6'],
+  ['Gold', '#d4af37'], ['Silver', '#c0c0c0']
+];
+const getGroupColorHex = (value) => groupColorPalette.find(([name]) => name.toLowerCase() === String(value || '').trim().toLowerCase())?.[1] || '#9ca3af';
 const relatedProductsElement = document.querySelector('[data-related-products]');
 const groupOptionsElement = document.querySelector('[data-product-group-options]');
 const groupLabelElement = document.querySelector('[data-product-group-label]');
@@ -136,6 +145,13 @@ function renderGroupOptions(product) {
   groupValuesElement.innerHTML = options.map((item) => {
     const value = item.product_group_value || item.name;
     const active = String(item.id) === String(product.id);
+    if (type === 'color') {
+      const hex = getGroupColorHex(value);
+      return '<button class="button button-small ' + (active ? 'button-primary' : 'button-outline') + '" type="button" data-group-product-id="' + escapeHtml(item.id) + '" aria-label="' + escapeHtml(value) + '" title="' + escapeHtml(value) + '" aria-pressed="' + active + '" style="width:40px;height:40px;padding:4px;border-radius:50%;display:inline-grid;place-items:center;">' +
+        '<span aria-hidden="true" style="display:block;width:28px;height:28px;border-radius:50%;background:' + hex + ';border:1px solid rgba(0,0,0,.2);box-shadow:inset 0 0 0 1px rgb(255 255 255 / .35);"></span>' +
+        '<span class="sr-only">' + escapeHtml(value) + '</span>' +
+        '</button>';
+    }
     return '<button class="button button-small ' + (active ? 'button-primary' : 'button-outline') + '" type="button" data-group-product-id="' + escapeHtml(item.id) + '" aria-pressed="' + active + '">' + escapeHtml(value) + '</button>';
   }).join('');
   groupOptionsElement.hidden = false;
