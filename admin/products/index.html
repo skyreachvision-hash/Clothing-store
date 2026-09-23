@@ -711,14 +711,19 @@ async function getToken() {
         if (children) {
           const expanded = children.hidden;
           if (expanded) {
-            selectedCategoryId = '';
-            renderProductFilterPanel();
-            renderProducts();
-            updateListStatus();
-            return;
+            if (selectedCategoryId) {
+              selectedCategoryId = '';
+              renderProductFilterPanel();
+              renderProducts();
+              updateListStatus();
+              return;
+            }
+            children.hidden = false;
+            categoryToggle.setAttribute('aria-expanded', 'true');
+          } else {
+            children.hidden = true;
+            categoryToggle.setAttribute('aria-expanded', 'false');
           }
-          children.hidden = true;
-          categoryToggle.setAttribute('aria-expanded', 'false');
         }
         return;
       }
