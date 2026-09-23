@@ -42,6 +42,11 @@
       <div class="settings-heading"><div><h2 id="product-form-title">Add product</h2><p class="muted">Add the product details and one or more pictures. Images are stored securely through Cloudinary.</p></div><span class="settings-readonly">Admin access</span></div>
       <form class="settings-form" data-product-form>
         <input type="hidden" name="id">
+        <fieldset class="settings-group"><legend>Product attributes</legend>
+          <p class="muted">Attributes belong to this individual product. They are independent of product-group relationships.</p>
+          <div class="settings-fields settings-fields-two" data-product-attributes></div>
+          <div class="settings-actions"><button class="button button-outline" type="button" data-add-product-attribute>+ Add attribute</button></div>
+        </fieldset>
         <fieldset class="settings-group"><legend>Product details</legend>
           <div class="settings-fields settings-fields-two">
             <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" placeholder="Product name"></label>
