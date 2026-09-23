@@ -15,34 +15,9 @@
 
   <main id="categories-main" class="admin-main"><div class="container">
     <div class="settings-heading">
-      <div><p class="eyebrow">Catalogue management</p><h1>Categories</h1><p class="muted">Set the store's main categories first, then link regular categories to the main category they belong to.</p></div>
-      <a class="button button-outline" href="../">Back to dashboard</a>
+      <div><p class="eyebrow">Catalogue management</p><h1>Categories</h1><p class="muted">Manage the store's main categories and regular categories from one place.</p></div>
+      <div><a class="button button-outline" href="../">Back to dashboard</a> <a class="button button-primary" href="./create.html">+ Create Category</a></div>
     </div>
-
-    <section class="settings-panel" aria-labelledby="category-form-title">
-      <div class="settings-heading"><div><h2 id="category-form-title">Add category</h2><p class="muted">Use Main category for major store sections such as Women, Men, Shoes or Accessories. Regular categories can then be linked to one of those main categories.</p></div><span class="settings-readonly">Admin access</span></div>
-      <form class="settings-form" data-category-form>
-        <input type="hidden" name="id">
-        <fieldset class="settings-group"><legend>Category details</legend>
-          <div class="settings-fields settings-fields-two">
-            <label class="field"><span>Category name</span><input name="name" type="text" required maxlength="120" placeholder="e.g. Women"></label>
-            <label class="field"><span>Slug <small>(optional)</small></span><input name="slug" type="text" maxlength="120" placeholder="women"></label>
-            <label class="field"><span>Category type</span><select name="is_main_category"><option value="1">Main category</option><option value="0">Regular category</option></select></label>
-            <label class="field"><span>Main category</span><select name="parent_id"><option value="">No main category</option></select></label>
-            <label class="field"><span>Sort order</span><input name="sort_order" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
-            <label class="field"><span>Status</span><select name="is_enabled"><option value="1">Enabled / public</option><option value="0">Disabled / hidden</option></select></label>
-            <label class="field"><span>Navigation</span><select name="show_in_navigation"><option value="1">Show in navigation</option><option value="0">Hide from navigation</option></select></label>
-            <label class="field"><span>Homepage visibility</span><select name="show_on_homepage"><option value="0">Do not show on homepage</option><option value="1">Show on homepage</option></select></label>
-            <label class="field"><span>Featured</span><select name="is_featured"><option value="0">Not featured</option><option value="1">Featured</option></select></label>
-            <label class="field"><span>Promoted</span><select name="is_promoted"><option value="0">Not promoted</option><option value="1">Promoted</option></select></label>
-            <label class="field field-wide"><span>Showcase image</span><input name="showcase_image" type="file" accept="image/*"><small class="muted">Use a real image for this category's storefront showcase. Maximum 10 MB.</small><p class="muted" data-showcase-image-status>No image selected.</p></label>
-            <label class="field field-wide"><span>Showcase image alt text <small>(optional)</small></span><input name="showcase_image_alt" type="text" maxlength="200" placeholder="Describe the category image"></label>
-            <label class="field field-wide"><span>Description</span><textarea name="description" rows="4" maxlength="2000" placeholder="Short description for this category"></textarea></label>
-          </div>
-        </fieldset>
-        <div class="settings-actions"><span class="settings-load-status" data-form-status aria-live="polite">Ready to add a category.</span><div><button class="button button-outline" type="button" data-cancel-edit hidden>Cancel edit</button> <button class="button button-primary" type="submit" data-save-category>Save category</button></div></div>
-      </form>
-    </section>
 
     <section class="settings-panel" aria-labelledby="main-categories-title">
       <div class="settings-heading"><div><h2 id="main-categories-title">Main Categories</h2><p class="muted">These are the major sections of the store. Regular categories can be linked to them.</p></div><button class="button button-outline" type="button" data-refresh-categories>Refresh</button></div>
@@ -57,24 +32,16 @@
     </section>
   </div></main>
 
+  </div></main>
+
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
 
   <script type="module">
-    const form = document.querySelector('[data-category-form]');
-    const formStatus = document.querySelector('[data-form-status]');
     const mainListStatus = document.querySelector('[data-main-list-status]');
     const listStatus = document.querySelector('[data-list-status]');
     const mainList = document.querySelector('[data-main-categories-list]');
     const list = document.querySelector('[data-categories-list]');
-    const typeSelect = form.elements.is_main_category;
-    const mainSelect = form.elements.parent_id;
-    const imageInput = form.elements.showcase_image;
-    const imageStatus = document.querySelector('[data-showcase-image-status]');
-    const cancelButton = document.querySelector('[data-cancel-edit]');
-    const saveButton = document.querySelector('[data-save-category]');
     let categories = [];
-
-    function setFormStatus(message) { formStatus.textContent = message; }
 
     async function getToken() {
       if (typeof window.getAdminIdToken !== 'function') throw new Error('Admin authentication is still loading.');
@@ -94,41 +61,8 @@
       return payload;
     }
 
-    async function uploadShowcaseImage(file) {
-      const data = new FormData();
-      data.append('file', file, file.name);
-      const payload = await apiFetch('/api/upload-image', { method: 'POST', body: data });
-      return payload.data;
-    }
-
-    function updateImageSelection() {
-      const file = imageInput.files?.[0];
-      if (file) imageStatus.textContent = `Selected: ${file.name}`;
-      else imageStatus.textContent = 'No new image selected.';
-    }
-
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>'\"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '\"': '&quot;' }[character]));
-    }
-
-    function setCategoryTypeState() {
-      const isMain = typeSelect.value === '1';
-      mainSelect.disabled = isMain;
-      if (isMain) mainSelect.value = '';
-    }
-
-    function renderMainOptions(currentId = null) {
-      const currentMain = currentId ? categories.find((item) => Number(item.id) === Number(currentId))?.parent_id : null;
-      mainSelect.innerHTML = '<option value="">No main category</option>';
-      const ordered = categories.filter((item) => Number(item.is_main_category) === 1).slice().sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
-      for (const category of ordered) {
-        if (currentId && Number(category.id) === Number(currentId)) continue;
-        const option = document.createElement('option');
-        option.value = category.id;
-        option.textContent = category.name;
-        if (currentMain !== null && Number(currentMain) === Number(category.id)) option.selected = true;
-        mainSelect.append(option);
-      }
     }
 
     async function loadCategories() {
@@ -137,11 +71,10 @@
       try {
         const payload = await apiFetch('/api/categories?include_disabled=1');
         categories = (payload.data || []).slice().sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id));
-        renderMainOptions();
         renderCategories();
         const mainCount = categories.filter((item) => Number(item.is_main_category) === 1).length;
         const regularCount = categories.filter((item) => Number(item.is_main_category) !== 1).length;
-        mainListStatus.textContent = mainCount ? `${mainCount} main categor${mainCount === 1 ? 'y' : 'ies'} configured.` : 'No main categories yet. Create one above by selecting Main category.';
+        mainListStatus.textContent = mainCount ? `${mainCount} main categor${mainCount === 1 ? 'y' : 'ies'} configured.` : 'No main categories yet. Use Create Category to create one.';
         listStatus.textContent = regularCount ? `${regularCount} regular categor${regularCount === 1 ? 'y' : 'ies'} loaded.` : 'No regular categories yet.';
       } catch (error) {
         mainListStatus.textContent = error.message;
@@ -190,113 +123,13 @@
       for (const category of regularCategories) list.append(renderPanel(category, `Main category: ${mainCategoryName(category)}`));
     }
 
-    function resetForm() {
-      form.reset();
-      form.elements.id.value = '';
-      form.elements.sort_order.value = '0';
-      form.elements.is_main_category.value = '1';
-      form.elements.parent_id.value = '';
-      form.elements.is_enabled.value = '1';
-      form.elements.show_in_navigation.value = '1';
-      form.elements.show_on_homepage.value = '0';
-      form.elements.is_featured.value = '0';
-      form.elements.is_promoted.value = '0';
-      form.elements.showcase_image_alt.value = '';
-      imageInput.value = '';
-      imageStatus.textContent = 'No new image selected.';
-      renderMainOptions();
-      setCategoryTypeState();
-      document.querySelector('#category-form-title').textContent = 'Add category';
-      cancelButton.hidden = true;
-      saveButton.textContent = 'Save category';
-      setFormStatus('Ready to add a category.');
-    }
-
-    function editCategory(category) {
-      form.elements.id.value = category.id;
-      form.elements.name.value = category.name || '';
-      form.elements.slug.value = category.slug || '';
-      form.elements.description.value = category.description || '';
-      form.elements.sort_order.value = category.sort_order ?? 0;
-      form.elements.is_enabled.value = Number(category.is_enabled) === 1 ? '1' : '0';
-      form.elements.show_in_navigation.value = Number(category.show_in_navigation) === 1 ? '1' : '0';
-      form.elements.show_on_homepage.value = Number(category.show_on_homepage) === 1 ? '1' : '0';
-      form.elements.is_main_category.value = Number(category.is_main_category) === 1 ? '1' : '0';
-      form.elements.is_featured.value = Number(category.is_featured) === 1 ? '1' : '0';
-      form.elements.is_promoted.value = Number(category.is_promoted) === 1 ? '1' : '0';
-      form.elements.showcase_image_alt.value = category.showcase_image_alt || '';
-      renderMainOptions(category.id);
-      const parentId = category.parent_id === null ? '' : String(category.parent_id);
-      mainSelect.value = parentId;
-      setCategoryTypeState();
-      imageInput.value = '';
-      imageStatus.textContent = category.showcase_image_url ? 'Existing showcase image is configured. Choose a new file to replace it.' : 'No showcase image configured.';
-      document.querySelector('#category-form-title').textContent = `Edit: ${category.name}`;
-      cancelButton.hidden = false;
-      saveButton.textContent = 'Update category';
-      setFormStatus('Editing this category.');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    typeSelect.addEventListener('change', setCategoryTypeState);
-    imageInput.addEventListener('change', updateImageSelection);
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const id = form.elements.id.value;
-      const isMain = form.elements.is_main_category.value === '1';
-      const selectedFile = imageInput.files?.[0] || null;
-      const data = {
-        name: form.elements.name.value.trim(),
-        slug: form.elements.slug.value.trim(),
-        description: form.elements.description.value.trim(),
-        parent_id: isMain ? null : (form.elements.parent_id.value || null),
-        sort_order: Number(form.elements.sort_order.value || 0),
-        is_enabled: form.elements.is_enabled.value === '1',
-        show_in_navigation: form.elements.show_in_navigation.value === '1',
-        show_on_homepage: form.elements.show_on_homepage.value === '1',
-        is_main_category: isMain,
-        is_featured: form.elements.is_featured.value === '1',
-        is_promoted: form.elements.is_promoted.value === '1',
-        showcase_image_alt: form.elements.showcase_image_alt.value.trim()
-      };
-      if (!data.name) return setFormStatus('Category name is required.');
-      if (!isMain && !data.parent_id) setFormStatus('You can leave this category without a main category, or select one from the list.');
-      if (!confirm(id ? 'Update this category?' : `Create this ${isMain ? 'main category' : 'regular category'}?`)) return;
-      saveButton.disabled = true;
-      setFormStatus(id ? 'Updating category…' : 'Creating category…');
-      try {
-        const saved = await apiFetch(id ? `/api/categories?id=${encodeURIComponent(id)}` : '/api/categories', { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
-        const categoryId = id || saved.data.id;
-        if (selectedFile) {
-          setFormStatus('Uploading showcase image…');
-          const uploaded = await uploadShowcaseImage(selectedFile);
-          await apiFetch(`/api/categories?id=${encodeURIComponent(categoryId)}`, {
-            method: 'PUT',
-            body: JSON.stringify({ showcase_image_url: uploaded.image_url, showcase_image_alt: data.showcase_image_alt || data.name })
-          });
-        }
-        resetForm();
-        await loadCategories();
-        setFormStatus(id ? 'Category updated successfully.' : 'Category created successfully.');
-      } catch (error) {
-        setFormStatus(error.message);
-      } finally {
-        saveButton.disabled = false;
-      }
-    });
-
-    cancelButton.addEventListener('click', resetForm);
-    document.querySelector('[data-refresh-categories]').addEventListener('click', loadCategories);
-
     async function handleListAction(event) {
       const editId = event.target.closest('[data-edit]')?.dataset.edit;
       const toggleId = event.target.closest('[data-toggle]')?.dataset.toggle;
       const deleteId = event.target.closest('[data-delete]')?.dataset.delete;
 
       if (editId) {
-        const category = categories.find((item) => String(item.id) === String(editId));
-        if (category) editCategory(category);
+        window.location.href = `./create.html?id=${encodeURIComponent(editId)}`;
         return;
       }
 
@@ -319,7 +152,6 @@
         if (!category || !confirm(`Delete “${category.name}”? Products assigned to it will become uncategorized.`)) return;
         try {
           await apiFetch(`/api/categories?id=${encodeURIComponent(deleteId)}`, { method: 'DELETE' });
-          if (String(form.elements.id.value) === String(deleteId)) resetForm();
           await loadCategories();
         } catch (error) {
           listStatus.textContent = error.message;
@@ -327,9 +159,9 @@
       }
     }
 
+    document.querySelector('[data-refresh-categories]').addEventListener('click', loadCategories);
     mainList.addEventListener('click', handleListAction);
     list.addEventListener('click', handleListAction);
-    resetForm();
     loadCategories();
   </script>
 </body>
