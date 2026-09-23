@@ -490,7 +490,7 @@ async function getToken() {
         const panel = document.createElement('div');
         panel.className = 'admin-panel';
         const optionText = (group.options || []).map((item) => item.value + (item.sku ? ' · SKU ' + item.sku : '') + ' · Qty ' + item.quantity).join(' · ');
-        panel.innerHTML = '<div><h3><a href="./group.html?id=' + encodeURIComponent(group.id) + '">' + escapeHtml(group.name) + '</a></h3><p class="muted">' + escapeHtml(group.relationship_type === 'size' ? 'Size' : 'Color') + (group.category_name ? ' · ' + escapeHtml(group.category_name) : '') + '</p><p class="muted">' + escapeHtml(optionText || 'No options') + '</p></div><div><button class="button button-small button-primary" type="button" data-add-group-product="' + group.id + '">Add Product</button> <button class="button button-small button-outline" type="button" data-delete-group="' + group.id + '">Delete</button></div>';
+        panel.innerHTML = '<div><h3><a href="./group.html?id=' + encodeURIComponent(group.id) + '">' + escapeHtml(group.name) + '</a></h3><p class="muted">' + escapeHtml(group.relationship_type === 'size' ? 'Size' : 'Color') + (group.category_name ? ' · ' + escapeHtml(group.category_name) : '') + '</p><p class="muted">' + escapeHtml(optionText || 'No options') + '</p></div><div><button class="button button-small button-outline" type="button" data-delete-group="' + group.id + '">Delete</button></div>';
         groupsList.append(panel);
       }
       updateProductGroupOptions();
@@ -513,11 +513,6 @@ async function getToken() {
     });
 
     groupsList.addEventListener('click', async (event) => {
-      const addButton = event.target.closest('[data-add-group-product]');
-      if (addButton) {
-        window.location.href = './add.html?group_id=' + encodeURIComponent(addButton.dataset.addGroupProduct) + '&add=1';
-        return;
-      }
       const button = event.target.closest('[data-delete-group]');
       if (!button) return;
       if (!confirm('Delete this product group? It must not be assigned to any products.')) return;
