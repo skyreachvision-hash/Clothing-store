@@ -706,11 +706,19 @@ async function getToken() {
     productFilterPanel.addEventListener('click', (event) => {
       const categoryToggle = event.target.closest('[data-category-toggle]');
       if (categoryToggle) {
-        const children = categoryToggle.closest('.product-filter-category')?.querySelector('.product-filter-category-children');
+        const wrapper = categoryToggle.closest('.product-filter-category');
+        const children = wrapper?.querySelector('.product-filter-category-children');
         if (children) {
           const expanded = children.hidden;
-          children.hidden = !expanded;
-          categoryToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+          if (expanded) {
+            selectedCategoryId = '';
+            renderProductFilterPanel();
+            renderProducts();
+            updateListStatus();
+            return;
+          }
+          children.hidden = true;
+          categoryToggle.setAttribute('aria-expanded', 'false');
         }
         return;
       }
