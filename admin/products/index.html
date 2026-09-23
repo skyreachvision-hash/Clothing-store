@@ -515,7 +515,7 @@ async function getToken() {
     groupsList.addEventListener('click', async (event) => {
       const addButton = event.target.closest('[data-add-group-product]');
       if (addButton) {
-        window.location.href = './group.html?id=' + encodeURIComponent(addButton.dataset.addGroupProduct) + '&add=1';
+        window.location.href = './add.html?group_id=' + encodeURIComponent(addButton.dataset.addGroupProduct) + '&add=1';
         return;
       }
       const button = event.target.closest('[data-delete-group]');
