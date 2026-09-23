@@ -477,7 +477,7 @@ async function getToken() {
             const allButton = document.createElement('button');
             allButton.type = 'button';
             allButton.className = 'button button-small button-outline product-filter-category-all' + (String(selectedCategoryId) === String(main.id) ? ' is-selected' : '');
-            allButton.dataset.categoryId = main.id;
+            allButton.dataset.categoryAll = main.id;
             allButton.textContent = 'All';
             allButton.setAttribute('aria-label', 'Show all products in ' + main.name);
             mainRow.append(allButton);
@@ -712,6 +712,16 @@ async function getToken() {
           children.hidden = !expanded;
           categoryToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
         }
+        return;
+      }
+
+      const allButton = event.target.closest('[data-category-all]');
+      if (allButton) {
+        const categoryId = allButton.dataset.categoryAll;
+        selectedCategoryId = String(selectedCategoryId) === String(categoryId) ? '' : categoryId;
+        renderProductFilterPanel();
+        renderProducts();
+        updateListStatus();
         return;
       }
 
