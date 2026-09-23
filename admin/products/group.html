@@ -476,6 +476,7 @@
         renderOptionChoices();
         productCategory.value = getCategoryLabel();
         productsStatus.textContent = groupProducts.length + ' product(s) in this group.';
+        if (new URLSearchParams(location.search).get('add') === '1') showProductForm();
       } catch (error) {
         meta.textContent = 'Unable to load this product group.';
         details.innerHTML = '<p class="muted">' + escapeHtml(error.message) + '</p>';
