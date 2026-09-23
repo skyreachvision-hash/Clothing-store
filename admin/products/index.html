@@ -845,7 +845,8 @@ async function getToken() {
         stock_quantity: Number(form.elements.stock_quantity.value || 0),
         sort_order: Number(form.elements.sort_order.value || 0),
         track_stock: form.elements.track_stock.checked,
-        description: form.elements.description.value.trim()
+        description: form.elements.description.value.trim(),
+        attributes: readProductAttributes()
       };
       if (!data.name) return setFormStatus('Product name is required.');
       if (!confirm(id ? 'Update this product?' : 'Create this product?')) return;
