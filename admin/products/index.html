@@ -23,21 +23,12 @@
     </div>
 
     <section class="settings-panel" aria-labelledby="group-management-title">
-      <div class="settings-heading"><div><p class="eyebrow">Product relationships</p><h2 id="group-management-title">Product Groups</h2><p class="muted">Create a group by defining its options first. Products remain separate products; the group only connects them.</p></div></div>
-      <div class="settings-fields settings-fields-two">
-        <label class="field"><span>Group name</span><input data-group-name type="text" maxlength="160" placeholder="e.g. Stanley 500ml Bottles"></label>
-        <label class="field"><span>Grouping type</span><select data-group-type><option value="color">Color</option><option value="size">Size</option></select></label>
-        <label class="field field-wide"><span>Category / subcategory</span><select data-group-category><option value="">No category</option></select><small class="muted">Uses the existing Categories setup.</small></label>
+      <div class="settings-heading">
+        <div><p class="eyebrow">Product relationships</p><h2 id="group-management-title">Product Groups</h2><p class="muted">Create and manage groups that connect separate catalogue products.</p></div>
+        <a class="button button-primary" href="./group-create.html">+ Create Group</a>
       </div>
-      <fieldset class="settings-group">
-        <legend>Group options</legend>
-        <div class="settings-fields settings-fields-two" data-group-options></div>
-        <div class="settings-actions"><button class="button button-outline" type="button" data-add-group-option>+ Add option</button></div>
-      </fieldset>
-      <div class="settings-actions"><span class="settings-load-status" data-group-status aria-live="polite">Ready.</span><button class="button button-primary" type="button" data-create-group>Create group</button></div>
       <div class="admin-sections" data-groups-list></div>
     </section>
-
     <section class="settings-panel" aria-labelledby="product-form-title" data-product-form-panel hidden>
       <div class="settings-heading"><div><h2 id="product-form-title">Add product</h2><p class="muted">Add the product details and one or more pictures. Images are stored securely through Cloudinary.</p></div><span class="settings-readonly">Admin access</span></div>
       <form class="settings-form" data-product-form>
@@ -237,14 +228,7 @@
 
     const form = document.querySelector('[data-product-form]');
     const formPanel = document.querySelector('[data-product-form-panel]');
-    const groupNameInput = document.querySelector('[data-group-name]');
-    const groupTypeSelect = document.querySelector('[data-group-type]');
-    const groupCategorySelect = document.querySelector('[data-group-category]');
-    const groupOptionsContainer = document.querySelector('[data-group-options]');
-    const addGroupOptionButton = document.querySelector('[data-add-group-option]');
-    const groupStatus = document.querySelector('[data-group-status]');
     const groupsList = document.querySelector('[data-groups-list]');
-    const createGroupButton = document.querySelector('[data-create-group]');
     const productGroupSelect = form.elements.product_group_id;
     const productGroupOptionSelect = form.elements.product_group_option_id;
     const groupOptionHelp = document.querySelector('[data-group-option-help]');
@@ -283,77 +267,7 @@
       const optionToken = option ? skuToken(option).slice(0, 6) : '';
       return optionToken ? base + '-' + optionToken + '-001' : base + '-001';
     }
-    const colorOptions = [
-      ['Black', '#000000'], ['White', '#ffffff'], ['Red', '#dc2626'], ['Blue', '#2563eb'],
-      ['Green', '#16a34a'], ['Yellow', '#facc15'], ['Orange', '#f97316'], ['Purple', '#9333ea'],
-      ['Pink', '#ec4899'], ['Brown', '#92400e'], ['Grey', '#6b7280'], ['Beige', '#d6c3a5'],
-      ['Navy', '#1e3a8a'], ['Maroon', '#7f1d1d'], ['Burgundy', '#800020'], ['Cream', '#fff7d6'],
-      ['Khaki', '#c3b091'], ['Olive', '#808000'], ['Teal', '#0f766e'], ['Turquoise', '#14b8a6'],
-      ['Gold', '#d4af37'], ['Silver', '#c0c0c0']
-    ];
 
-    function renderGroupOptionInputs(options = []) {
-      groupOptionsContainer.innerHTML = '';
-      const values = groupTypeSelect.value === 'color'
-        ? options.filter((option, index, all) => option.value && all.findIndex((item) => String(item.value).toLowerCase() === String(option.value).toLowerCase()) === index)
-        : (options.length ? options : [{value:'',sku:'',quantity:0}]);
-
-      if (groupTypeSelect.value === 'color') {
-        const palette = document.createElement('div');
-        palette.className = 'product-color-palette';
-        palette.setAttribute('aria-label', 'Select group colors');
-        for (const [name, hex] of colorOptions) {
-          const selected = values.some((option) => String(option.value).toLowerCase() === name.toLowerCase());
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'product-color-swatch' + (selected ? ' is-selected' : '');
-          button.dataset.colorValue = name;
-          button.setAttribute('aria-pressed', selected ? 'true' : 'false');
-          button.title = name;
-          button.innerHTML = '<span class="product-color-swatch-dot" style="background:' + hex + ';"></span><span>' + escapeHtml(name) + '</span>';
-          palette.append(button);
-        }
-        groupOptionsContainer.append(palette);
-
-        if (!values.length) {
-          const hint = document.createElement('p');
-          hint.className = 'muted';
-          hint.textContent = 'Select one or more colors above. Each selected color will get its own SKU and quantity.';
-          groupOptionsContainer.append(hint);
-        }
-      }
-
-      for (const option of values) {
-        const row = document.createElement('div');
-        row.className = 'settings-fields settings-fields-two product-group-option-row';
-        row.dataset.groupOptionRow = '';
-        const currentValue = String(option.value || '');
-        const autoSku = option.autoSku !== false;
-        const generatedSku = autoSku ? previewSku(groupNameInput.value, currentValue) : String(option.sku || '');
-        const optionField = groupTypeSelect.value === 'color'
-          ? '<label class="field"><span>Color</span><div class="product-color-selected"><span class="product-color-selected-dot" data-color-dot></span><strong>' + escapeHtml(currentValue) + '</strong><input data-option-value type="hidden" value="' + escapeHtml(currentValue) + '"></div></label>'
-          : '<label class="field"><span>Option</span><input data-option-value type="text" maxlength="80" placeholder="e.g. M" value="' + escapeHtml(currentValue) + '"></label>';
-        row.innerHTML = optionField + '<label class="field"><span>SKU</span><input data-option-sku data-auto-sku="' + (autoSku ? 'true' : 'false') + '" type="text" maxlength="80" placeholder="Auto-generated SKU" value="' + escapeHtml(generatedSku) + '"><small class="muted">Generated automatically. You can edit it if needed.</small></label><label class="field"><span>Quantity</span><input data-option-quantity type="number" min="0" step="1" value="' + Number(option.quantity || 0) + '"></label><div class="field"><button class="button button-small button-outline" type="button" data-remove-group-option>Remove</button></div>';
-        if (groupTypeSelect.value === 'color') {
-          const color = colorOptions.find((item) => item[0].toLowerCase() === currentValue.toLowerCase());
-          if (color) row.querySelector('[data-color-dot]').style.background = color[1];
-        }
-        groupOptionsContainer.append(row);
-      }
-      const isColorGroup = groupTypeSelect.value === 'color';
-      addGroupOptionButton.hidden = isColorGroup;
-      addGroupOptionButton.disabled = isColorGroup;
-      addGroupOptionButton.style.display = isColorGroup ? 'none' : '';
-    }
-
-    function readGroupOptions() {
-      return Array.from(groupOptionsContainer.querySelectorAll('[data-group-option-row]')).map((row) => ({
-        value: row.querySelector('[data-option-value]').value.trim(),
-        sku: row.querySelector('[data-option-sku]').value.trim(),
-        autoSku: row.querySelector('[data-option-sku]').dataset.autoSku === 'true',
-        quantity: Number(row.querySelector('[data-option-quantity]').value || 0)
-      }));
-    }
     function updateProductGroupOptions(selectedId = '') {
       const group = getSelectedGroup();
       productGroupOptionSelect.innerHTML = '<option value="">No group option</option>';
@@ -495,22 +409,6 @@ async function getToken() {
       }
       updateProductGroupOptions();
     }
-
-    createGroupButton.addEventListener('click', async () => {
-      const name = groupNameInput.value.trim(), relationship_type = groupTypeSelect.value, category_id = groupCategorySelect.value || null, options = readGroupOptions();
-      if (!name) { groupStatus.textContent = 'Enter a group name.'; return; }
-      const validOptions = options.filter((option) => option.value);
-      if (!validOptions.length) { groupStatus.textContent = 'Add at least one group option.'; return; }
-      if (validOptions.some((option) => option.quantity < 0)) { groupStatus.textContent = 'Each option needs a valid quantity.'; return; }
-      createGroupButton.disabled = true;
-      try {
-        const payloadOptions = validOptions.map((option) => ({ ...option, sku: option.autoSku ? '' : option.sku }));
-        await apiFetch('/api/product-groups', { method:'POST', body:JSON.stringify({ name, relationship_type, category_id, options: payloadOptions }) });
-        groupNameInput.value = ''; groupCategorySelect.value = ''; renderGroupOptionInputs(); groupStatus.textContent = 'Group created.';
-        await loadProductGroups();
-      } catch (error) { groupStatus.textContent = error.message; }
-      finally { createGroupButton.disabled = false; }
-    });
 
     groupsList.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-delete-group]');
@@ -944,7 +842,6 @@ async function getToken() {
       setProductFormMode('normal');
       hideForm();
     });
-    renderGroupOptionInputs();
     document.querySelector('[data-refresh-products]').addEventListener('click', loadProducts);
     list.addEventListener('click', async (event) => {
       const editId = event.target.closest('[data-edit]')?.dataset.edit;
