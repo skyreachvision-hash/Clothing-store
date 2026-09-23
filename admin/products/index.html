@@ -42,11 +42,6 @@
       <div class="settings-heading"><div><h2 id="product-form-title">Add product</h2><p class="muted">Add the product details and one or more pictures. Images are stored securely through Cloudinary.</p></div><span class="settings-readonly">Admin access</span></div>
       <form class="settings-form" data-product-form>
         <input type="hidden" name="id">
-        <fieldset class="settings-group"><legend>Product attributes</legend>
-          <p class="muted">Attributes belong to this individual product. They are independent of product-group relationships.</p>
-          <div class="settings-fields settings-fields-two" data-product-attributes></div>
-          <div class="settings-actions"><button class="button button-outline" type="button" data-add-product-attribute>+ Add attribute</button></div>
-        </fieldset>
         <fieldset class="settings-group"><legend>Product details</legend>
           <div class="settings-fields settings-fields-two">
             <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160" placeholder="Product name"></label>
@@ -63,6 +58,11 @@
             <label class="field field-wide"><span>Product pictures</span><input name="images" type="file" accept="image/*" multiple><small class="muted">You can select multiple pictures. Maximum 10 MB per picture.</small></label>
             <div class="field field-wide"><span>Selected pictures</span><p class="muted" data-image-selection>No pictures selected.</p></div>
           </div>
+        </fieldset>
+        <fieldset class="settings-group"><legend>Product attributes</legend>
+          <p class="muted">Attributes belong to this individual product. They are independent of product-group relationships.</p>
+          <div class="settings-fields settings-fields-two" data-product-attributes></div>
+          <div class="settings-actions"><button class="button button-outline" type="button" data-add-product-attribute>+ Add attribute</button></div>
         </fieldset>
         <div class="settings-actions"><span class="settings-load-status" data-form-status aria-live="polite">Ready to add a product.</span><div><button class="button button-outline" type="button" data-cancel-edit hidden>Cancel edit</button> <button class="button button-primary" type="submit" data-save-product>Save product</button></div></div>
       </form>
