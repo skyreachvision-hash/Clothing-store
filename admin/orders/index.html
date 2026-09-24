@@ -45,6 +45,12 @@
     }
     @media (max-width:700px) {
       .orders-detail-toolbar { align-items:stretch; flex-direction:column; }
+      .orders-workspace.orders-mobile-split { display:grid; grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr); gap:var(--space-4); align-items:start; }
+      .orders-workspace.orders-mobile-split .orders-drawer { position:static; z-index:auto; width:auto; max-height:none; padding:var(--space-5); transform:none; overflow-y:auto; border:var(--border-width) solid var(--color-border); box-shadow:none; }
+      .orders-workspace.orders-mobile-split .orders-drawer-backdrop { display:none !important; }
+      .orders-workspace.orders-mobile-split .orders-drawer-header { position:sticky; top:0; background:var(--color-surface); z-index:1; }
+      .orders-workspace:not(.orders-mobile-split) .orders-drawer { transform:translateX(105%); }
+      .orders-workspace.orders-mobile-split .orders-drawer { transform:none; }
       .orders-drawer { width:min(430px,94vw); padding:var(--space-5); }
       .orders-drawer .order-list-item { grid-template-columns:minmax(0,1fr) auto; padding:var(--space-4); }
       .order-list-item > div { min-width:0; }
@@ -57,6 +63,10 @@
       .orders-detail-content .settings-actions .button { width:100%; }
       .orders-detail-content .admin-panel { grid-template-columns:36px minmax(0,1fr); }
       .orders-detail-content .admin-panel > strong { grid-column:2; justify-self:start; }
+      .orders-workspace.orders-mobile-split .orders-detail-panel { min-width:0; }
+      .orders-workspace.orders-mobile-split .orders-detail-content .settings-panel { padding:var(--space-4); }
+      .orders-workspace.orders-mobile-split .orders-detail-content .settings-fields-two { grid-template-columns:1fr; }
+      .orders-workspace.orders-mobile-split .orders-detail-toolbar { grid-column:1 / -1; }
     }
     @media (min-width:701px) {
       .orders-workspace { display:grid; grid-template-columns:minmax(250px,.72fr) minmax(0,1.7fr); gap:var(--space-6); align-items:start; }
@@ -83,11 +93,11 @@
       <a class="button button-outline" href="../">Back to dashboard</a>
     </div>
 
-    <div class="orders-workspace">
+    <div class="orders-workspace" data-orders-workspace>
       <section class="settings-panel orders-detail-panel" aria-labelledby="order-detail-title">
         <div class="orders-detail-toolbar">
           <button class="button button-outline orders-drawer-toggle" type="button" data-orders-toggle aria-expanded="false" aria-controls="orders-drawer">
-            <span>Orders</span><span aria-hidden="true">☰</span>
+            <span data-orders-toggle-label>Orders + Details</span><span aria-hidden="true">☰</span>
           </button>
           <span class="settings-load-status" data-list-status role="status">Loading orders…</span>
         </div>
@@ -176,6 +186,10 @@ const ordersBackdrop = document.querySelector('[data-orders-backdrop]');
 const ordersToggle = document.querySelector('[data-orders-toggle]');
 const ordersClose = document.querySelector('[data-orders-close]');
 
+const ordersWorkspace = document.querySelector('[data-orders-workspace]');
+const ordersToggleLabel = document.querySelector('[data-orders-toggle-label]');
+let mobileSplitView = false;
+
 function setOrdersDrawer(open) {
   ordersDrawer.classList.toggle('is-open', open);
   ordersBackdrop.hidden = !open;
@@ -183,8 +197,17 @@ function setOrdersDrawer(open) {
   ordersDrawer.setAttribute('aria-hidden', String(!open));
   ordersToggle.setAttribute('aria-expanded', String(open));
   document.body.classList.toggle('orders-drawer-open', open);
-  if (open) {
-    setTimeout(() => document.querySelector('#order-search')?.focus(), 80);
+  if (open) setTimeout(() => document.querySelector('#order-search')?.focus(), 80);
+}
+
+function setMobileSplitView(split) {
+  mobileSplitView = split;
+  ordersWorkspace.classList.toggle('orders-mobile-split', split);
+  ordersToggle.setAttribute('aria-expanded', String(split));
+  ordersToggle.setAttribute('aria-label', split ? 'Show order details only' : 'Show orders alongside details');
+  ordersToggleLabel.textContent = split ? 'Details only' : 'Orders + Details';
+  if (split) {
+    setOrdersDrawer(false);
   }
 }
 
@@ -311,7 +334,13 @@ searchForm.addEventListener('submit', (event) => {
 });
 
 refreshButton?.addEventListener('click', loadOrders);
-ordersToggle.addEventListener('click', () => setOrdersDrawer(true));
+ordersToggle.addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 700px)').matches) {
+    setMobileSplitView(!mobileSplitView);
+  } else {
+    setOrdersDrawer(true);
+  }
+});
 ordersClose.addEventListener('click', () => setOrdersDrawer(false));
 ordersBackdrop.addEventListener('click', () => setOrdersDrawer(false));
 document.addEventListener('keydown', (event) => {
