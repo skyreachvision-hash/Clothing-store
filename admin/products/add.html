@@ -201,7 +201,7 @@
       updateShippingFields();
     }
     async function saveProductShipping(productId) {
-      if (!shippingTypeSelect.value) throw new Error('Shipping type is required.');
+      if (!shippingTypeSelect.value) return;
       await apiFetch('/api/product-shipping?id=' + encodeURIComponent(productId), {
         method: 'POST',
         body: JSON.stringify({
