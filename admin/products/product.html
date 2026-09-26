@@ -34,7 +34,7 @@
       <div class="settings-heading"><div><h2 id="edit-product-title">Edit product</h2><p class="muted">Update this product and save the changes.</p></div></div>
       <form class="settings-form" data-product-form>
         <input type="hidden" name="id">
-        <fieldset class="settings-group"><legend>Product details</legend>        <fieldset class="settings-group" data-shipping-section><legend>Shipping</legend>
+        <fieldset class="settings-group"><legend>Product details</legend>
           <p class="muted">Shipping information controls how the packing engine will prepare this product before the final parcel is sent to a courier.</p>
           <div class="settings-fields settings-fields-two">
             <label class="field"><span>Shipping type</span><select name="shipping_type_id" data-shipping-type><option value="">Select shipping type</option></select></label>
@@ -67,6 +67,23 @@
             <label class="field field-wide"><span>Description</span><textarea name="description" rows="6" maxlength="5000"></textarea></label>
             <label class="field field-wide"><span>Add pictures</span><input name="images" type="file" accept="image/*" multiple><small class="muted">Existing pictures are kept. New pictures are added.</small></label>
           </div>
+        </fieldset>
+        <fieldset class="settings-group" data-shipping-section><legend>Shipping</legend>
+          <p class="muted">Shipping information controls how the packing engine will prepare this product before the final parcel is sent to a courier.</p>
+          <div class="settings-fields settings-fields-two">
+            <label class="field"><span>Shipping type</span><select name="shipping_type_id" data-shipping-type><option value="">Select shipping type</option></select></label>
+            <label class="field"><span>Packing mode</span><select name="packing_mode" data-packing-mode><option value="compressible">Compressible / can be packed into a bag</option><option value="prepackaged">Already packaged / boxed</option></select></label>
+            <label class="field"><span>Product shipping weight (kg)</span><input name="shipping_weight_kg" data-shipping-weight type="number" min="0" step="0.001" inputmode="decimal"></label>
+            <div class="field field-wide" data-shipping-dimensions hidden>
+              <span>Packed dimensions (cm)</span>
+              <div class="settings-fields settings-fields-two">
+                <label class="field"><span>Length</span><input name="shipping_length_cm" data-shipping-length type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label class="field"><span>Width</span><input name="shipping_width_cm" data-shipping-width type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label class="field"><span>Height</span><input name="shipping_height_cm" data-shipping-height type="number" min="0" step="0.1" inputmode="decimal"></label>
+              </div>
+            </div>
+          </div>
+          <p class="muted" data-shipping-help>Select a shipping type to see the information required.</p>
         </fieldset>
         <div class="settings-actions"><span class="settings-load-status" data-form-status aria-live="polite">Ready to edit.</span><div><button class="button button-outline" type="button" data-cancel-edit>Cancel</button> <button class="button button-primary" type="submit">Save changes</button></div></div>
       </form>
@@ -137,7 +154,10 @@
       updateShippingFields();
     }
     async function saveProductShipping() {
-      if (!shippingTypeSelect.value) throw new Error('Shipping type is required.');
+      if (!shippingTypeSelect.value) {
+        if (productShipping) await apiFetch('/api/product-shipping?id=' + encodeURIComponent(id), { method: 'DELETE' });
+        return;
+      }
       await apiFetch('/api/product-shipping?id=' + encodeURIComponent(id), {
         method: 'PUT',
         body: JSON.stringify({
