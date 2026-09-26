@@ -3,150 +3,99 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Manage delivery and shipping methods for the Clothing Store.">
+  <meta name="description" content="Manage standardized shipping and delivery configuration for the Clothing Store.">
   <title>Shipping | Clothing Store Admin</title>
   <link rel="stylesheet" href="../../assets/css/styles.css">
   <script type="module" src="../../assets/js/firebase-auth.js"></script>
   <script src="../../assets/js/site.js" defer></script>
 </head>
 <body class="admin-page">
-  <a class="skip-link" href="#shipping-main">Skip to content</a>
-  <header class="admin-header"><div class="container header-inner"><a class="brand" href="../../index.html">Clothing Store <span class="admin-label">Admin</span></a><div class="admin-account"><span class="status-dot" aria-hidden="true"></span><span data-admin-account>Admin account</span><button class="button button-small button-outline" type="button" data-admin-logout>Log out</button></div></div></header>
+<a class="skip-link" href="#shipping-main">Skip to content</a>
+<header class="admin-header"><div class="container header-inner"><a class="brand" href="../../index.html">Clothing Store <span class="admin-label">Admin</span></a><div class="admin-account"><span class="status-dot" aria-hidden="true"></span><span data-admin-account>Admin account</span><button class="button button-small button-outline" type="button" data-admin-logout>Log out</button></div></div></header>
+<main id="shipping-main" class="admin-main"><div class="container">
+  <div class="settings-heading">
+    <div><p class="eyebrow">Shipping configuration</p><h1>Shipping settings</h1><p class="muted">Configure the store's shipping classifications and packaging independently from catalogue categories and shipping providers.</p></div>
+    <a class="button button-outline" href="../">Back to dashboard</a>
+  </div>
 
-  <main id="shipping-main" class="admin-main"><div class="container">
-    <div class="settings-heading">
-      <div><p class="eyebrow">Delivery configuration</p><h1>Shipping settings</h1><p class="muted">Configure local delivery areas and manual PAXI rates. The Courier Guy API is kept ready for a later connection.</p></div>
-      <a class="button button-outline" href="../">Back to dashboard</a>
-    </div>
+  <section class="settings-panel">
+    <div class="settings-heading"><div><h2>Shipping types</h2><p class="muted">These are the shipping classifications available in each product's Shipping section. They are separate from catalogue categories.</p></div></div>
+    <div class="admin-sections" data-types-list></div>
+    <form class="settings-form" data-type-form>
+      <div class="settings-fields settings-fields-two">
+        <label class="field"><span>Type name</span><input name="name" required maxlength="80" placeholder="e.g. Fragile"></label>
+        <label class="field"><span>Code</span><input name="code" maxlength="80" placeholder="fragile"><small class="muted">Optional internal code; generated from the name when blank.</small></label>
+        <label class="field field-wide"><span>Description</span><input name="description" maxlength="300" placeholder="How this shipping type is handled"></label>
+        <label class="field"><span><input name="requires_weight" type="checkbox" checked> Require shipping weight</span></label>
+        <label class="field"><span><input name="requires_dimensions" type="checkbox"> Require packed dimensions</span></label>
+      </div>
+      <div class="settings-actions"><span class="settings-load-status" data-type-status>Ready.</span><button class="button button-primary" type="submit">Add shipping type</button></div>
+    </form>
+  </section>
 
-    <section class="settings-panel">
-      <div class="settings-heading"><div><h2>Shipping methods</h2><p class="muted">Turn delivery methods on or off. Prices and areas below are controlled by the business.</p></div></div>
-      <div class="admin-sections" data-methods-list></div>
-      <p class="settings-load-status" data-status>Loading shipping settings…</p>
-    </section>
+  <section class="settings-panel">
+    <div class="settings-heading"><div><h2>Packaging</h2><p class="muted">Define the bags, boxes, envelopes, manufacturer packaging and other packaging you may use. The system does not treat these as owned stock.</p></div></div>
+    <form class="settings-form" data-packaging-form>
+      <div class="settings-fields settings-fields-two">
+        <label class="field"><span>Packaging name</span><input name="name" required maxlength="120" placeholder="e.g. Medium courier bag"></label>
+        <label class="field"><span>Packaging type</span><select name="packaging_type"><option value="bag">Bag</option><option value="box">Box</option><option value="envelope">Envelope</option><option value="manufacturer">Manufacturer packaging</option><option value="custom">Custom</option></select></label>
+        <label class="field"><span>Length (cm)</span><input name="length_cm" type="number" min="0" step="0.1" inputmode="decimal"></label>
+        <label class="field"><span>Width (cm)</span><input name="width_cm" type="number" min="0" step="0.1" inputmode="decimal"></label>
+        <label class="field"><span>Height (cm)</span><input name="height_cm" type="number" min="0" step="0.1" inputmode="decimal"></label>
+        <label class="field"><span>Packaging weight (kg)</span><input name="packaging_weight_kg" type="number" min="0" step="0.001" inputmode="decimal" value="0"></label>
+        <label class="field"><span>Maximum packed weight (kg)</span><input name="max_weight_kg" type="number" min="0" step="0.001" inputmode="decimal"><small class="muted">Leave blank if there is no configured limit.</small></label>
+      </div>
+      <div class="settings-actions"><span class="settings-load-status" data-packaging-status>Ready.</span><button class="button button-primary" type="submit">Add packaging</button></div>
+    </form>
+    <div class="admin-sections" data-packaging-list></div>
+  </section>
 
-    <section class="settings-panel">
-      <div class="settings-heading"><div><h2>Add delivery option</h2><p class="muted">For Local delivery, enter an area name and the price. For PAXI manual rates, enter the PAXI option and the price you want the store to charge.</p></div></div>
-      <form class="settings-form" data-option-form>
-        <div class="settings-fields settings-fields-two">
-          <label class="field"><span>Shipping method</span><select name="shipping_method_id" required></select></label>
-          <label class="field"><span>Option / area name</span><input name="name" type="text" required maxlength="160" placeholder="e.g. Section C"></label>
-          <label class="field"><span>Price (ZAR)</span><input name="price" type="number" min="0" step="0.01" inputmode="decimal" required value="0"></label>
-          <label class="field"><span><input name="requires_landmark" type="checkbox"> Ask customer where they are staying / what they are near</span></label>
-        </div>
-        <div class="settings-actions"><span class="settings-load-status" data-form-status>Ready.</span><button class="button button-primary" type="submit">Add option</button></div>
-      </form>
-    </section>
+  <section class="settings-panel">
+    <div class="settings-heading"><div><h2>Shipping providers and delivery options</h2><p class="muted">Provider connections remain separate from the standardized shipping data above.</p></div></div>
+    <div class="admin-sections" data-methods-list></div>
+    <p class="settings-load-status" data-status>Loading shipping settings…</p>
+  </section>
 
-    <section class="settings-panel">
-      <div class="settings-heading"><div><h2>Configured options</h2><p class="muted">These are the options customers can select at checkout when their shipping method is enabled.</p></div></div>
-      <div class="admin-sections" data-options-list></div>
-    </section>
-  </div></main>
-
-  <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
-
+  <section class="settings-panel">
+    <div class="settings-heading"><div><h2>Add delivery option</h2><p class="muted">Configure customer-facing delivery options for the enabled shipping providers.</p></div></div>
+    <form class="settings-form" data-option-form>
+      <div class="settings-fields settings-fields-two">
+        <label class="field"><span>Shipping method</span><select name="shipping_method_id" required></select></label>
+        <label class="field"><span>Option / area name</span><input name="name" type="text" required maxlength="160" placeholder="e.g. Section C"></label>
+        <label class="field"><span>Price (ZAR)</span><input name="price" type="number" min="0" step="0.01" inputmode="decimal" required value="0"></label>
+        <label class="field"><span><input name="requires_landmark" type="checkbox"> Ask customer where they are staying / what they are near</span></label>
+      </div>
+      <div class="settings-actions"><span class="settings-load-status" data-form-status>Ready.</span><button class="button button-primary" type="submit">Add option</button></div>
+    </form>
+    <div class="admin-sections" data-options-list></div>
+  </section>
+</div></main>
+<footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../">Back to dashboard</a></div></footer>
 <script>
-const methodsList = document.querySelector('[data-methods-list]');
-const optionsList = document.querySelector('[data-options-list]');
-const methodSelect = document.querySelector('[name="shipping_method_id"]');
-const form = document.querySelector('[data-option-form]');
-const status = document.querySelector('[data-status]');
-const formStatus = document.querySelector('[data-form-status]');
-let methods = [];
-
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character]));
+const methodsList=document.querySelector('[data-methods-list]'),optionsList=document.querySelector('[data-options-list]'),methodSelect=document.querySelector('[name="shipping_method_id"]'),optionForm=document.querySelector('[data-option-form]'),status=document.querySelector('[data-status]'),formStatus=document.querySelector('[data-form-status]');
+const typesList=document.querySelector('[data-types-list]'),typeForm=document.querySelector('[data-type-form]'),typeStatus=document.querySelector('[data-type-status]');
+const packagingList=document.querySelector('[data-packaging-list]'),packagingForm=document.querySelector('[data-packaging-form]'),packagingStatus=document.querySelector('[data-packaging-status]');
+let methods=[],types=[],packaging=[];
+function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+async function getToken(){for(let i=0;i<50;i++){if(typeof window.getAdminIdToken==='function'){try{const token=await window.getAdminIdToken();if(token)return token;}catch(error){if(error?.message&&error.message!=='No authenticated admin session.')throw error;}}await new Promise(r=>setTimeout(r,200));}throw new Error('Authentication required. Please sign in again.');}
+async function apiFetch(url,options={}){const token=await getToken(),headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+token);if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');const response=await fetch(url,{...options,headers}),payload=await response.json().catch(()=>({}));if(!response.ok||!payload.success)throw new Error(payload.error||'Request failed.');return payload;}
+function syncLandmark(){const method=methods.find(x=>String(x.id)===String(methodSelect.value)),field=optionForm.elements.requires_landmark.closest('.field'),local=method?.provider_type==='local';optionForm.elements.requires_landmark.disabled=!local;if(!local)optionForm.elements.requires_landmark.checked=false;if(field)field.hidden=!local;}
+function render(){
+  typesList.innerHTML=types.map(t=>'<section class="admin-panel"><div class="panel-icon">'+escapeHtml(String(t.sort_order).padStart(2,'0'))+'</div><div><h2>'+escapeHtml(t.name)+'</h2><p class="muted">'+escapeHtml(t.description||'')+' · '+(Number(t.requires_weight)?'Weight':'No weight')+' · '+(Number(t.requires_dimensions)?'Packed dimensions':'No dimensions')+' · '+(Number(t.is_enabled)?'Enabled':'Disabled')+'</p></div><button class="button button-outline" type="button" data-toggle-type="'+t.id+'">'+(Number(t.is_enabled)?'Disable':'Enable')+'</button></section>').join('')||'<p class="muted">No shipping types configured.</p>';
+  packagingList.innerHTML=packaging.map(p=>'<section class="admin-panel"><div class="panel-icon">•</div><div><h2>'+escapeHtml(p.name)+'</h2><p class="muted">'+escapeHtml(p.packaging_type)+' · '+(p.length_cm!==null?p.length_cm+' × '+p.width_cm+' × '+p.height_cm+' cm':'Dimensions not set')+' · Max '+(p.max_weight_kg===null?'not set':p.max_weight_kg+' kg')+' · '+(Number(p.is_enabled)?'Enabled':'Disabled')+'</p></div><button class="button button-outline" type="button" data-delete-packaging="'+p.id+'">Delete</button></section>').join('')||'<p class="muted">No packaging configured yet.</p>';
+  methodsList.innerHTML=methods.map(m=>'<section class="admin-panel"><div class="panel-icon">'+escapeHtml(String(m.sort_order).padStart(2,'0'))+'</div><div><h2>'+escapeHtml(m.name)+'</h2><p class="muted">'+(m.mode==='api'?'API':'Manual')+' · '+(Number(m.is_enabled)?'Enabled':'Disabled')+'</p></div><button class="button button-outline" type="button" data-toggle-method="'+m.id+'">'+(Number(m.is_enabled)?'Disable':'Enable')+'</button></section>').join('');
+  methodSelect.innerHTML=methods.map(m=>'<option value="'+m.id+'">'+escapeHtml(m.name)+'</option>').join('');syncLandmark();
+  optionsList.innerHTML=methods.flatMap(m=>(m.options||[]).map(o=>'<section class="admin-panel"><div class="panel-icon">•</div><div><h2>'+escapeHtml(o.name)+'</h2><p class="muted">'+escapeHtml(m.name)+' · ZAR '+Number(o.price).toFixed(2)+(m.provider_type==='local'&&Number(o.requires_landmark)?' · Landmark required':'')+'</p></div><button class="button button-outline" type="button" data-delete-option="'+o.id+'">Delete</button></section>')).join('')||'<p class="muted">No delivery options configured yet.</p>';
 }
-async function getToken() {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    if (typeof window.getAdminIdToken === 'function') {
-      try {
-        const token = await window.getAdminIdToken();
-        if (token) return token;
-      } catch (error) {
-        if (error?.message && error.message !== 'No authenticated admin session.') throw error;
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  throw new Error('Authentication required. Please sign in again.');
-}
-async function apiFetch(url, options = {}) {
-  const token = await getToken();
-  const headers = new Headers(options.headers || {});
-  headers.set('Authorization', 'Bearer ' + token);
-  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-  const response = await fetch(url, { ...options, headers });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.success) throw new Error(payload.error || 'Request failed.');
-  return payload;
-}
-function syncLandmarkControl() {
-  const method = methods.find((item) => String(item.id) === String(methodSelect.value));
-  const field = form.elements.requires_landmark.closest('.field');
-  const local = method?.provider_type === 'local';
-  form.elements.requires_landmark.disabled = !local;
-  if (!local) form.elements.requires_landmark.checked = false;
-  if (field) field.hidden = !local;
-}
-function render() {
-  methodsList.innerHTML = methods.map((method) => {
-    const state = Number(method.is_enabled) === 1;
-    const mode = method.mode === 'api' ? 'API' : 'Manual';
-    return '<section class="admin-panel"><div class="panel-icon">' + escapeHtml(String(method.sort_order).padStart(2,'0')) + '</div><div><h2>' + escapeHtml(method.name) + '</h2><p class="muted">' + mode + ' · ' + (state ? 'Enabled' : 'Disabled') + '</p></div><button class="button button-outline" type="button" data-toggle-method="' + method.id + '">' + (state ? 'Disable' : 'Enable') + '</button></section>';
-  }).join('');
-  methodSelect.innerHTML = methods.map((method) => '<option value="' + method.id + '">' + escapeHtml(method.name) + '</option>').join('');
-  syncLandmarkControl();
-  optionsList.innerHTML = methods.flatMap((method) => (method.options || []).map((option) =>
-    '<section class="admin-panel"><div class="panel-icon">•</div><div><h2>' + escapeHtml(option.name) + '</h2><p class="muted">' + escapeHtml(method.name) + ' · ZAR ' + Number(option.price).toFixed(2) + (method.provider_type === 'local' && Number(option.requires_landmark) === 1 ? ' · Landmark required' : '') + '</p></div><button class="button button-outline" type="button" data-delete-option="' + option.id + '">Delete</button></section>'
-  )).join('') || '<p class="muted">No delivery options configured yet.</p>';
-}
-async function load() {
-  status.textContent = 'Loading shipping settings…';
-  try {
-    const payload = await apiFetch('/api/shipping?include_disabled=1');
-    methods = payload.data || [];
-    render();
-    status.textContent = 'Shipping settings loaded.';
-  } catch (error) { status.textContent = error.message; }
-}
-methodsList.addEventListener('click', async (event) => {
-  const id = event.target.closest('[data-toggle-method]')?.dataset.toggleMethod;
-  if (!id) return;
-  const method = methods.find((item) => String(item.id) === String(id));
-  if (!method) return;
-  try {
-    await apiFetch('/api/shipping?resource=method&id=' + encodeURIComponent(id), { method:'PUT', body: JSON.stringify({ is_enabled: Number(method.is_enabled) !== 1 }) });
-    await load();
-  } catch (error) { status.textContent = error.message; }
-});
-optionsList.addEventListener('click', async (event) => {
-  const id = event.target.closest('[data-delete-option]')?.dataset.deleteOption;
-  if (!id || !confirm('Delete this shipping option?')) return;
-  try {
-    await apiFetch('/api/shipping?resource=option&id=' + encodeURIComponent(id), { method:'DELETE' });
-    await load();
-  } catch (error) { status.textContent = error.message; }
-});
-methodSelect.addEventListener('change', syncLandmarkControl);
-form.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  formStatus.textContent = 'Saving…';
-  try {
-    await apiFetch('/api/shipping', { method:'POST', body: JSON.stringify({
-      shipping_method_id: Number(form.elements.shipping_method_id.value),
-      name: form.elements.name.value.trim(),
-      price: Number(form.elements.price.value || 0),
-      requires_landmark: form.elements.requires_landmark.checked,
-      is_enabled: true
-    })});
-    form.reset();
-    form.elements.price.value = '0';
-    formStatus.textContent = 'Shipping option added.';
-    await load();
-  } catch (error) { formStatus.textContent = error.message; }
-});
+async function load(){status.textContent='Loading shipping settings…';try{const p=await apiFetch('/api/shipping?include_disabled=1');methods=Array.isArray(p.data)?p.data:[];types=p.shipping_types||[];packaging=p.packaging||[];render();status.textContent='Shipping settings loaded.';}catch(e){status.textContent=e.message;}}
+typesList.addEventListener('click',async e=>{const id=e.target.closest('[data-toggle-type]')?.dataset.toggleType;if(!id)return;const t=types.find(x=>String(x.id)===String(id));if(!t)return;try{await apiFetch('/api/shipping?resource=type&id='+id,{method:'PUT',body:JSON.stringify({is_enabled:Number(t.is_enabled)!==1})});await load();}catch(x){typeStatus.textContent=x.message;}});
+packagingList.addEventListener('click',async e=>{const id=e.target.closest('[data-delete-packaging]')?.dataset.deletePackaging;if(!id||!confirm('Delete this packaging definition?'))return;try{await apiFetch('/api/shipping?resource=packaging&id='+id,{method:'DELETE'});await load();}catch(x){packagingStatus.textContent=x.message;}});
+methodsList.addEventListener('click',async e=>{const id=e.target.closest('[data-toggle-method]')?.dataset.toggleMethod;if(!id)return;const m=methods.find(x=>String(x.id)===String(id));if(!m)return;try{await apiFetch('/api/shipping?resource=method&id='+id,{method:'PUT',body:JSON.stringify({is_enabled:Number(m.is_enabled)!==1})});await load();}catch(x){status.textContent=x.message;}});
+optionsList.addEventListener('click',async e=>{const id=e.target.closest('[data-delete-option]')?.dataset.deleteOption;if(!id||!confirm('Delete this shipping option?'))return;try{await apiFetch('/api/shipping?resource=option&id='+id,{method:'DELETE'});await load();}catch(x){status.textContent=x.message;}});
+typeForm.addEventListener('submit',async e=>{e.preventDefault();typeStatus.textContent='Saving…';try{await apiFetch('/api/shipping',{method:'POST',body:JSON.stringify({resource:'type',name:typeForm.elements.name.value.trim(),code:typeForm.elements.code.value.trim(),description:typeForm.elements.description.value.trim(),requires_weight:typeForm.elements.requires_weight.checked,requires_dimensions:typeForm.elements.requires_dimensions.checked,is_enabled:true})});typeForm.reset();typeForm.elements.requires_weight.checked=true;typeStatus.textContent='Shipping type added.';await load();}catch(x){typeStatus.textContent=x.message;}});
+packagingForm.addEventListener('submit',async e=>{e.preventDefault();packagingStatus.textContent='Saving…';const value=n=>n.value===''?null:Number(n.value);try{await apiFetch('/api/shipping',{method:'POST',body:JSON.stringify({resource:'packaging',name:packagingForm.elements.name.value.trim(),packaging_type:packagingForm.elements.packaging_type.value,length_cm:value(packagingForm.elements.length_cm),width_cm:value(packagingForm.elements.width_cm),height_cm:value(packagingForm.elements.height_cm),packaging_weight_kg:Number(packagingForm.elements.packaging_weight_kg.value||0),max_weight_kg:value(packagingForm.elements.max_weight_kg),is_enabled:true})});packagingForm.reset();packagingForm.elements.packaging_weight_kg.value='0';packagingStatus.textContent='Packaging added.';await load();}catch(x){packagingStatus.textContent=x.message;}});
+methodSelect.addEventListener('change',syncLandmark);
+optionForm.addEventListener('submit',async e=>{e.preventDefault();formStatus.textContent='Saving…';try{await apiFetch('/api/shipping',{method:'POST',body:JSON.stringify({shipping_method_id:Number(optionForm.elements.shipping_method_id.value),name:optionForm.elements.name.value.trim(),price:Number(optionForm.elements.price.value||0),requires_landmark:optionForm.elements.requires_landmark.checked,is_enabled:true})});optionForm.reset();optionForm.elements.price.value='0';formStatus.textContent='Shipping option added.';await load();}catch(x){formStatus.textContent=x.message;}});
 load();
 </script>
 </body>
