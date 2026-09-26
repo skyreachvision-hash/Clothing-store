@@ -34,7 +34,25 @@
       <div class="settings-heading"><div><h2 id="edit-product-title">Edit product</h2><p class="muted">Update this product and save the changes.</p></div></div>
       <form class="settings-form" data-product-form>
         <input type="hidden" name="id">
-        <fieldset class="settings-group"><legend>Product details</legend>
+        <fieldset class="settings-group"><legend>Product details</legend>        <fieldset class="settings-group" data-shipping-section><legend>Shipping</legend>
+          <p class="muted">Shipping information controls how the packing engine will prepare this product before the final parcel is sent to a courier.</p>
+          <div class="settings-fields settings-fields-two">
+            <label class="field"><span>Shipping type</span><select name="shipping_type_id" data-shipping-type><option value="">Select shipping type</option></select></label>
+            <label class="field"><span>Packing mode</span><select name="packing_mode" data-packing-mode><option value="compressible">Compressible / can be packed into a bag</option><option value="prepackaged">Already packaged / boxed</option></select></label>
+            <label class="field"><span>Product shipping weight (kg)</span><input name="shipping_weight_kg" data-shipping-weight type="number" min="0" step="0.001" inputmode="decimal"></label>
+            <div class="field field-wide" data-shipping-dimensions hidden>
+              <span>Packed dimensions (cm)</span>
+              <div class="settings-fields settings-fields-two">
+                <label class="field"><span>Length</span><input name="shipping_length_cm" data-shipping-length type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label class="field"><span>Width</span><input name="shipping_width_cm" data-shipping-width type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label class="field"><span>Height</span><input name="shipping_height_cm" data-shipping-height type="number" min="0" step="0.1" inputmode="decimal"></label>
+              </div>
+            </div>
+          </div>
+          <p class="muted" data-shipping-help>Select a shipping type to see the information required.</p>
+        </fieldset>
+
+
           <div class="settings-fields settings-fields-two">
             <label class="field"><span>Product name</span><input name="name" type="text" required maxlength="160"></label>
             <label class="field"><span>SKU</span><input name="sku" type="text" maxlength="80"></label>
@@ -83,7 +101,57 @@
     const cancelButton = document.querySelector('[data-cancel-edit]');
     const status = document.querySelector('[data-form-status]');
     const imageInput = form.elements.images;
-    let product = null;
+    let product = null;\n    let shippingTypes = [];
+    let productShipping = null;
+    const shippingTypeSelect = form.elements.shipping_type_id;
+    const packingModeSelect = form.elements.packing_mode;
+    const shippingDimensions = form.querySelector('[data-shipping-dimensions]');
+    const shippingHelp = form.querySelector('[data-shipping-help]');
+
+    function shippingNeedsDimensions() {
+      const type = shippingTypes.find((item) => String(item.id) === String(shippingTypeSelect.value));
+      return Boolean(type && (Number(type.requires_dimensions) === 1 || packingModeSelect.value === 'prepackaged'));
+    }
+    function updateShippingFields() {
+      const type = shippingTypes.find((item) => String(item.id) === String(shippingTypeSelect.value));
+      const needs = shippingNeedsDimensions();
+      shippingDimensions.hidden = !needs;
+      shippingHelp.textContent = !type ? 'Select a shipping type to see the information required.' : needs ? 'Weight plus packed length, width and height are required.' : 'Weight is required. The packing engine will choose suitable packaging later.';
+    }
+    async function loadShippingTypes() {
+      const result = await apiFetch('/api/product-shipping?id=' + encodeURIComponent(id));
+      shippingTypes = Array.isArray(result.data?.shipping_types) ? result.data.shipping_types : [];
+      productShipping = result.data?.shipping || null;
+      shippingTypeSelect.innerHTML = '<option value="">Select shipping type</option>';
+      for (const type of shippingTypes) {
+        const option = document.createElement('option'); option.value = type.id; option.textContent = type.name; shippingTypeSelect.append(option);
+      }
+      if (productShipping) {
+        shippingTypeSelect.value = productShipping.shipping_type_id;
+        packingModeSelect.value = productShipping.packing_mode || 'compressible';
+        form.elements.shipping_weight_kg.value = productShipping.weight_kg ?? '';
+        form.elements.shipping_length_cm.value = productShipping.length_cm ?? '';
+        form.elements.shipping_width_cm.value = productShipping.width_cm ?? '';
+        form.elements.shipping_height_cm.value = productShipping.height_cm ?? '';
+      }
+      updateShippingFields();
+    }
+    async function saveProductShipping() {
+      if (!shippingTypeSelect.value) throw new Error('Shipping type is required.');
+      await apiFetch('/api/product-shipping?id=' + encodeURIComponent(id), {
+        method: 'PUT',
+        body: JSON.stringify({
+          shipping_type_id: Number(shippingTypeSelect.value),
+          packing_mode: packingModeSelect.value,
+          weight_kg: Number(form.elements.shipping_weight_kg.value || 0),
+          length_cm: form.elements.shipping_length_cm.value || null,
+          width_cm: form.elements.shipping_width_cm.value || null,
+          height_cm: form.elements.shipping_height_cm.value || null
+        })
+      });
+    }
+
+
 
     function setStatus(message) {
       status.textContent = String(message || '');
@@ -197,6 +265,11 @@
         details.append(description);
       }
 
+      const shippingSummary = document.createElement('div');
+      shippingSummary.className = 'field field-wide';
+      shippingSummary.innerHTML = '<span>Shipping</span><p class="muted">' + (productShipping ? escapeHtml(productShipping.shipping_type_name + ' · ' + productShipping.packing_mode + ' · ' + productShipping.weight_kg + ' kg' + (shippingNeedsDimensions() ? ' · ' + productShipping.length_cm + ' × ' + productShipping.width_cm + ' × ' + productShipping.height_cm + ' cm' : '')) : 'Not configured yet.') + '</p>';
+      details.append(shippingSummary);
+
       existingImages = Array.isArray(product.images) ? product.images.map((image, index) => ({ ...image, sort_order:Number(image.sort_order ?? index), is_primary:Number(image.is_primary) === 1 })) : [];
       imagesList.innerHTML = existingImages.length ? existingImages.map((image, index) => '<div class="product-image-management-item"><div class="product-image-management-preview"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></div><label><input type="radio" name="primary-image" value="' + index + '"' + (image.is_primary ? ' checked' : '') + '> <span class="product-image-management-main">Main picture</span></label></div>').join('') : '<p class="muted">No pictures.</p>';
       imagesGroup.hidden = !existingImages.length;
@@ -218,6 +291,7 @@
       form.elements.sort_order.value = product.sort_order ?? 0;
       form.elements.track_stock.checked = Boolean(product.track_stock);
       form.elements.description.value = product.description || '';
+      if (productShipping) { shippingTypeSelect.value = productShipping.shipping_type_id; packingModeSelect.value = productShipping.packing_mode || 'compressible'; form.elements.shipping_weight_kg.value = productShipping.weight_kg ?? ''; form.elements.shipping_length_cm.value = productShipping.length_cm ?? ''; form.elements.shipping_width_cm.value = productShipping.width_cm ?? ''; form.elements.shipping_height_cm.value = productShipping.height_cm ?? ''; }
       existingImages = Array.isArray(product.images) ? product.images.map((image,index)=>({...image,sort_order:Number(image.sort_order ?? index),is_primary:Number(image.is_primary) === 1})) : [];
       imageInput.value = '';
     }
@@ -229,6 +303,9 @@
       return result.data;
     }
 
+
+    shippingTypeSelect.addEventListener('change', updateShippingFields);
+    packingModeSelect.addEventListener('change', updateShippingFields);
 
     editButton.addEventListener('click', async () => {
       populateForm();
@@ -287,6 +364,7 @@
           images = images.map((image, index) => ({ ...image, sort_order:index, is_primary:Boolean(image.is_primary) }));
         }
         data.images = images;
+        await saveProductShipping();
         await apiFetch('/api/products?id=' + encodeURIComponent(product.id), { method:'PUT', body:JSON.stringify(data) });
         const refreshed = await apiFetch('/api/products?status=' + encodeURIComponent(data.status) + '&limit=100');
         product = (refreshed.data?.products || []).find((item) => String(item.id) === String(id));
@@ -304,6 +382,7 @@
     });
 
     try {
+      await loadShippingTypes();
       await loadProduct();
     } catch (error) {
       title.textContent = 'Product unavailable';
