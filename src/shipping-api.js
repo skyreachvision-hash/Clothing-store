@@ -146,11 +146,11 @@ export async function handleShippingApi(request, env, originalWorker) {
         `SELECT oi.product_id, oi.product_name, oi.quantity,
                 ps.shipping_type_id,
                 st.code AS shipping_type_code,
-                ps.is_prepackaged,
-                ps.shipping_weight_kg,
-                ps.shipping_length_cm,
-                ps.shipping_width_cm,
-                ps.shipping_height_cm
+                CASE WHEN ps.packing_mode = 'prepackaged' THEN 1 ELSE 0 END AS is_prepackaged,
+                ps.weight_kg AS shipping_weight_kg,
+                ps.length_cm AS shipping_length_cm,
+                ps.width_cm AS shipping_width_cm,
+                ps.height_cm AS shipping_height_cm
          FROM order_items oi
          LEFT JOIN products p ON p.id = oi.product_id
          LEFT JOIN product_shipping ps ON ps.product_id = oi.product_id
