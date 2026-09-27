@@ -92,6 +92,29 @@ async function getShipping(env, shippingMethodId, shippingOptionId, shippingRate
       if (!rate) throw new Error("The selected courier rate is no longer available. Please refresh the shipping rates.");
       return { method_id: method.id, method_name: method.name, provider_type: method.provider_type, mode: method.mode, option_id: 0, option_name: rate.name, price: Number(rate.price), rate_code: rate.code };
     }
+    if (method?.provider_type === "custom" && method.mode === "manual") {
+      const courier = await env.DB.prepare("SELECT id, calculation_mode FROM custom_couriers WHERE shipping_method_id = ?").bind(method.id).first();
+      if (!courier) throw new Error("This custom courier is not configured.");
+      const rateId = Number(clean(shippingRateCode).replace(/^custom-/, ""));
+      if (!Number.isInteger(rateId) || rateId <= 0) throw new Error("The selected custom courier rate is invalid. Please refresh the shipping rates.");
+      const rate = await env.DB.prepare(
+        "SELECT id, service_name, area_name, min_weight_kg, max_weight_kg, price, estimated_delivery FROM custom_courier_rates WHERE id = ? AND custom_courier_id = ? AND is_enabled = 1"
+      ).bind(rateId, courier.id).first();
+      if (!rate) throw new Error("The selected custom courier rate is no longer available. Please refresh the shipping rates.");
+      const totalWeight = (packing.parcels || []).reduce((sum, parcel) => sum + Number(parcel.weight_kg || 0), 0);
+      const areaValues = [customer?.city, customer?.province, customer?.postal_code].map((value) => clean(value).toLowerCase()).filter(Boolean);
+      const configuredArea = clean(rate.area_name).toLowerCase();
+      const areaMatches = !configuredArea || areaValues.includes(configuredArea);
+      const min = rate.min_weight_kg === null || rate.min_weight_kg === undefined ? 0 : Number(rate.min_weight_kg);
+      const max = rate.max_weight_kg === null || rate.max_weight_kg === undefined ? Infinity : Number(rate.max_weight_kg);
+      const weightMatches = totalWeight >= min && totalWeight <= max;
+      const modeMatches = courier.calculation_mode === "fixed"
+        || (courier.calculation_mode === "weight" && weightMatches)
+        || (courier.calculation_mode === "area" && areaMatches)
+        || (courier.calculation_mode === "weight_area" && weightMatches && areaMatches);
+      if (!modeMatches) throw new Error("The selected custom courier rate does not match this order. Please refresh the shipping rates.");
+      return { method_id: method.id, method_name: method.name, provider_type: method.provider_type, mode: method.mode, option_id: 0, option_name: rate.service_name + (rate.estimated_delivery ? " · " + rate.estimated_delivery : ""), price: Number(rate.price || 0), rate_code: "custom-" + rate.id };
+    }
   }
   if (!Number.isInteger(optionId) || optionId <= 0) throw new Error("Please select a valid delivery method and option.");
   const row = await env.DB.prepare(
@@ -100,7 +123,6 @@ async function getShipping(env, shippingMethodId, shippingOptionId, shippingRate
   if (!row) throw new Error("The selected delivery option is no longer available.");
   return row;
 }
-
 async function handleInitialize(request, env) {
   const token = await verifyFirebaseIdToken(request);
   const body = await request.json().catch(() => ({}));
