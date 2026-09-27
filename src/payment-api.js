@@ -81,9 +81,19 @@ async function validatePacking(env, lineItems) {
   return result;
 }
 
-async function getShipping(env, shippingMethodId, shippingOptionId, shippingRateCode = '') {
+async function getShipping(env, shippingMethodId, shippingOptionId, shippingRateCode = '', packing = null, customer = {}, declaredValue = 0) {
   const methodId = Number(shippingMethodId), optionId = Number(shippingOptionId);
-  if (!Number.isInteger(methodId) || methodId <= 0 || !Number.isInteger(optionId) || optionId <= 0) throw new Error("Please select a valid delivery method and option.");
+  if (!Number.isInteger(methodId) || methodId <= 0) throw new Error("Please select a valid delivery method and option.");
+  if (clean(shippingRateCode) && packing?.parcels?.length) {
+    const method = await env.DB.prepare("SELECT id, name, provider_type, mode FROM shipping_methods WHERE id = ? AND is_enabled = 1").bind(methodId).first();
+    if (method?.provider_type === "courier_guy" && method.mode === "api") {
+      const courier = await getCourierGuyRates(env, { parcels: packing.parcels, customer, declaredValue });
+      const rate = courier.rates.find((item) => item.code === clean(shippingRateCode));
+      if (!rate) throw new Error("The selected courier rate is no longer available. Please refresh the shipping rates.");
+      return { method_id: method.id, method_name: method.name, provider_type: method.provider_type, mode: method.mode, option_id: 0, option_name: rate.name, price: Number(rate.price), rate_code: rate.code };
+    }
+  }
+  if (!Number.isInteger(optionId) || optionId <= 0) throw new Error("Please select a valid delivery method and option.");
   const row = await env.DB.prepare(
     "SELECT m.id AS method_id, m.name AS method_name, m.provider_type, m.mode, o.id AS option_id, o.name AS option_name, o.price FROM shipping_methods m JOIN shipping_options o ON o.shipping_method_id = m.id WHERE m.id = ? AND o.id = ? AND m.is_enabled = 1 AND o.is_enabled = 1"
   ).bind(methodId, optionId).first();
