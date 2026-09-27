@@ -1,3 +1,4 @@
+import { packOrder } from "./shipping-packing.js";
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 
 function jsonResponse(payload, status = 200) {
@@ -129,6 +130,61 @@ export async function handleShippingApi(request, env, originalWorker) {
       ).bind(productId, shippingTypeId, isPrepackaged, weight, dimensionsRequired ? length : null, dimensionsRequired ? width : null, dimensionsRequired ? height : null).run();
 
       return jsonResponse({ success: true, data: { id: productId, uid: auth?.data?.uid || "" } });
+    }
+
+    if (request.method === "POST" && url.searchParams.get("resource") === "pack-order") {
+      await requireAdmin(request, originalWorker, env);
+      const orderId = id(url.searchParams.get("id"));
+      if (!orderId) return jsonResponse({ success: false, error: "A valid order id is required." }, 400);
+
+      const order = await env.DB.prepare("SELECT id, order_number FROM orders WHERE id = ?").bind(orderId).first();
+      if (!order) return jsonResponse({ success: false, error: "Order not found." }, 404);
+
+      const itemRows = (await env.DB.prepare(
+        `SELECT oi.product_id, oi.product_name, oi.quantity,
+                p.shipping_type_id,
+                st.code AS shipping_type_code,
+                CASE WHEN p.shipping_packaging_mode = 'prepacked' THEN 1 ELSE 0 END AS is_prepackaged,
+                p.shipping_weight_kg,
+                p.shipping_length_cm,
+                p.shipping_width_cm,
+                p.shipping_height_cm
+         FROM order_items oi
+         LEFT JOIN products p ON p.id = oi.product_id
+         LEFT JOIN shipping_types st ON st.id = p.shipping_type_id
+         WHERE oi.order_id = ?
+         ORDER BY oi.id ASC`
+      ).bind(orderId).all()).results ?? [];
+
+      const packaging = await getPackaging(env, false);
+      const result = packOrder({
+        items: itemRows.map((item) => ({
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          shipping: {
+            shipping_type_id: item.shipping_type_id,
+            shipping_type_code: item.shipping_type_code,
+            is_prepackaged: item.is_prepackaged,
+            shipping_weight_kg: item.shipping_weight_kg,
+            shipping_length_cm: item.shipping_length_cm,
+            shipping_width_cm: item.shipping_width_cm,
+            shipping_height_cm: item.shipping_height_cm
+          }
+        })),
+        packaging
+      });
+
+      return jsonResponse({
+        success: result.success,
+        data: {
+          order_id: order.id,
+          order_number: order.order_number,
+          parcels: result.parcels,
+          errors: result.errors
+        },
+        ...(result.success ? {} : { error: "Order could not be fully packed with the current product shipping data and configured packaging." })
+      }, result.success ? 200 : 422);
     }
 
     const includeDisabled = url.searchParams.get("include_disabled") === "1";
