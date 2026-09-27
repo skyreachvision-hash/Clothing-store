@@ -70,8 +70,10 @@ export async function handleShippingApi(request, env, originalWorker) {
         const product = await env.DB.prepare("SELECT id FROM products WHERE id = ?").bind(productId).first();
         if (!product) return jsonResponse({ success: false, error: "Product not found." }, 404);
         const shipping = await env.DB.prepare(
-          `SELECT product_id, shipping_type_id, is_prepackaged, shipping_weight_kg,
-                  shipping_length_cm, shipping_width_cm, shipping_height_cm,
+          `SELECT product_id, shipping_type_id,
+                  CASE WHEN packing_mode = 'prepackaged' THEN 1 ELSE 0 END AS is_prepackaged,
+                  weight_kg AS shipping_weight_kg,
+                  length_cm AS shipping_length_cm, width_cm AS shipping_width_cm, height_cm AS shipping_height_cm,
                   created_at, updated_at
            FROM product_shipping WHERE product_id = ?`
         ).bind(productId).first();
@@ -116,18 +118,18 @@ export async function handleShippingApi(request, env, originalWorker) {
 
       await env.DB.prepare(
         `INSERT INTO product_shipping
-          (product_id, shipping_type_id, is_prepackaged, shipping_weight_kg,
-           shipping_length_cm, shipping_width_cm, shipping_height_cm)
+          (product_id, shipping_type_id, packing_mode, weight_kg,
+           length_cm, width_cm, height_cm)
          VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(product_id) DO UPDATE SET
            shipping_type_id = excluded.shipping_type_id,
-           is_prepackaged = excluded.is_prepackaged,
-           shipping_weight_kg = excluded.shipping_weight_kg,
-           shipping_length_cm = excluded.shipping_length_cm,
-           shipping_width_cm = excluded.shipping_width_cm,
-           shipping_height_cm = excluded.shipping_height_cm,
+           packing_mode = excluded.packing_mode,
+           weight_kg = excluded.weight_kg,
+           length_cm = excluded.length_cm,
+           width_cm = excluded.width_cm,
+           height_cm = excluded.height_cm,
            updated_at = CURRENT_TIMESTAMP`
-      ).bind(productId, shippingTypeId, isPrepackaged, weight, dimensionsRequired ? length : null, dimensionsRequired ? width : null, dimensionsRequired ? height : null).run();
+      ).bind(productId, shippingTypeId, isPrepackaged === 1 ? "prepackaged" : "compressible", weight, dimensionsRequired ? length : null, dimensionsRequired ? width : null, dimensionsRequired ? height : null).run();
 
       return jsonResponse({ success: true, data: { id: productId, uid: auth?.data?.uid || "" } });
     }
