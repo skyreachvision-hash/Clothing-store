@@ -125,7 +125,7 @@ async function handleInitialize(request, env) {
 
   const cartResult = await getAuthoritativeCart(env, body?.items);
   const packing = await validatePacking(env, cartResult.lineItems);
-  const shipping = await getShipping(env, body?.shipping_method_id, body?.shipping_option_id);
+  const shipping = await getShipping(env, body?.shipping_method_id, body?.shipping_option_id, body?.shipping_rate_code, packing, body?.customer, cartResult.subtotal);
   const total = cartResult.subtotal + Number(shipping.price || 0);
 
   if (cartResult.currency !== "ZAR") {
