@@ -59,6 +59,79 @@ async function getShipping(env, includeDisabled = false) {
 export async function handleShippingApi(request, env, originalWorker) {
   try {
     const url = new URL(request.url);
+
+    if (url.pathname === "/api/product-shipping") {
+      const auth = await requireAdmin(request, originalWorker, env);
+      const productId = id(url.searchParams.get("id"));
+      if (request.method === "GET") {
+        const shipping_types = await getShippingTypes(env, false);
+        if (!productId) return jsonResponse({ success: true, data: { shipping: null, shipping_types } });
+        const product = await env.DB.prepare("SELECT id FROM products WHERE id = ?").bind(productId).first();
+        if (!product) return jsonResponse({ success: false, error: "Product not found." }, 404);
+        const shipping = await env.DB.prepare(
+          `SELECT product_id, shipping_type_id, is_prepackaged, shipping_weight_kg,
+                  shipping_length_cm, shipping_width_cm, shipping_height_cm,
+                  created_at, updated_at
+           FROM product_shipping WHERE product_id = ?`
+        ).bind(productId).first();
+        return jsonResponse({ success: true, data: { shipping: shipping || null, shipping_types } });
+      }
+
+      if (!productId) return jsonResponse({ success: false, error: "A valid product id is required." }, 400);
+      const product = await env.DB.prepare("SELECT id FROM products WHERE id = ?").bind(productId).first();
+      if (!product) return jsonResponse({ success: false, error: "Product not found." }, 404);
+
+      if (request.method === "DELETE") {
+        await env.DB.prepare("DELETE FROM product_shipping WHERE product_id = ?").bind(productId).run();
+        return jsonResponse({ success: true, data: { id: productId, uid: auth?.data?.uid || "" } });
+      }
+
+      if (request.method !== "PUT") return jsonResponse({ success: false, error: "Method not allowed." }, 405);
+
+      const body = await request.json();
+      const shippingTypeId = id(body?.shipping_type_id);
+      if (!shippingTypeId) return jsonResponse({ success: false, error: "Shipping type is required." }, 400);
+
+      const shippingType = await env.DB.prepare(
+        "SELECT id, code, requires_weight, requires_dimensions FROM shipping_types WHERE id = ? AND is_enabled = 1"
+      ).bind(shippingTypeId).first();
+      if (!shippingType) return jsonResponse({ success: false, error: "Shipping type not found or disabled." }, 400);
+
+      const isPrepackaged = enabled(body?.is_prepackaged, 0);
+      const numberOrNull = (value) => value === null || value === "" || value === undefined ? null : nonNegative(value, null);
+      const weight = numberOrNull(body?.shipping_weight_kg);
+      const length = numberOrNull(body?.shipping_length_cm);
+      const width = numberOrNull(body?.shipping_width_cm);
+      const height = numberOrNull(body?.shipping_height_cm);
+
+      if (Number(shippingType.requires_weight) === 1 && !(weight > 0)) {
+        return jsonResponse({ success: false, error: "Shipping weight is required for this shipping type." }, 400);
+      }
+
+      const dimensionsRequired = Number(shippingType.requires_dimensions) === 1 || isPrepackaged === 1;
+      if (dimensionsRequired && !(length > 0 && width > 0 && height > 0)) {
+        return jsonResponse({ success: false, error: "Packed length, width and height are required for this product." }, 400);
+      }
+
+      await env.DB.prepare(
+        `INSERT INTO product_shipping
+          (product_id, shipping_type_id, is_prepackaged, shipping_weight_kg,
+           shipping_length_cm, shipping_width_cm, shipping_height_cm)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(product_id) DO UPDATE SET
+           shipping_type_id = excluded.shipping_type_id,
+           is_prepackaged = excluded.is_prepackaged,
+           shipping_weight_kg = excluded.shipping_weight_kg,
+           shipping_length_cm = excluded.shipping_length_cm,
+           shipping_width_cm = excluded.shipping_width_cm,
+           shipping_height_cm = excluded.shipping_height_cm,
+           updated_at = CURRENT_TIMESTAMP`
+      ).bind(productId, shippingTypeId, isPrepackaged, weight, dimensionsRequired ? length : null, dimensionsRequired ? width : null, dimensionsRequired ? height : null).run();
+
+      return jsonResponse({ success: true, data: { id: productId, uid: auth?.data?.uid || "" } });
+    }
+
+    const includeDisabled
     const includeDisabled = url.searchParams.get("include_disabled") === "1";
 
     if (request.method === "GET") {
