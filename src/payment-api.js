@@ -1,6 +1,7 @@
 import { verifyFirebaseIdToken } from "./index.js";
 import { sendOrderConfirmation } from "./communication-service.js";
 import { packOrder } from "./shipping-packing.js";
+import { getCourierGuyRates } from "./shipping-courier.js";
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 function json(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS }); }
