@@ -314,7 +314,7 @@ export async function handleShippingApi(request, env, originalWorker) {
         const name = String(body?.name ?? "").trim();
         const providerType = String(body?.provider_type ?? "").trim();
         const mode = String(body?.mode ?? "").trim();
-        if (!name || !["local", "paxi", "courier_guy", "postnet", "bobgo"].includes(providerType) || !["manual", "api"].includes(mode)) {
+        if (!name || !["local", "paxi", "courier_guy", "postnet", "bobgo", "custom"].includes(providerType) || !["manual", "api"].includes(mode)) {
           return jsonResponse({ success: false, error: "A valid shipping method is required." }, 400);
         }
         const result = await env.DB.prepare(
