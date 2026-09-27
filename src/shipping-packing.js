@@ -358,7 +358,7 @@ export function packOrder({ items = [], packaging = [] } = {}) {
         const parcel = createPackagedParcel(packaging);
         parcel.max_weight_kg = packaging.max_weight_kg;
         parcel._rigid = true;
-        if (tryAddRigidItem(parcel, item)) {
+        if (tryAddRigidItem(parcel, protectedItem)) {
           reservePackaging(packaging, reserved);
           parcels.push(parcel);
           placed = true;
