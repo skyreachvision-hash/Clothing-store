@@ -6,10 +6,10 @@
  *
  * Rules:
  * - Fashion: soft/compressible items are packed by weight and may share bags.
- * - Electronics/appliances: protected items require dimensions and are packed
- *   into configured boxes/manufacturer packaging; compatible rigid items may
- *   share a box when the configured dimensions allow it.
- * - Prepackaged products keep their own supplied packed dimensions.
+ * - Protected/dimensional items are packed into configured outer boxes; the
+ *   product's own/manufacturer packaging is treated as an inner package.
+ * - A standard 5 cm minimum protective clearance is required on every side
+ *   of a dimensional/prepackaged item before selecting the outer box.
  * - Packaging stock is treated as available capacity only. This calculation
  *   never decrements stock.
  *
@@ -19,6 +19,10 @@
 
 const TYPE_CODES = new Set(["fashion", "electronics", "appliance", "other"]);
 const PACKAGING_TYPES = new Set(["bag", "box", "envelope", "manufacturer", "custom"]);
+
+// Minimum protective clearance from the item/package to the inside of the
+// store's outer protective box, applied on every side.
+const PROTECTIVE_CLEARANCE_CM = 5;
 
 function number(value, fallback = null) {
   const n = Number(value);
@@ -139,6 +143,22 @@ function validateItem(item) {
   }
 }
 
+function itemWithProtectiveClearance(item) {
+  if (!item?.requiresDimensions) return item;
+
+  const d = dimensions(item);
+  if (!d) return item;
+
+  const clearance = PROTECTIVE_CLEARANCE_CM * 2;
+
+  return {
+    ...item,
+    length_cm: d.length + clearance,
+    width_cm: d.width + clearance,
+    height_cm: d.height + clearance
+  };
+}
+
 function candidatePackaging(packaging, item, preferredTypes = null) {
   const allowed = preferredTypes ? new Set(preferredTypes) : null;
   return packaging
@@ -152,29 +172,12 @@ function candidatePackaging(packaging, item, preferredTypes = null) {
 function choosePackaging(packaging, item) {
   const dimensional = item.requiresDimensions;
   const preferredTypes = dimensional
-    ? ["box", "manufacturer", "custom", "envelope"]
+    ? ["box"]
     : ["bag", "envelope", "custom"];
 
   return candidatePackaging(packaging, item, preferredTypes)[0]
     || candidatePackaging(packaging, item)[0]
     || null;
-}
-
-function finalParcelFromPrepackaged(item) {
-  return {
-    packaging_id: null,
-    packaging_name: "Product's existing packaging",
-    packaging_type: "manufacturer",
-    items: [{
-      product_id: item.product_id,
-      product_name: item.product_name,
-      quantity: 1
-    }],
-    weight_kg: item.weight_kg,
-    length_cm: item.length_cm,
-    width_cm: item.width_cm,
-    height_cm: item.height_cm
-  };
 }
 
 function createPackagedParcel(packaging) {
@@ -277,11 +280,6 @@ export function packOrder({ items = [], packaging = [] } = {}) {
     }
 
     for (let unit = 0; unit < item.quantity; unit += 1) {
-      if (item.is_prepackaged) {
-        parcels.push(finalParcelFromPrepackaged(item));
-        continue;
-      }
-
       if (item.shipping_type_code === "fashion" && !item.requiresDimensions) {
         let selected = null;
         for (const packaging of candidatePackaging(configuredPackaging, item, ["bag", "envelope", "custom"])) {
@@ -337,13 +335,17 @@ export function packOrder({ items = [], packaging = [] } = {}) {
         continue;
       }
 
-      const candidates = candidatePackaging(configuredPackaging, item, ["box", "manufacturer", "custom", "envelope"]);
+      // For dimensional or prepackaged products, the supplied dimensions are
+      // the inner/manufacturer package dimensions. Add the standard protective
+      // clearance before checking the outer box.
+      const protectedItem = itemWithProtectiveClearance(item);
+      const candidates = candidatePackaging(configuredPackaging, protectedItem, ["box"]);
       let placed = false;
 
       for (const parcel of parcels.filter((p) => p._rigid && p.packaging_id)) {
         const packaging = configuredPackaging.find((p) => p.id === parcel.packaging_id);
         if (!packaging || packageStockCapacity(packaging, reserved) < 0) continue;
-        if (tryAddRigidItem(parcel, item)) {
+        if (tryAddRigidItem(parcel, protectedItem)) {
           placed = true;
           break;
         }
