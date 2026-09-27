@@ -16,6 +16,22 @@ async function loadShippingMethods() {
   shippingMethods = Array.isArray(payload.data) ? payload.data : [];
 }
 
+async function validateCartPacking() {
+  const response = await fetch('/api/shipping?resource=pack-cart', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      items: cart.map((item) => ({ product_id: Number(item.product_id), quantity: Number(item.quantity) }))
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.success) {
+    const detail = Array.isArray(payload.data?.errors) ? payload.data.errors.map((item) => item.error).filter(Boolean).join(' ') : '';
+    throw new Error(detail || payload.error || 'This cart cannot currently be safely packaged for delivery.');
+  }
+  return payload.data;
+}
+
 async function getCustomerProfile() {
   const token = await window.getCustomerIdToken();
   const response = await fetch('/api/customer-profile', { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' });
@@ -247,6 +263,7 @@ async function init() {
   }
   try {
     await loadShippingMethods();
+    await validateCartPacking();
     renderCheckout();
     try { const profile = await getCustomerProfile(); populateCustomerProfile(profile); } catch {}
   } catch (error) {
