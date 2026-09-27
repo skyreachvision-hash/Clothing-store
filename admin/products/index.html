@@ -50,6 +50,23 @@
             <div class="field field-wide"><span>Selected pictures</span><p class="muted" data-image-selection>No pictures selected.</p></div>
           </div>
         </fieldset>
+        <fieldset class="settings-group"><legend>Shipping</legend>
+          <p class="muted">Shipping classification controls what information the packing engine needs. Packaging itself is configured separately under Admin → Shipping.</p>
+          <div class="settings-fields settings-fields-two">
+            <label class="field"><span>Shipping type</span><select name="shipping_type_id"><option value="">No shipping type yet</option></select><small class="muted" data-shipping-help>Select a shipping type for this product.</small></label>
+            <label class="field"><span>Packaging state</span><select name="shipping_packaging_mode"><option value="">Select shipping type first</option><option value="compressible">Compressible / can be packed into a bag</option><option value="prepacked">Already packaged / boxed</option></select><small class="muted" data-shipping-mode-help>Use “already packaged” for products such as shoes or manufacturer-boxed goods.</small></label>
+            <label class="field"><span>Shipping weight (kg)</span><input name="shipping_weight_kg" type="number" min="0" step="0.001" inputmode="decimal" placeholder="e.g. 1.5"></label>
+            <div class="field" data-shipping-dimensions>
+              <span>Packed dimensions (cm)</span>
+              <div class="settings-fields settings-fields-three">
+                <label class="field"><span>Length</span><input name="shipping_length_cm" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label class="field"><span>Width</span><input name="shipping_width_cm" type="number" min="0" step="0.1" inputmode="decimal"></label>
+                <label class="field"><span>Height</span><input name="shipping_height_cm" type="number" min="0" step="0.1" inputmode="decimal"></label>
+              </div>
+              <small class="muted" data-shipping-dimensions-help>Dimensions are required for rigid or prepacked products.</small>
+            </div>
+          </div>
+        </fieldset>
         <fieldset class="settings-group"><legend>Product attributes</legend>
           <p class="muted">Attributes belong to this individual product. They are independent of product-group relationships.</p>
           <div class="settings-fields settings-fields-two" data-product-attributes></div>
@@ -231,6 +248,13 @@
     const groupsList = document.querySelector('[data-groups-list]');
     const productGroupSelect = form.elements.product_group_id;
     const productGroupOptionSelect = form.elements.product_group_option_id;
+    const shippingTypeSelect = form.elements.shipping_type_id;
+    const shippingModeSelect = form.elements.shipping_packaging_mode;
+    const shippingDimensions = document.querySelector('[data-shipping-dimensions]');
+    const shippingHelp = document.querySelector('[data-shipping-help]');
+    const shippingModeHelp = document.querySelector('[data-shipping-mode-help]');
+    const shippingDimensionsHelp = document.querySelector('[data-shipping-dimensions-help]');
+    let shippingTypes = [];
     const groupOptionHelp = document.querySelector('[data-group-option-help]');
     const formStatus = document.querySelector('[data-form-status]');
     const groupFormFields = Array.from(document.querySelectorAll('[data-group-form-field]'));
@@ -327,6 +351,63 @@
       }
       return payload;
     }
+
+    async function loadShippingTypes() {
+      const payload = await apiFetch('/api/shipping?include_disabled=1');
+      shippingTypes = Array.isArray(payload.shipping_types) ? payload.shipping_types : [];
+      shippingTypeSelect.innerHTML = '<option value="">No shipping type yet</option>';
+      for (const type of shippingTypes) {
+        const option = document.createElement('option');
+        option.value = type.id;
+        option.textContent = type.name + (Number(type.is_enabled) === 1 ? '' : ' (disabled)');
+        option.disabled = Number(type.is_enabled) !== 1;
+        option.dataset.requiresWeight = type.requires_weight;
+        option.dataset.requiresDimensions = type.requires_dimensions;
+        option.dataset.code = type.code || '';
+        shippingTypeSelect.append(option);
+      }
+      updateShippingFields();
+    }
+
+    function updateShippingFields() {
+      const type = shippingTypes.find((item) => String(item.id) === String(shippingTypeSelect.value));
+      const hasType = Boolean(type);
+      const requiresDimensions = hasType && Number(type.requires_dimensions) === 1;
+      const mode = shippingModeSelect.value;
+      shippingModeSelect.disabled = !hasType;
+      if (!hasType) {
+        shippingModeSelect.value = '';
+        shippingModeSelect.innerHTML = '<option value="">Select shipping type first</option><option value="compressible">Compressible / can be packed into a bag</option><option value="prepacked">Already packaged / boxed</option>';
+        shippingModeHelp.textContent = 'Use “already packaged” for products such as shoes or manufacturer-boxed goods.';
+      } else {
+        if (!Array.from(shippingModeSelect.options).some((option) => option.value === 'compressible')) shippingModeSelect.innerHTML = '<option value="">Select packaging state</option><option value="compressible">Compressible / can be packed into a bag</option><option value="prepacked">Already packaged / boxed</option>';
+        const appliance = String(type.code || '').toLowerCase() === 'appliance';
+        shippingModeSelect.value = mode || (appliance ? 'prepacked' : '');
+        if (appliance) {
+          shippingModeSelect.value = 'prepacked';
+          shippingModeSelect.disabled = true;
+          shippingModeHelp.textContent = 'Appliances are treated as already packaged in their manufacturer/final box.';
+        } else {
+          shippingModeSelect.disabled = false;
+          shippingModeHelp.textContent = 'Use “already packaged” for products such as shoes or manufacturer-boxed goods.';
+        }
+      }
+      const finalMode = shippingModeSelect.value;
+      const showDimensions = hasType && (requiresDimensions || finalMode === 'prepacked');
+      shippingDimensions.hidden = !hasType;
+      shippingDimensionsHelp.textContent = showDimensions
+        ? 'Enter the packed outside dimensions used for parcel calculation.'
+        : 'Dimensions are optional for compressible products and can be determined by the selected packaging.';
+      for (const input of [form.elements.shipping_length_cm, form.elements.shipping_width_cm, form.elements.shipping_height_cm]) input.required = showDimensions;
+      if (hasType) {
+        shippingHelp.textContent = requiresDimensions
+          ? 'This shipping type requires weight and packed dimensions.'
+          : 'Weight is required. Dimensions are only needed when the product is already packaged.';
+      } else shippingHelp.textContent = 'Select a shipping type for this product.';
+    }
+
+    shippingTypeSelect.addEventListener('change', updateShippingFields);
+    shippingModeSelect.addEventListener('change', updateShippingFields);
 
     async function loadCategories() {
       const response = await fetch('/api/categories', { headers: { Accept: 'application/json' }, cache: 'no-store' });
@@ -658,6 +739,13 @@
       form.elements.status.value = 'draft';
       productGroupSelect.value = '';
       updateProductGroupOptions();
+      shippingTypeSelect.value = '';
+      shippingModeSelect.value = '';
+      form.elements.shipping_weight_kg.value = '';
+      form.elements.shipping_length_cm.value = '';
+      form.elements.shipping_width_cm.value = '';
+      form.elements.shipping_height_cm.value = '';
+      updateShippingFields();
       form.elements.track_stock.checked = true;
       existingImages = [];
       updateImageSelectionText();
@@ -685,6 +773,14 @@
       form.elements.sort_order.value = product.sort_order ?? 0;
       form.elements.track_stock.checked = Boolean(product.track_stock);
       form.elements.description.value = product.description || '';
+      shippingTypeSelect.value = product.shipping_type_id || '';
+      updateShippingFields();
+      shippingModeSelect.value = product.shipping_packaging_mode || (String(shippingTypes.find((item) => String(item.id) === String(product.shipping_type_id))?.code || '').toLowerCase() === 'appliance' ? 'prepacked' : '');
+      form.elements.shipping_weight_kg.value = product.shipping_weight_kg ?? '';
+      form.elements.shipping_length_cm.value = product.shipping_length_cm ?? '';
+      form.elements.shipping_width_cm.value = product.shipping_width_cm ?? '';
+      form.elements.shipping_height_cm.value = product.shipping_height_cm ?? '';
+      updateShippingFields();
       existingImages = Array.isArray(product.images) ? product.images.map((image, index) => ({ ...image, sort_order: index, is_primary: index === 0 })) : [];
       imageInput.value = '';
       updateImageSelectionText();
@@ -768,6 +864,12 @@
         sort_order: Number(form.elements.sort_order.value || 0),
         track_stock: form.elements.track_stock.checked,
         description: form.elements.description.value.trim(),
+        shipping_type_id: form.elements.shipping_type_id.value || null,
+        shipping_packaging_mode: form.elements.shipping_packaging_mode.value || null,
+        shipping_weight_kg: form.elements.shipping_weight_kg.value === '' ? null : Number(form.elements.shipping_weight_kg.value),
+        shipping_length_cm: form.elements.shipping_length_cm.value === '' ? null : Number(form.elements.shipping_length_cm.value),
+        shipping_width_cm: form.elements.shipping_width_cm.value === '' ? null : Number(form.elements.shipping_width_cm.value),
+        shipping_height_cm: form.elements.shipping_height_cm.value === '' ? null : Number(form.elements.shipping_height_cm.value),
         attributes: readProductAttributes()
       };
       if (!data.name) return setFormStatus('Product name is required.');
@@ -822,6 +924,12 @@
       const params = new URLSearchParams(location.search);
       const groupId = params.get('group_id');
       const addingProduct = params.get('add') === '1';
+
+      try {
+        await loadShippingTypes();
+      } catch (error) {
+        setFormStatus(error.message);
+      }
 
       try {
         await loadCategories();
