@@ -81,7 +81,7 @@ async function validatePacking(env, lineItems) {
   return result;
 }
 
-async function getShipping(env, shippingMethodId, shippingOptionId) {
+async function getShipping(env, shippingMethodId, shippingOptionId, shippingRateCode = '') {
   const methodId = Number(shippingMethodId), optionId = Number(shippingOptionId);
   if (!Number.isInteger(methodId) || methodId <= 0 || !Number.isInteger(optionId) || optionId <= 0) throw new Error("Please select a valid delivery method and option.");
   const row = await env.DB.prepare(
