@@ -125,8 +125,15 @@ export async function getCourierGuyRates(env, { parcels, customer, declaredValue
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = clean(payload?.message || payload?.error || payload?.detail);
-    throw new Error(message || "Courier Guy could not calculate shipping rates.");
+    const message = clean(
+      payload?.message ||
+      payload?.error?.message ||
+      payload?.error ||
+      payload?.detail ||
+      (Array.isArray(payload?.errors) ? payload.errors.map((item) => clean(item?.message || item?.detail || item)).filter(Boolean).join("; ") : "")
+    );
+    const fallback = "Courier Guy rate request failed (HTTP " + response.status + ").";
+    throw new Error(message || fallback);
   }
 
   const rates = extractRates(payload);
