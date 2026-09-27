@@ -98,11 +98,32 @@ async function getShipping(env, includeDisabled = false) {
      ORDER BY o.shipping_method_id ASC, o.sort_order ASC, o.id ASC`
   ).all();
 
+  const customCouriers = await env.DB.prepare(
+    `SELECT id, shipping_method_id, description, calculation_mode, created_at, updated_at
+     FROM custom_couriers
+     ORDER BY id ASC`
+  ).all();
+  const rates = await env.DB.prepare(
+    `SELECT id, custom_courier_id, service_name, area_name, min_weight_kg, max_weight_kg,
+            price, estimated_delivery, is_enabled, sort_order, created_at, updated_at
+     FROM custom_courier_rates
+     ORDER BY custom_courier_id ASC, sort_order ASC, id ASC`
+  ).all();
+  const courierRows = customCouriers.results ?? [];
+  const rateRows = rates.results ?? [];
+
   const optionRows = options.results ?? [];
-  return (methods.results ?? []).map((method) => ({
-    ...method,
-    options: optionRows.filter((option) => Number(option.shipping_method_id) === Number(method.id))
-  }));
+  return (methods.results ?? []).map((method) => {
+    const courier = courierRows.find((item) => Number(item.shipping_method_id) === Number(method.id));
+    return {
+      ...method,
+      options: optionRows.filter((option) => Number(option.shipping_method_id) === Number(method.id)),
+      custom_courier: courier ? {
+        ...courier,
+        rates: rateRows.filter((rate) => Number(rate.custom_courier_id) === Number(courier.id))
+      } : null
+    };
+  });
 }
 
 export async function handleShippingApi(request, env, originalWorker) {
@@ -310,6 +331,45 @@ export async function handleShippingApi(request, env, originalWorker) {
       const body = await request.json();
       if (body?.resource === "type") { const name=String(body?.name??"").trim(); const code=String(body?.code??name).trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""); if(!name||!code)return jsonResponse({success:false,error:"A shipping type name is required."},400); const result=await env.DB.prepare(`INSERT INTO shipping_types (name,code,description,requires_weight,requires_dimensions,is_enabled,sort_order) VALUES (?,?,?,?,?,?,?) RETURNING id`).bind(name,code,String(body?.description??"").trim(),enabled(body?.requires_weight,1),enabled(body?.requires_dimensions,0),enabled(body?.is_enabled,1),nonNegative(body?.sort_order)).first(); return jsonResponse({success:true,data:{id:result.id,uid:auth?.data?.uid||""}},201); }
       if (body?.resource === "packaging") { const name=String(body?.name??"").trim(), type=String(body?.packaging_type??"box").trim().toLowerCase(); if(!name||!["bag","box","envelope","manufacturer","custom"].includes(type))return jsonResponse({success:false,error:"A valid packaging name and type are required."},400); const num=v=>v===null||v===""?null:nonNegative(v); const result=await env.DB.prepare(`INSERT INTO shipping_packaging (name,packaging_type,length_cm,width_cm,height_cm,packaging_weight_kg,max_weight_kg,stock_quantity,is_enabled,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id`).bind(name,type,num(body?.length_cm),num(body?.width_cm),num(body?.height_cm),nonNegative(body?.packaging_weight_kg),num(body?.max_weight_kg),Math.floor(nonNegative(body?.stock_quantity)),enabled(body?.is_enabled,1),nonNegative(body?.sort_order)).first(); return jsonResponse({success:true,data:{id:result.id,uid:auth?.data?.uid||""}},201); }
+      if (body?.resource === "custom-courier") {
+        const name = String(body?.name ?? "").trim();
+        const description = String(body?.description ?? "").trim();
+        const calculationMode = String(body?.calculation_mode ?? "weight").trim();
+        const rates = Array.isArray(body?.rates) ? body.rates : [];
+        if (!name || !["fixed", "weight", "area", "weight_area"].includes(calculationMode)) {
+          return jsonResponse({ success: false, error: "Courier name and a valid calculation mode are required." }, 400);
+        }
+        const method = await env.DB.prepare(
+          `INSERT INTO shipping_methods (name, provider_type, mode, is_enabled, sort_order)
+           VALUES (?, 'custom', 'manual', ?, ?) RETURNING id`
+        ).bind(name, enabled(body?.is_enabled, 1), nonNegative(body?.sort_order)).first();
+        const courier = await env.DB.prepare(
+          `INSERT INTO custom_couriers (shipping_method_id, description, calculation_mode)
+           VALUES (?, ?, ?) RETURNING id`
+        ).bind(method.id, description, calculationMode).first();
+
+        for (let index = 0; index < rates.length; index += 1) {
+          const rate = rates[index] || {};
+          const serviceName = String(rate.service_name ?? "").trim();
+          if (!serviceName) return jsonResponse({ success: false, error: `Rate ${index + 1} needs a service name.` }, 400);
+          const minWeight = rate.min_weight_kg === null || rate.min_weight_kg === "" || rate.min_weight_kg === undefined ? null : nonNegative(rate.min_weight_kg, null);
+          const maxWeight = rate.max_weight_kg === null || rate.max_weight_kg === "" || rate.max_weight_kg === undefined ? null : nonNegative(rate.max_weight_kg, null);
+          if (minWeight !== null && maxWeight !== null && maxWeight <= minWeight) {
+            return jsonResponse({ success: false, error: `Rate ${index + 1} has an invalid weight range.` }, 400);
+          }
+          await env.DB.prepare(
+            `INSERT INTO custom_courier_rates
+             (custom_courier_id, service_name, area_name, min_weight_kg, max_weight_kg, price, estimated_delivery, is_enabled, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            courier.id, serviceName, String(rate.area_name ?? "").trim(), minWeight, maxWeight,
+            nonNegative(rate.price), String(rate.estimated_delivery ?? "").trim(),
+            enabled(rate.is_enabled, 1), nonNegative(rate.sort_order, index)
+          ).run();
+        }
+        return jsonResponse({ success: true, data: { id: method.id, custom_courier_id: courier.id, uid: auth?.data?.uid || "" } }, 201);
+      }
+
       if (body?.resource === "method") {
         const name = String(body?.name ?? "").trim();
         const providerType = String(body?.provider_type ?? "").trim();
@@ -347,6 +407,59 @@ export async function handleShippingApi(request, env, originalWorker) {
     }
 
     const body = await request.json();
+    if (resource === "custom-courier") {
+      const existing = await env.DB.prepare(
+        `SELECT m.id, m.name, m.is_enabled, m.sort_order, c.id AS custom_courier_id,
+                c.description, c.calculation_mode
+         FROM shipping_methods m
+         JOIN custom_couriers c ON c.shipping_method_id = m.id
+         WHERE m.id = ? AND m.provider_type = 'custom'`
+      ).bind(resourceId).first();
+      if (!existing) return jsonResponse({ success: false, error: "Custom courier not found." }, 404);
+
+      const name = String(body?.name ?? existing.name).trim();
+      const description = String(body?.description ?? existing.description ?? "").trim();
+      const calculationMode = String(body?.calculation_mode ?? existing.calculation_mode).trim();
+      const rates = Array.isArray(body?.rates) ? body.rates : [];
+      if (!name || !["fixed", "weight", "area", "weight_area"].includes(calculationMode)) {
+        return jsonResponse({ success: false, error: "Courier name and a valid calculation mode are required." }, 400);
+      }
+
+      await env.DB.prepare(
+        `UPDATE shipping_methods
+         SET name = ?, is_enabled = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      ).bind(name, enabled(body?.is_enabled, existing.is_enabled), nonNegative(body?.sort_order, existing.sort_order), resourceId).run();
+
+      await env.DB.prepare(
+        `UPDATE custom_couriers
+         SET description = ?, calculation_mode = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      ).bind(description, calculationMode, existing.custom_courier_id).run();
+
+      await env.DB.prepare("DELETE FROM custom_courier_rates WHERE custom_courier_id = ?").bind(existing.custom_courier_id).run();
+      for (let index = 0; index < rates.length; index += 1) {
+        const rate = rates[index] || {};
+        const serviceName = String(rate.service_name ?? "").trim();
+        if (!serviceName) return jsonResponse({ success: false, error: `Rate ${index + 1} needs a service name.` }, 400);
+        const minWeight = rate.min_weight_kg === null || rate.min_weight_kg === "" || rate.min_weight_kg === undefined ? null : nonNegative(rate.min_weight_kg, null);
+        const maxWeight = rate.max_weight_kg === null || rate.max_weight_kg === "" || rate.max_weight_kg === undefined ? null : nonNegative(rate.max_weight_kg, null);
+        if (minWeight !== null && maxWeight !== null && maxWeight <= minWeight) {
+          return jsonResponse({ success: false, error: `Rate ${index + 1} has an invalid weight range.` }, 400);
+        }
+        await env.DB.prepare(
+          `INSERT INTO custom_courier_rates
+           (custom_courier_id, service_name, area_name, min_weight_kg, max_weight_kg, price, estimated_delivery, is_enabled, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          existing.custom_courier_id, serviceName, String(rate.area_name ?? "").trim(), minWeight, maxWeight,
+          nonNegative(rate.price), String(rate.estimated_delivery ?? "").trim(),
+          enabled(rate.is_enabled, 1), nonNegative(rate.sort_order, index)
+        ).run();
+      }
+      return jsonResponse({ success: true, data: { id: resourceId, uid: auth?.data?.uid || "" } });
+    }
+
     if (resource === "type") { const existing=await env.DB.prepare("SELECT * FROM shipping_types WHERE id=?").bind(resourceId).first(); if(!existing)return jsonResponse({success:false,error:"Shipping type not found."},404); const name=String(body?.name??existing.name).trim(),code=String(body?.code??existing.code).trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""); if(!name||!code)return jsonResponse({success:false,error:"A shipping type name is required."},400); await env.DB.prepare("UPDATE shipping_types SET name=?,code=?,description=?,requires_weight=?,requires_dimensions=?,is_enabled=?,sort_order=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(name,code,String(body?.description??existing.description??"").trim(),enabled(body?.requires_weight,existing.requires_weight),enabled(body?.requires_dimensions,existing.requires_dimensions),enabled(body?.is_enabled,existing.is_enabled),nonNegative(body?.sort_order,existing.sort_order),resourceId).run();
     } else if (resource === "packaging") { const existing=await env.DB.prepare("SELECT * FROM shipping_packaging WHERE id=?").bind(resourceId).first(); if(!existing)return jsonResponse({success:false,error:"Packaging not found."},404); const type=String(body?.packaging_type??existing.packaging_type).trim().toLowerCase(); if(!["bag","box","envelope","manufacturer","custom"].includes(type))return jsonResponse({success:false,error:"Invalid packaging type."},400); const num=(v,f)=>v===null||v===""?null:nonNegative(v,f); await env.DB.prepare("UPDATE shipping_packaging SET name=?,packaging_type=?,length_cm=?,width_cm=?,height_cm=?,packaging_weight_kg=?,max_weight_kg=?,stock_quantity=?,is_enabled=?,sort_order=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(String(body?.name??existing.name).trim(),type,num(body?.length_cm,existing.length_cm),num(body?.width_cm,existing.width_cm),num(body?.height_cm,existing.height_cm),nonNegative(body?.packaging_weight_kg,existing.packaging_weight_kg),num(body?.max_weight_kg,existing.max_weight_kg),Math.floor(nonNegative(body?.stock_quantity,existing.stock_quantity)),enabled(body?.is_enabled,existing.is_enabled),nonNegative(body?.sort_order,existing.sort_order),resourceId).run();
     } else if (resource === "option") {
