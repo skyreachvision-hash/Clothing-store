@@ -1,6 +1,17 @@
 export async function loadProductShipping(apiFetch, productId) {
-  const payload = await apiFetch('/api/product-shipping?id=' + encodeURIComponent(productId));
-  return payload.data || { shipping: null, shipping_types: [] };
+  const url = '/api/product-shipping' + (productId ? '?id=' + encodeURIComponent(productId) : '');
+  let lastError = null;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    try {
+      const payload = await apiFetch(url);
+      return payload.data || { shipping: null, shipping_types: [] };
+    } catch (error) {
+      lastError = error;
+      if (!String(error?.message || '').toLowerCase().includes('authentication is still loading')) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+  throw lastError || new Error('Authentication required. Please sign in again.');
 }
 
 export function createProductShippingController({ form, apiFetch }) {
@@ -58,7 +69,7 @@ export function createProductShippingController({ form, apiFetch }) {
   prepackaged.addEventListener('change', updateVisibility);
 
   async function load(productId, initial = null) {
-    const payload = productId ? await loadProductShipping(apiFetch, productId) : await apiFetch('/api/product-shipping');
+    const payload = await loadProductShipping(apiFetch, productId);
     types = Array.isArray(payload.shipping_types) ? payload.shipping_types : [];
     typeSelect.innerHTML = '<option value="">Select shipping type</option>';
     for (const type of types) {
