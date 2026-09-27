@@ -30,7 +30,54 @@ async function requireAdmin(request, originalWorker, env) {
 }
 
 async function getShippingTypes(env, includeDisabled = false) { const where = includeDisabled ? "" : "WHERE is_enabled = 1"; return (await env.DB.prepare(`SELECT id,name,code,description,requires_weight,requires_dimensions,is_enabled,sort_order,created_at,updated_at FROM shipping_types ${where} ORDER BY sort_order ASC,id ASC`).all()).results ?? []; }
-async function getPackaging(env, includeDisabled = false) { const where = includeDisabled ? "" : "WHERE is_enabled = 1"; return (await env.DB.prepare(`SELECT id,name,packaging_type,length_cm,width_cm,height_cm,packaging_weight_kg,max_weight_kg,is_enabled,sort_order,created_at,updated_at FROM shipping_packaging ${where} ORDER BY sort_order ASC,id ASC`).all()).results ?? []; }
+async function getPackaging(env, includeDisabled = false) { const where = includeDisabled ? "" : "WHERE is_enabled = 1"; return (await env.DB.prepare(`SELECT id,name,packaging_type,length_cm,width_cm,height_cm,packaging_weight_kg,max_weight_kg,stock_quantity,is_enabled,sort_order,created_at,updated_at FROM shipping_packaging ${where} ORDER BY sort_order ASC,id ASC`).all()).results ?? []; }
+
+async function packCart(env, items) {
+  if (!Array.isArray(items) || !items.length) throw new Error("Your cart is empty.");
+  const normalized = items.map((item) => ({
+    product_id: Number(item?.product_id),
+    quantity: Number(item?.quantity)
+  }));
+  if (normalized.some((item) => !Number.isInteger(item.product_id) || item.product_id <= 0 || !Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 99)) {
+    throw new Error("Your cart contains an invalid item.");
+  }
+
+  const ids = [...new Set(normalized.map((item) => item.product_id))];
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = (await env.DB.prepare(
+    `SELECT p.id AS product_id, p.name AS product_name,
+            ps.shipping_type_id,
+            st.code AS shipping_type_code,
+            CASE WHEN ps.packing_mode = 'prepackaged' THEN 1 ELSE 0 END AS is_prepackaged,
+            ps.weight_kg AS shipping_weight_kg,
+            ps.length_cm AS shipping_length_cm,
+            ps.width_cm AS shipping_width_cm,
+            ps.height_cm AS shipping_height_cm
+     FROM products p
+     LEFT JOIN product_shipping ps ON ps.product_id = p.id
+     LEFT JOIN shipping_types st ON st.id = ps.shipping_type_id
+     WHERE p.id IN (${placeholders}) AND p.status = 'active'`
+  ).bind(...ids).all()).results ?? [];
+
+  const products = new Map(rows.map((row) => [Number(row.product_id), row]));
+  if (products.size !== ids.length) throw new Error("One or more products are no longer available.");
+
+  const packaging = await getPackaging(env, false);
+  const result = packOrder({
+    items: normalized.map((item) => {
+      const product = products.get(item.product_id);
+      return {
+        product_id: item.product_id,
+        product_name: product.product_name,
+        quantity: item.quantity,
+        shipping: product
+      };
+    }),
+    packaging
+  });
+
+  return result;
+}
 
 async function getShipping(env, includeDisabled = false) {
   const methodWhere = includeDisabled ? "" : "WHERE is_enabled = 1";
@@ -187,6 +234,16 @@ export async function handleShippingApi(request, env, originalWorker) {
           errors: result.errors
         },
         ...(result.success ? {} : { error: "Order could not be fully packed with the current product shipping data and configured packaging." })
+      }, result.success ? 200 : 422);
+    }
+
+    if (request.method === "POST" && url.searchParams.get("resource") === "pack-cart") {
+      const body = await request.json().catch(() => ({}));
+      const result = await packCart(env, body?.items);
+      return jsonResponse({
+        success: result.success,
+        data: { parcels: result.parcels, errors: result.errors },
+        ...(result.success ? {} : { error: "This cart cannot currently be safely packaged with the configured packaging stock." })
       }, result.success ? 200 : 422);
     }
 
