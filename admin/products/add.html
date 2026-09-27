@@ -51,12 +51,14 @@
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="./">Back to Products</a></div></footer>
 
   <script type="module">
+    import { createProductShippingController } from "../../assets/js/product-shipping-form.js";
     const form = document.querySelector('[data-product-form]');
     const categorySelect = form.elements.category_id;
     const imageInput = form.elements.images;
     const imageSelection = document.querySelector('[data-image-selection]');
     const formStatus = document.querySelector('[data-form-status]');
     const saveButton = document.querySelector('[data-save-product]');
+    const shippingController = createProductShippingController({ form, apiFetch });
     const productAttributesContainer = document.querySelector('[data-product-attributes]');
     const addProductAttributeButton = document.querySelector('[data-add-product-attribute]');
     const productAttributeNames = ['Color', 'Size', 'Material', 'Weight', 'Dimensions', 'Capacity'];
@@ -267,6 +269,7 @@
       try {
         const saved = await apiFetch('/api/products', { method: 'POST', body: JSON.stringify(data) });
         await saveProductImages(saved.data.id, Array.from(imageInput.files || []));
+        await shippingController.save(saved.data.id);
         window.location.href = './product.html?id=' + encodeURIComponent(saved.data.id);
       } catch (error) {
         formStatus.textContent = error.message;
@@ -276,6 +279,7 @@
     });
 
     addProductAttributeRow();
+    shippingController.load().catch((error) => { formStatus.textContent = error.message; });
     loadCategories().catch((error) => { formStatus.textContent = error.message; });
   </script>
 </body>
