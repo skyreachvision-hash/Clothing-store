@@ -262,49 +262,98 @@ export async function handleShippingApi(request, env, originalWorker) {
     if (request.method === "POST" && url.searchParams.get("resource") === "live-rates") {
       try {
         const body = await request.json().catch(() => ({}));
-      const methodId = id(body?.shipping_method_id);
-      if (!methodId) return jsonResponse({ success: false, error: "A valid shipping method is required." }, 400);
-      const method = await env.DB.prepare(
-        "SELECT id, name, provider_type, mode FROM shipping_methods WHERE id = ? AND is_enabled = 1"
-      ).bind(methodId).first();
-      if (!method) return jsonResponse({ success: false, error: "The selected shipping method is no longer available." }, 404);
-      if (method.provider_type !== "courier_guy" || method.mode !== "api") {
-        return jsonResponse({ success: false, error: "Live rates are not available for this shipping method." }, 400);
-      }
+        const methodId = id(body?.shipping_method_id);
+        if (!methodId) return jsonResponse({ success: false, error: "A valid shipping method is required." }, 400);
+        const method = await env.DB.prepare(
+          "SELECT id, name, provider_type, mode FROM shipping_methods WHERE id = ? AND is_enabled = 1"
+        ).bind(methodId).first();
+        if (!method) return jsonResponse({ success: false, error: "The selected shipping method is no longer available." }, 404);
 
-      const packing = await packCart(env, body?.items);
-      if (!packing.success) {
-        return jsonResponse({
-          success: false,
-          error: "This cart cannot currently be safely packaged for delivery.",
-          data: { parcels: packing.parcels || [], errors: packing.errors || [] }
-        }, 422);
-      }
-
-      const rates = await getCourierGuyRates(env, {
-        parcels: packing.parcels,
-        customer: body?.customer || {},
-        declaredValue: body?.declared_value
-      });
-
-      return jsonResponse({
-        success: true,
-        data: {
-          method_id: method.id,
-          method_name: method.name,
-          provider_type: method.provider_type,
-          parcels: rates.parcels,
-          rates: rates.rates
+        const packing = await packCart(env, body?.items);
+        if (!packing.success) {
+          return jsonResponse({
+            success: false,
+            error: "This cart cannot currently be safely packaged for delivery.",
+            data: { parcels: packing.parcels || [], errors: packing.errors || [] }
+          }, 422);
         }
-      });
+
+        if (method.provider_type === "custom" && method.mode === "manual") {
+          const courier = await env.DB.prepare(
+            "SELECT id, calculation_mode FROM custom_couriers WHERE shipping_method_id = ?"
+          ).bind(method.id).first();
+          if (!courier) return jsonResponse({ success: false, error: "This custom courier is not configured." }, 409);
+
+          const rateRows = (await env.DB.prepare(
+            "SELECT id, service_name, area_name, min_weight_kg, max_weight_kg, price, estimated_delivery FROM custom_courier_rates WHERE custom_courier_id = ? AND is_enabled = 1 ORDER BY sort_order ASC, id ASC"
+          ).bind(courier.id).all()).results ?? [];
+
+          const totalWeight = (packing.parcels || []).reduce((sum, parcel) => sum + Number(parcel.weight_kg || 0), 0);
+          const customer = body?.customer || {};
+          const areaValues = [customer.city, customer.province, customer.postal_code]
+            .map((value) => String(value || "").trim().toLowerCase())
+            .filter(Boolean);
+          const areaMatches = (areaName) => {
+            const configured = String(areaName || "").trim().toLowerCase();
+            return !configured || areaValues.includes(configured);
+          };
+          const weightMatches = (min, max) => {
+            const lower = min === null || min === undefined ? 0 : Number(min);
+            const upper = max === null || max === undefined ? Infinity : Number(max);
+            return totalWeight >= lower && totalWeight <= upper;
+          };
+
+          const rates = rateRows.filter((rate) => {
+            if (courier.calculation_mode === "fixed") return true;
+            if (courier.calculation_mode === "weight") return weightMatches(rate.min_weight_kg, rate.max_weight_kg);
+            if (courier.calculation_mode === "area") return areaMatches(rate.area_name);
+            if (courier.calculation_mode === "weight_area") return weightMatches(rate.min_weight_kg, rate.max_weight_kg) && areaMatches(rate.area_name);
+            return false;
+          }).map((rate) => ({
+            code: "custom-" + rate.id,
+            name: rate.service_name + (rate.estimated_delivery ? " · " + rate.estimated_delivery : ""),
+            price: Number(rate.price || 0)
+          }));
+
+          return jsonResponse({
+            success: true,
+            data: {
+              method_id: method.id,
+              method_name: method.name,
+              provider_type: method.provider_type,
+              parcels: packing.parcels,
+              rates
+            }
+          });
+        }
+
+        if (method.provider_type !== "courier_guy" || method.mode !== "api") {
+          return jsonResponse({ success: false, error: "Live rates are not available for this shipping method." }, 400);
+        }
+
+        const rates = await getCourierGuyRates(env, {
+          parcels: packing.parcels,
+          customer: body?.customer || {},
+          declaredValue: body?.declared_value
+        });
+
+        return jsonResponse({
+          success: true,
+          data: {
+            method_id: method.id,
+            method_name: method.name,
+            provider_type: method.provider_type,
+            parcels: rates.parcels,
+            rates: rates.rates
+          }
+        });
       } catch (error) {
         return jsonResponse({
           success: false,
-          error: error?.message || "Courier Guy could not calculate shipping rates."
+          error: error?.message || "Unable to calculate shipping rates."
         }, 502);
       }
     }
-
     if (request.method === "POST" && url.searchParams.get("resource") === "pack-cart") {
       const body = await request.json().catch(() => ({}));
       const result = await packCart(env, body?.items);
