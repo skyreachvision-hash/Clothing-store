@@ -668,7 +668,7 @@
             <p class="muted">${product.track_stock ? `Stock: ${escapeHtml(product.stock_quantity)}` : 'Stock tracking off'}${product.sku ? ` · SKU: ${escapeHtml(product.sku)}` : ''} · ${imageCount} picture${imageCount === 1 ? '' : 's'}</p>
           </div>
           <div>
-            <button class="button button-outline" type="button" data-edit="${product.id}">Edit</button>
+            <a class="button button-outline" href="./product.html?id=${encodeURIComponent(product.id)}">Edit</a>
             <button class="button button-outline" type="button" data-delete="${product.id}">Delete</button>
           </div>`;
         list.append(panel);
