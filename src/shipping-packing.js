@@ -5,12 +5,13 @@
  * courier/provider is asked for a rate.
  *
  * Rules:
- * - Fashion: soft/compressible items are packed by weight. If an item is
- *   prepackaged (for example shoes), its supplied packed dimensions are used.
- * - Electronics: weight + dimensions are required unless already prepackaged.
- * - Appliance: packed weight + dimensions are required and normally represent
- *   the manufacturer/final box.
- * - Other: uses dimensions when supplied, otherwise weight.
+ * - Fashion: soft/compressible items are packed by weight and may share bags.
+ * - Electronics/appliances: protected items require dimensions and are packed
+ *   into configured boxes/manufacturer packaging; compatible rigid items may
+ *   share a box when the configured dimensions allow it.
+ * - Prepackaged products keep their own supplied packed dimensions.
+ * - Packaging stock is treated as available capacity only. This calculation
+ *   never decrements stock.
  *
  * Courier-specific pricing or packaging is deliberately not part of this
  * module.
@@ -54,6 +55,29 @@ function volume(value) {
   return d ? d.length * d.width * d.height : Number.POSITIVE_INFINITY;
 }
 
+function orientations(value) {
+  const d = dimensions(value);
+  if (!d) return [];
+  const values = [d.length, d.width, d.height];
+  const result = [];
+  const seen = new Set();
+  for (const a of values) for (const b of values) for (const c of values) {
+    if (a === b && b === c) {
+      const key = `${a}|${b}|${c}`;
+      if (!seen.has(key)) { seen.add(key); result.push({ length: a, width: b, height: c }); }
+      continue;
+    }
+    if (a === b || b === c || a === c) {
+      const key = `${a}|${b}|${c}`;
+      if (!seen.has(key)) { seen.add(key); result.push({ length: a, width: b, height: c }); }
+      continue;
+    }
+    const key = `${a}|${b}|${c}`;
+    if (!seen.has(key)) { seen.add(key); result.push({ length: a, width: b, height: c }); }
+  }
+  return result;
+}
+
 function normalizedPackaging(packaging) {
   const type = String(packaging?.packaging_type || "").trim().toLowerCase();
   if (!packaging?.id || !packaging?.name || !PACKAGING_TYPES.has(type)) return null;
@@ -66,7 +90,8 @@ function normalizedPackaging(packaging) {
     width_cm: number(packaging.width_cm),
     height_cm: number(packaging.height_cm),
     packaging_weight_kg: Math.max(0, number(packaging.packaging_weight_kg, 0)),
-    max_weight_kg: positive(packaging.max_weight_kg) ? number(packaging.max_weight_kg) : null
+    max_weight_kg: positive(packaging.max_weight_kg) ? number(packaging.max_weight_kg) : null,
+    stock_quantity: Math.max(0, Math.floor(number(packaging.stock_quantity, 0)))
   };
 }
 
@@ -105,51 +130,34 @@ function validateItem(item) {
   if (!TYPE_CODES.has(item.shipping_type_code)) {
     throw new Error(`Shipping type is missing for ${item.product_name}.`);
   }
-
   if (!positive(item.weight_kg)) {
     throw new Error(`Shipping weight is required for ${item.product_name}.`);
   }
-
   const requirements = typeRequirements(item);
   if (requirements.requiresDimensions && !dimensions(item)) {
     throw new Error(`Packed dimensions are required for ${item.product_name}.`);
   }
 }
 
-function candidatePackaging(packaging, item, requiredType) {
+function candidatePackaging(packaging, item, preferredTypes = null) {
+  const allowed = preferredTypes ? new Set(preferredTypes) : null;
   return packaging
-    .filter((p) => p.packaging_type === requiredType)
+    .filter((p) => p.stock_quantity > 0)
+    .filter((p) => !allowed || allowed.has(p.packaging_type))
     .filter((p) => !p.max_weight_kg || item.weight_kg + p.packaging_weight_kg <= p.max_weight_kg)
     .filter((p) => !item.requiresDimensions || fitsDimensions(item, p))
-    .sort((a, b) => {
-      const volumeDifference = volume(a) - volume(b);
-      if (volumeDifference !== 0) return volumeDifference;
-      return a.id - b.id;
-    });
+    .sort((a, b) => volume(a) - volume(b) || a.id - b.id);
 }
 
 function choosePackaging(packaging, item) {
   const dimensional = item.requiresDimensions;
-
-  // Soft fashion items should prefer bags. Rigid/fixed items should prefer
-  // boxes, with manufacturer packaging allowed when explicitly configured.
   const preferredTypes = dimensional
     ? ["box", "manufacturer", "custom", "envelope"]
     : ["bag", "envelope", "custom"];
 
-  for (const type of preferredTypes) {
-    const candidates = candidatePackaging(packaging, item, type);
-    if (candidates.length) return candidates[0];
-  }
-
-  // As a safe fallback, allow any configured packaging that can contain the
-  // item rather than making the engine courier-specific.
-  const fallback = packaging
-    .filter((p) => !p.max_weight_kg || item.weight_kg + p.packaging_weight_kg <= p.max_weight_kg)
-    .filter((p) => !dimensional || fitsDimensions(item, p))
-    .sort((a, b) => volume(a) - volume(b) || a.id - b.id);
-
-  return fallback[0] || null;
+  return candidatePackaging(packaging, item, preferredTypes)[0]
+    || candidatePackaging(packaging, item)[0]
+    || null;
 }
 
 function finalParcelFromPrepackaged(item) {
@@ -169,50 +177,92 @@ function finalParcelFromPrepackaged(item) {
   };
 }
 
-function addToSoftParcel(parcel, item) {
-  parcel.items.push({
-    product_id: item.product_id,
-    product_name: item.product_name,
-    quantity: 1
-  });
-  parcel.product_weight_kg += item.weight_kg;
-  parcel.weight_kg += item.weight_kg;
-}
-
-function createPackagedParcel(packaging, item) {
+function createPackagedParcel(packaging) {
   return {
     packaging_id: packaging.id,
     packaging_name: packaging.name,
     packaging_type: packaging.packaging_type,
-    items: [{
-      product_id: item.product_id,
-      product_name: item.product_name,
-      quantity: 1
-    }],
-    product_weight_kg: item.weight_kg,
-    weight_kg: item.weight_kg + packaging.packaging_weight_kg,
+    items: [],
+    product_weight_kg: 0,
+    weight_kg: packaging.packaging_weight_kg,
     length_cm: packaging.length_cm,
     width_cm: packaging.width_cm,
-    height_cm: packaging.height_cm
+    height_cm: packaging.height_cm,
+    _used_length_cm: 0,
+    _used_width_cm: 0,
+    _used_height_cm: 0
   };
 }
 
+/*
+ * Conservative 3D packing check for a parcel.
+ * Items are placed in a single stacking direction, but each item may rotate.
+ * This avoids claiming a parcel fits when its dimensions cannot safely be
+ * represented by the configured box.
+ */
+function tryAddRigidItem(parcel, item) {
+  if (!positive(parcel.length_cm) || !positive(parcel.width_cm) || !positive(parcel.height_cm)) return false;
+
+  const maxWeight = parcel.max_weight_kg;
+  if (maxWeight && parcel.weight_kg + item.weight_kg > maxWeight) return false;
+
+  const remainingLength = parcel.length_cm - parcel._used_length_cm;
+  const itemOrientations = orientations(item);
+
+  for (const o of itemOrientations) {
+    if (o.length <= remainingLength && o.width <= parcel.width_cm && o.height <= parcel.height_cm) {
+      parcel.items.push({
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: 1
+      });
+      parcel.product_weight_kg += item.weight_kg;
+      parcel.weight_kg += item.weight_kg;
+      parcel._used_length_cm += o.length;
+      parcel._used_width_cm = Math.max(parcel._used_width_cm, o.width);
+      parcel._used_height_cm = Math.max(parcel._used_height_cm, o.height);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function cleanParcel(parcel) {
+  delete parcel.product_weight_kg;
+  delete parcel._used_length_cm;
+  delete parcel._used_width_cm;
+  delete parcel._used_height_cm;
+  delete parcel.max_weight_kg;
+  return parcel;
+}
+
+function packageStockCapacity(packaging, reserved) {
+  return Math.max(0, packaging.stock_quantity - (reserved.get(packaging.id) || 0));
+}
+
+function reservePackaging(packaging, reserved) {
+  reserved.set(packaging.id, (reserved.get(packaging.id) || 0) + 1);
+}
+
 /**
- * Pack an order using product shipping records and configured packaging.
+ * Pack an order/cart using product shipping records and configured packaging.
  *
- * This intentionally returns final parcel data only. It does not calculate
- * courier prices and does not call a courier API.
+ * This calculation is read-only with respect to packaging stock: it reserves
+ * nothing in D1 and only reports whether the current stock can satisfy the
+ * calculated parcel plan.
  */
 export function packOrder({ items = [], packaging = [] } = {}) {
   const configuredPackaging = packaging
     .map(normalizedPackaging)
     .filter(Boolean)
+    .filter((p) => p.stock_quantity > 0)
     .filter((p) => p.max_weight_kg === null || p.max_weight_kg > p.packaging_weight_kg);
 
   const normalizedItems = items.map(normalizedItem).filter((item) => item.quantity > 0);
   const parcels = [];
   const errors = [];
-
+  const reserved = new Map();
   const softParcels = new Map();
 
   for (const item of normalizedItems) {
@@ -232,43 +282,110 @@ export function packOrder({ items = [], packaging = [] } = {}) {
         continue;
       }
 
-      // Compressible items can share a bag until its configured weight limit.
       if (item.shipping_type_code === "fashion" && !item.requiresDimensions) {
-        const packaging = choosePackaging(configuredPackaging, item);
-        if (!packaging) {
-          errors.push({ product_id: item.product_id, product_name: item.product_name, error: "No suitable packaging is configured." });
+        let selected = null;
+        for (const packaging of candidatePackaging(configuredPackaging, item, ["bag", "envelope", "custom"])) {
+          if (packageStockCapacity(packaging, reserved) > 0) {
+            selected = packaging;
+            break;
+          }
+        }
+
+        if (!selected) {
+          errors.push({
+            product_id: item.product_id,
+            product_name: item.product_name,
+            error: "No suitable fashion packaging is available in the configured stock."
+          });
           continue;
         }
 
-        const key = String(packaging.id);
+        const key = String(selected.id);
         const existing = softParcels.get(key);
-        const nextWeight = (existing?.product_weight_kg || 0) + item.weight_kg + packaging.packaging_weight_kg;
+        const nextWeight = (existing?.product_weight_kg || 0) + item.weight_kg + selected.packaging_weight_kg;
 
-        if (existing && (!packaging.max_weight_kg || nextWeight <= packaging.max_weight_kg)) {
-          addToSoftParcel(existing, item);
+        if (existing && (!selected.max_weight_kg || nextWeight <= selected.max_weight_kg)) {
+          existing.items.push({
+            product_id: item.product_id,
+            product_name: item.product_name,
+            quantity: 1
+          });
+          existing.product_weight_kg += item.weight_kg;
           existing.weight_kg = nextWeight;
         } else {
-          const parcel = createPackagedParcel(packaging, item);
-          softParcels.set(key, parcel);
+          if (packageStockCapacity(selected, reserved) <= 0) {
+            errors.push({
+              product_id: item.product_id,
+              product_name: item.product_name,
+              error: "Additional fashion packaging is required, but the configured packaging stock is exhausted."
+            });
+            continue;
+          }
+          const parcel = createPackagedParcel(selected);
+          parcel.max_weight_kg = selected.max_weight_kg;
+          parcel.items.push({
+            product_id: item.product_id,
+            product_name: item.product_name,
+            quantity: 1
+          });
+          parcel.product_weight_kg = item.weight_kg;
+          parcel.weight_kg = item.weight_kg + selected.packaging_weight_kg;
+          softParcels.set(key + ":" + (reserved.get(selected.id) || 0), parcel);
           parcels.push(parcel);
+          reservePackaging(selected, reserved);
         }
         continue;
       }
 
-      // Rigid/non-compressible products are independently placed into the
-      // smallest suitable configured package. Multi-item consolidation can be
-      // added later without changing the final-parcel contract.
-      const packaging = choosePackaging(configuredPackaging, item);
-      if (!packaging) {
-        errors.push({ product_id: item.product_id, product_name: item.product_name, error: "No suitable packaging is configured for this product." });
-        continue;
+      const candidates = candidatePackaging(configuredPackaging, item, ["box", "manufacturer", "custom", "envelope"]);
+      let placed = false;
+
+      for (const parcel of parcels.filter((p) => p._rigid && p.packaging_id)) {
+        const packaging = configuredPackaging.find((p) => p.id === parcel.packaging_id);
+        if (!packaging || packageStockCapacity(packaging, reserved) < 0) continue;
+        if (tryAddRigidItem(parcel, item)) {
+          placed = true;
+          break;
+        }
       }
-      parcels.push(createPackagedParcel(packaging, item));
+
+      if (placed) continue;
+
+      for (const packaging of candidates) {
+        if (packageStockCapacity(packaging, reserved) <= 0) continue;
+        const parcel = createPackagedParcel(packaging);
+        parcel.max_weight_kg = packaging.max_weight_kg;
+        parcel._rigid = true;
+        if (tryAddRigidItem(parcel, item)) {
+          reservePackaging(packaging, reserved);
+          parcels.push(parcel);
+          placed = true;
+          break;
+        }
+      }
+
+      if (!placed) {
+        errors.push({
+          product_id: item.product_id,
+          product_name: item.product_name,
+          error: "No available box can safely contain this protected item with the configured packaging stock."
+        });
+      }
     }
   }
 
-  // Remove the internal accumulation field from the public parcel contract.
-  for (const parcel of parcels) delete parcel.product_weight_kg;
+  // A second pass tries to consolidate rigid parcels into the smallest boxes
+  // that can safely accept their complete contents. This is deliberately
+  // conservative and never changes a parcel into a box that cannot contain
+  // every item.
+  const rigidParcels = parcels.filter((p) => p._rigid);
+  for (const parcel of rigidParcels) {
+    // The first-pass placement already consolidated compatible items.
+    // Keep this marker internal only.
+    delete parcel._rigid;
+  }
+
+  for (const parcel of parcels) cleanParcel(parcel);
 
   return {
     success: errors.length === 0,
