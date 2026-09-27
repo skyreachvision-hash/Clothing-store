@@ -277,3 +277,10 @@ if (settingsForm) {
     }
   });
 }
+
+if (window.location.pathname.endsWith('/checkout.html')) {
+  const liveCourierScript = document.createElement('script');
+  liveCourierScript.src = '/assets/js/live-courier-checkout.js';
+  liveCourierScript.defer = true;
+  document.head.appendChild(liveCourierScript);
+}
