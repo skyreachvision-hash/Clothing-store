@@ -1,5 +1,6 @@
 import { verifyFirebaseIdToken } from "./index.js";
 import { sendOrderConfirmation } from "./communication-service.js";
+import { packOrder } from "./shipping-packing.js";
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 function json(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS }); }
@@ -42,6 +43,43 @@ async function getAuthoritativeCart(env, items) {
   return { currency: currency || "ZAR", subtotal, lineItems };
 }
 
+async function validatePacking(env, lineItems) {
+  const ids = [...new Set(lineItems.map((item) => Number(item.product_id)))];
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = (await env.DB.prepare(
+    `SELECT p.id AS product_id, p.name AS product_name,
+            ps.shipping_type_id,
+            st.code AS shipping_type_code,
+            CASE WHEN ps.packing_mode = 'prepackaged' THEN 1 ELSE 0 END AS is_prepackaged,
+            ps.weight_kg AS shipping_weight_kg,
+            ps.length_cm AS shipping_length_cm,
+            ps.width_cm AS shipping_width_cm,
+            ps.height_cm AS shipping_height_cm
+     FROM products p
+     LEFT JOIN product_shipping ps ON ps.product_id = p.id
+     LEFT JOIN shipping_types st ON st.id = ps.shipping_type_id
+     WHERE p.id IN (${placeholders})`
+  ).bind(...ids).all()).results ?? [];
+  const products = new Map(rows.map((row) => [Number(row.product_id), row]));
+  const packaging = (await env.DB.prepare(
+    "SELECT id,name,packaging_type,length_cm,width_cm,height_cm,packaging_weight_kg,max_weight_kg,stock_quantity FROM shipping_packaging WHERE is_enabled = 1 ORDER BY sort_order ASC,id ASC"
+  ).all()).results ?? [];
+  const result = packOrder({
+    items: lineItems.map((item) => ({
+      product_id: item.product_id,
+      product_name: item.name,
+      quantity: item.quantity,
+      shipping: products.get(Number(item.product_id))
+    })),
+    packaging
+  });
+  if (!result.success) {
+    const detail = result.errors.map((item) => item.error).filter(Boolean).join(" ");
+    throw new Error(detail || "This cart cannot currently be safely packaged for delivery.");
+  }
+  return result;
+}
+
 async function getShipping(env, shippingMethodId, shippingOptionId) {
   const methodId = Number(shippingMethodId), optionId = Number(shippingOptionId);
   if (!Number.isInteger(methodId) || methodId <= 0 || !Number.isInteger(optionId) || optionId <= 0) throw new Error("Please select a valid delivery method and option.");
@@ -75,6 +113,7 @@ async function handleInitialize(request, env) {
   }
 
   const cartResult = await getAuthoritativeCart(env, body?.items);
+  const packing = await validatePacking(env, cartResult.lineItems);
   const shipping = await getShipping(env, body?.shipping_method_id, body?.shipping_option_id);
   const total = cartResult.subtotal + Number(shipping.price || 0);
 
