@@ -126,7 +126,13 @@ export async function getCourierGuyRates(env, { parcels, customer, declaredValue
     body: JSON.stringify(body)
   });
 
-  const payload = await response.json().catch(() => ({}));
+  const responseText = await response.text();
+  let payload = {};
+  try {
+    payload = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    payload = {};
+  }
   if (!response.ok) {
     const message = clean(
       payload?.message ||
@@ -135,9 +141,10 @@ export async function getCourierGuyRates(env, { parcels, customer, declaredValue
       payload?.detail ||
       (Array.isArray(payload?.errors) ? payload.errors.map((item) => clean(item?.message || item?.detail || item)).filter(Boolean).join("; ") : "")
     );
-    const diagnostic = "Courier Guy authentication diagnostic: API key is present (" + apiKey.length + " characters), provider ID is "" + providerId + "". ";
+    const raw = clean(responseText).slice(0, 500);
+    const diagnostic = "Courier Guy authentication diagnostic: API key is present (" + apiKey.length + " characters), provider ID is \"" + providerId + "\". HTTP " + response.status + ". ";
     const fallback = "Courier Guy rate request failed (HTTP " + response.status + ").";
-    throw new Error(diagnostic + (message || fallback));
+    throw new Error(diagnostic + (message || raw || fallback));
   }
 
   const rates = extractRates(payload);
