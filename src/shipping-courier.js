@@ -93,10 +93,13 @@ function extractRates(payload) {
 }
 
 export async function getCourierGuyRates(env, { parcels, customer, declaredValue = 0 }) {
-  if (!env.COURIER_GUY_API_KEY) {
+  const apiKey = clean(env.COURIER_GUY_API_KEY);
+  const providerId = clean(env.COURIER_GUY_PROVIDER_ID);
+
+  if (!apiKey) {
     throw new Error("Courier Guy API credentials are not configured yet.");
   }
-  if (!env.COURIER_GUY_PROVIDER_ID) {
+  if (!providerId) {
     throw new Error("Courier Guy provider/account ID is not configured yet.");
   }
   if (!Array.isArray(parcels) || !parcels.length) {
@@ -104,7 +107,7 @@ export async function getCourierGuyRates(env, { parcels, customer, declaredValue
   }
 
   const body = {
-    provider_id: clean(env.COURIER_GUY_PROVIDER_ID),
+    provider_id: providerId,
     collection_address: collectionAddress(env),
     delivery_address: addressFromCustomer(customer),
     parcels: parcels.map(parcelPayload)
@@ -116,7 +119,7 @@ export async function getCourierGuyRates(env, { parcels, customer, declaredValue
   const response = await fetch(API_URL, {
     method: "POST",
     headers: {
-      Authorization: "Bearer " + clean(env.COURIER_GUY_API_KEY),
+      Authorization: "Bearer " + apiKey,
       "Content-Type": "application/json",
       Accept: "application/json"
     },
@@ -132,8 +135,9 @@ export async function getCourierGuyRates(env, { parcels, customer, declaredValue
       payload?.detail ||
       (Array.isArray(payload?.errors) ? payload.errors.map((item) => clean(item?.message || item?.detail || item)).filter(Boolean).join("; ") : "")
     );
+    const diagnostic = "Courier Guy authentication diagnostic: API key is present (" + apiKey.length + " characters), provider ID is "" + providerId + "". ";
     const fallback = "Courier Guy rate request failed (HTTP " + response.status + ").";
-    throw new Error(message || fallback);
+    throw new Error(diagnostic + (message || fallback));
   }
 
   const rates = extractRates(payload);
