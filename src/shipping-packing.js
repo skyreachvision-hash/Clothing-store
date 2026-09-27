@@ -249,7 +249,7 @@ export function packOrder({ items = [], packaging = [] } = {}) {
           existing.weight_kg = nextWeight;
         } else {
           const parcel = createPackagedParcel(packaging, item);
-          softParcels.set(key + ":" + parcels.length, parcel);
+          softParcels.set(key, parcel);
           parcels.push(parcel);
         }
         continue;
