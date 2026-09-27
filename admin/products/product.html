@@ -58,6 +58,7 @@
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="./">Back to Products</a></div></footer>
 
   <script type="module">
+    import { createProductShippingController } from "../../assets/js/product-shipping-form.js";
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
     const groupId = params.get('group_id');
@@ -83,6 +84,7 @@
     const cancelButton = document.querySelector('[data-cancel-edit]');
     const status = document.querySelector('[data-form-status]');
     const imageInput = form.elements.images;
+    const shippingController = createProductShippingController({ form, apiFetch });
     let product = null;
 
     function setStatus(message) {
@@ -238,7 +240,7 @@
       form.elements.name.focus();
       setStatus('Loading categories and product groups…');
       try {
-        await Promise.all([loadCategories(), loadProductGroups()]);
+        await Promise.all([loadCategories(), loadProductGroups(), shippingController.load(product.id)]);
         populateForm();
         setStatus('Editing this product.');
       } catch (error) {
@@ -288,6 +290,7 @@
         }
         data.images = images;
         await apiFetch('/api/products?id=' + encodeURIComponent(product.id), { method:'PUT', body:JSON.stringify(data) });
+        await shippingController.save(product.id);
         const refreshed = await apiFetch('/api/products?status=' + encodeURIComponent(data.status) + '&limit=100');
         product = (refreshed.data?.products || []).find((item) => String(item.id) === String(id));
         if (!product) throw new Error('Product was saved, but could not be reloaded.');
