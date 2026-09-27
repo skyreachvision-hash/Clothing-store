@@ -24,7 +24,8 @@ export function createProductShippingController({ form, apiFetch }) {
     </div>
     <p class="muted" data-shipping-help>Choose a shipping type to see what information is required.</p>
   `;
-  form.querySelector('[data-product-attributes]')?.parentElement.before(section) || form.append(section);
+  const attributesFieldset = form.querySelector('[data-product-attributes]')?.closest('.settings-group');
+  if (attributesFieldset) attributesFieldset.before(section); else form.append(section);
 
   const typeSelect = section.querySelector('[name="shipping_type_id"]');
   const prepackaged = section.querySelector('[name="is_prepackaged"]');
