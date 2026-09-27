@@ -1,4 +1,4 @@
-const API_URL = "https://api.shiplogic.com/v2/rates";
+const API_URL = "https://api.portal.thecourierguy.co.za/rates";
 
 function clean(value) {
   return String(value ?? "").trim();
