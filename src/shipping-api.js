@@ -142,16 +142,17 @@ export async function handleShippingApi(request, env, originalWorker) {
 
       const itemRows = (await env.DB.prepare(
         `SELECT oi.product_id, oi.product_name, oi.quantity,
-                p.shipping_type_id,
+                ps.shipping_type_id,
                 st.code AS shipping_type_code,
-                CASE WHEN p.shipping_packaging_mode = 'prepacked' THEN 1 ELSE 0 END AS is_prepackaged,
-                p.shipping_weight_kg,
-                p.shipping_length_cm,
-                p.shipping_width_cm,
-                p.shipping_height_cm
+                ps.is_prepackaged,
+                ps.shipping_weight_kg,
+                ps.shipping_length_cm,
+                ps.shipping_width_cm,
+                ps.shipping_height_cm
          FROM order_items oi
          LEFT JOIN products p ON p.id = oi.product_id
-         LEFT JOIN shipping_types st ON st.id = p.shipping_type_id
+         LEFT JOIN product_shipping ps ON ps.product_id = oi.product_id
+         LEFT JOIN shipping_types st ON st.id = ps.shipping_type_id
          WHERE oi.order_id = ?
          ORDER BY oi.id ASC`
       ).bind(orderId).all()).results ?? [];
