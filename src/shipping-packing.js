@@ -164,7 +164,7 @@ function candidatePackaging(packaging, item, preferredTypes = null) {
   return packaging
     .filter((p) => p.stock_quantity > 0)
     .filter((p) => !allowed || allowed.has(p.packaging_type))
-    .filter((p) => !p.max_weight_kg || item.weight_kg + p.packaging_weight_kg <= p.max_weight_kg)
+    .filter((p) => !p.max_weight_kg || (item.requiresDimensions ? item.weight_kg + p.packaging_weight_kg <= p.max_weight_kg : item.weight_kg <= p.max_weight_kg))
     .filter((p) => !item.requiresDimensions || fitsDimensions(item, p))
     .sort((a, b) => volume(a) - volume(b) || a.id - b.id);
 }
@@ -300,9 +300,10 @@ export function packOrder({ items = [], packaging = [] } = {}) {
 
         const key = String(selected.id);
         const existing = softParcels.get(key);
-        const nextWeight = (existing?.product_weight_kg || 0) + item.weight_kg + selected.packaging_weight_kg;
+        const nextProductWeight = (existing?.product_weight_kg || 0) + item.weight_kg;
+        const nextWeight = nextProductWeight + selected.packaging_weight_kg;
 
-        if (existing && (!selected.max_weight_kg || nextWeight <= selected.max_weight_kg)) {
+        if (existing && (!selected.max_weight_kg || nextProductWeight <= selected.max_weight_kg)) {
           existing.items.push({
             product_id: item.product_id,
             product_name: item.product_name,
