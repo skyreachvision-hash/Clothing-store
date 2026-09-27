@@ -19,7 +19,8 @@
 
   function courier() {
     const m = method();
-    return m?.provider_type === 'courier_guy' && m?.mode === 'api';
+    return (m?.provider_type === 'courier_guy' && m?.mode === 'api')
+      || (m?.provider_type === 'custom' && m?.mode === 'manual');
   }
 
   function completeAddress() {
@@ -79,7 +80,7 @@
     }
 
     select.disabled = true;
-    select.innerHTML = '<option value="">Getting live courier rates…</option>';
+    select.innerHTML = '<option value="">Getting delivery rates…</option>';
 
     try {
       const cart = cartItems();
@@ -94,7 +95,7 @@
         })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to calculate courier rates.');
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to calculate delivery rates.');
       rates = Array.isArray(payload.data?.rates) ? payload.data.rates : [];
       select.innerHTML = rates.length
         ? rates.map((rate) => '<option value="rate:' + String(rate.code).replace(/"/g, '&quot;') + '">' + String(rate.name).replace(/[&<>]/g, '') + ' — ' + money(rate.price) + '</option>').join('')
@@ -104,12 +105,12 @@
       updateTotals();
     } catch (error) {
       rates = [];
-      select.innerHTML = '<option value="">Courier rate unavailable</option>';
+      select.innerHTML = '<option value="">Delivery rate unavailable</option>';
       select.disabled = false;
       clearShippingTotal();
       if (notice) {
         notice.hidden = false;
-        notice.textContent = error.message || 'Unable to calculate courier rates.';
+        notice.textContent = error.message || 'Unable to calculate delivery rates.';
       }
     }
   }
@@ -132,7 +133,7 @@
 
     if (!rate) {
       notice.hidden = false;
-      notice.textContent = 'Please wait for a courier rate and select a delivery service.';
+      notice.textContent = 'Please wait for a delivery rate and select a delivery service.';
       return;
     }
     if (!f.checkValidity()) {
