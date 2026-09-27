@@ -388,15 +388,8 @@ export async function handleShippingApi(request, env, originalWorker) {
         if (!name || !["fixed", "weight", "area", "weight_area"].includes(calculationMode)) {
           return jsonResponse({ success: false, error: "Courier name and a valid calculation mode are required." }, 400);
         }
-        const method = await env.DB.prepare(
-          `INSERT INTO shipping_methods (name, provider_type, mode, is_enabled, sort_order)
-           VALUES (?, 'custom', 'manual', ?, ?) RETURNING id`
-        ).bind(name, enabled(body?.is_enabled, 1), nonNegative(body?.sort_order)).first();
-        const courier = await env.DB.prepare(
-          `INSERT INTO custom_couriers (shipping_method_id, description, calculation_mode)
-           VALUES (?, ?, ?) RETURNING id`
-        ).bind(method.id, description, calculationMode).first();
 
+        const normalizedRates = [];
         for (let index = 0; index < rates.length; index += 1) {
           const rate = rates[index] || {};
           const serviceName = String(rate.service_name ?? "").trim();
@@ -406,16 +399,38 @@ export async function handleShippingApi(request, env, originalWorker) {
           if (minWeight !== null && maxWeight !== null && maxWeight <= minWeight) {
             return jsonResponse({ success: false, error: `Rate ${index + 1} has an invalid weight range.` }, 400);
           }
-          await env.DB.prepare(
+          normalizedRates.push({
+            serviceName,
+            areaName: String(rate.area_name ?? "").trim(),
+            minWeight,
+            maxWeight,
+            price: nonNegative(rate.price),
+            estimatedDelivery: String(rate.estimated_delivery ?? "").trim(),
+            isEnabled: enabled(rate.is_enabled, 1),
+            sortOrder: nonNegative(rate.sort_order, index)
+          });
+        }
+
+        const method = await env.DB.prepare(
+          `INSERT INTO shipping_methods (name, provider_type, mode, is_enabled, sort_order)
+           VALUES (?, 'custom', 'manual', ?, ?) RETURNING id`
+        ).bind(name, enabled(body?.is_enabled, 1), nonNegative(body?.sort_order)).first();
+        const courier = await env.DB.prepare(
+          `INSERT INTO custom_couriers (shipping_method_id, description, calculation_mode)
+           VALUES (?, ?, ?) RETURNING id`
+        ).bind(method.id, description, calculationMode).first();
+
+        if (normalizedRates.length) {
+          await env.DB.batch(normalizedRates.map((rate) => env.DB.prepare(
             `INSERT INTO custom_courier_rates
              (custom_courier_id, service_name, area_name, min_weight_kg, max_weight_kg, price, estimated_delivery, is_enabled, sort_order)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            courier.id, serviceName, String(rate.area_name ?? "").trim(), minWeight, maxWeight,
-            nonNegative(rate.price), String(rate.estimated_delivery ?? "").trim(),
-            enabled(rate.is_enabled, 1), nonNegative(rate.sort_order, index)
-          ).run();
+            courier.id, rate.serviceName, rate.areaName, rate.minWeight, rate.maxWeight,
+            rate.price, rate.estimatedDelivery, rate.isEnabled, rate.sortOrder
+          )));
         }
+
         return jsonResponse({ success: true, data: { id: method.id, custom_courier_id: courier.id, uid: auth?.data?.uid || "" } }, 201);
       }
 
