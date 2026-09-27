@@ -33,11 +33,24 @@
     return rates.find((rate) => rate.code === code) || null;
   }
 
+  function clearShippingTotal() {
+    const cart = cartItems();
+    const subtotal = cart.reduce((total, item) => total + Number(item.price || 0) * Number(item.quantity || 0), 0);
+    const currency = String(cart[0]?.currency || 'ZAR').toUpperCase();
+    const shippingTotal = document.querySelector('[data-checkout-shipping]');
+    const grandTotal = document.querySelector('[data-checkout-grand-total]');
+    if (shippingTotal) shippingTotal.textContent = money(0);
+    if (grandTotal) grandTotal.textContent = money(subtotal);
+  }
+
   function updateTotals() {
     const f = form();
-    if (!f) return;
-    const rate = courier() ? selectedRate() : null;
-    if (!rate) return;
+    if (!f || !courier()) return;
+    const rate = selectedRate();
+    if (!rate) {
+      clearShippingTotal();
+      return;
+    }
     const cart = cartItems();
     const subtotal = cart.reduce((total, item) => total + Number(item.price || 0) * Number(item.quantity || 0), 0);
     const shipping = Number(rate.price || 0);
@@ -50,22 +63,26 @@
   async function loadRates() {
     const f = form();
     const select = f?.elements.shipping_option_id;
+    const optionField = f?.querySelector('[data-shipping-option-field]');
     const notice = f?.querySelector('[data-checkout-notice]');
     const m = method();
     if (!f || !select || !m || !courier()) return;
 
+    if (optionField) optionField.hidden = false;
+    rates = [];
+    clearShippingTotal();
+
     if (!completeAddress()) {
-      rates = [];
+      select.disabled = false;
       select.innerHTML = '<option value="">Enter your delivery address to get live courier rates</option>';
-      updateTotals();
       return;
     }
 
     select.disabled = true;
     select.innerHTML = '<option value="">Getting live courier rates…</option>';
-    const cart = cartItems();
 
     try {
+      const cart = cartItems();
       const response = await fetch('/api/shipping?resource=live-rates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -89,6 +106,7 @@
       rates = [];
       select.innerHTML = '<option value="">Courier rate unavailable</option>';
       select.disabled = false;
+      clearShippingTotal();
       if (notice) {
         notice.hidden = false;
         notice.textContent = error.message || 'Unable to calculate courier rates.';
@@ -180,6 +198,9 @@
         if (courier()) {
           event.stopPropagation();
           loadRates();
+        } else {
+          rates = [];
+          clearTimeout(timer);
         }
       } else if (event.target?.name === 'shipping_option_id' && courier()) {
         event.stopPropagation();
