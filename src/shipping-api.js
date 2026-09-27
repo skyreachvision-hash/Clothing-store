@@ -239,7 +239,8 @@ export async function handleShippingApi(request, env, originalWorker) {
     }
 
     if (request.method === "POST" && url.searchParams.get("resource") === "live-rates") {
-      const body = await request.json().catch(() => ({}));
+      try {
+        const body = await request.json().catch(() => ({}));
       const methodId = id(body?.shipping_method_id);
       if (!methodId) return jsonResponse({ success: false, error: "A valid shipping method is required." }, 400);
       const method = await env.DB.prepare(
@@ -275,6 +276,12 @@ export async function handleShippingApi(request, env, originalWorker) {
           rates: rates.rates
         }
       });
+      } catch (error) {
+        return jsonResponse({
+          success: false,
+          error: error?.message || "Courier Guy could not calculate shipping rates."
+        }, 502);
+      }
     }
 
     if (request.method === "POST" && url.searchParams.get("resource") === "pack-cart") {
