@@ -131,7 +131,6 @@ export async function handleShippingApi(request, env, originalWorker) {
       return jsonResponse({ success: true, data: { id: productId, uid: auth?.data?.uid || "" } });
     }
 
-    const includeDisabled
     const includeDisabled = url.searchParams.get("include_disabled") === "1";
 
     if (request.method === "GET") {
