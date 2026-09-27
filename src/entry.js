@@ -11,7 +11,7 @@ import { handleCustomerCommunications, handleAdminCommunications } from "./commu
 export default { async fetch(request, env, ctx) {
   const url = new URL(request.url);
   if (url.pathname === "/api/categories") return handleCategoryApi(request, env, originalWorker);
-  if (url.pathname === "/api/shipping") return handleShippingApi(request, env, originalWorker);
+  if (url.pathname === "/api/shipping" || url.pathname === "/api/product-shipping") return handleShippingApi(request, env, originalWorker);
   if (url.pathname === "/api/customer-profile") return handleCustomerProfile(request, env);
   if (url.pathname === "/api/admin-customers") return handleAdminCustomers(request, env);
   if (url.pathname === "/api/admin-orders") return handleAdminOrders(request, env);
