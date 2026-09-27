@@ -260,7 +260,7 @@ export function packOrder({ items = [], packaging = [] } = {}) {
     .map(normalizedPackaging)
     .filter(Boolean)
     .filter((p) => p.stock_quantity > 0)
-    .filter((p) => p.max_weight_kg === null || p.max_weight_kg > p.packaging_weight_kg);
+    .filter((p) => p.max_weight_kg === null || p.max_weight_kg > 0);
 
   const normalizedItems = items.map(normalizedItem).filter((item) => item.quantity > 0);
   const parcels = [];
