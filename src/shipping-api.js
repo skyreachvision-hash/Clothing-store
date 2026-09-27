@@ -1,4 +1,5 @@
 import { packOrder } from "./shipping-packing.js";
+import { getCourierGuyRates } from "./shipping-courier.js";
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 
 function jsonResponse(payload, status = 200) {
@@ -235,6 +236,45 @@ export async function handleShippingApi(request, env, originalWorker) {
         },
         ...(result.success ? {} : { error: "Order could not be fully packed with the current product shipping data and configured packaging." })
       }, result.success ? 200 : 422);
+    }
+
+    if (request.method === "POST" && url.searchParams.get("resource") === "live-rates") {
+      const body = await request.json().catch(() => ({}));
+      const methodId = id(body?.shipping_method_id);
+      if (!methodId) return jsonResponse({ success: false, error: "A valid shipping method is required." }, 400);
+      const method = await env.DB.prepare(
+        "SELECT id, name, provider_type, mode FROM shipping_methods WHERE id = ? AND is_enabled = 1"
+      ).bind(methodId).first();
+      if (!method) return jsonResponse({ success: false, error: "The selected shipping method is no longer available." }, 404);
+      if (method.provider_type !== "courier_guy" || method.mode !== "api") {
+        return jsonResponse({ success: false, error: "Live rates are not available for this shipping method." }, 400);
+      }
+
+      const packing = await packCart(env, body?.items);
+      if (!packing.success) {
+        return jsonResponse({
+          success: false,
+          error: "This cart cannot currently be safely packaged for delivery.",
+          data: { parcels: packing.parcels || [], errors: packing.errors || [] }
+        }, 422);
+      }
+
+      const rates = await getCourierGuyRates(env, {
+        parcels: packing.parcels,
+        customer: body?.customer || {},
+        declaredValue: body?.declared_value
+      });
+
+      return jsonResponse({
+        success: true,
+        data: {
+          method_id: method.id,
+          method_name: method.name,
+          provider_type: method.provider_type,
+          parcels: rates.parcels,
+          rates: rates.rates
+        }
+      });
     }
 
     if (request.method === "POST" && url.searchParams.get("resource") === "pack-cart") {
