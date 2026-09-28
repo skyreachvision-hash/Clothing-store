@@ -190,10 +190,7 @@ function renderCheckout() {
         </fieldset>
 
         <fieldset class="checkout-section">
-          <legend>Delivery</legend>
-          <label class="field"><span>Shipping method</span><select name="shipping_method_id" data-shipping-method required>${methodsMarkup}</select></label>
-          <div class="field" data-shipping-option-field hidden><span>Delivery option rates</span><div class="shipping-option-list" data-shipping-option></div></div>
-          <label class="field" data-landmark-field hidden><span>Where are you staying / what are you near?</span><input name="landmark" type="text" maxlength="300" placeholder="e.g. Next to the school or near Mpho's shop"></label>
+          <legend>Delivery address</legend>
           <div class="settings-fields-two">
             <label class="field" data-address-field><span>Street / address</span><input name="address" type="text" autocomplete="street-address" required></label>
             <label class="field"><span>City / Town</span><input name="city" type="text" autocomplete="address-level2" required></label>
@@ -203,6 +200,13 @@ function renderCheckout() {
             <label class="field"><span>Postal code</span><input name="postal_code" type="text" autocomplete="postal-code" required></label>
           </div>
           <label class="field"><span>Country</span><input name="country" type="text" autocomplete="country-name" value="South Africa" required></label>
+        </fieldset>
+
+        <fieldset class="checkout-section">
+          <legend>Delivery method</legend>
+          <label class="field"><span>Shipping method</span><select name="shipping_method_id" data-shipping-method required>${methodsMarkup}</select></label>
+          <div class="field" data-shipping-option-field hidden><span>Delivery option rates</span><div class="shipping-option-list" data-shipping-option></div></div>
+          <label class="field" data-landmark-field hidden><span>Where are you staying / what are you near?</span><input name="landmark" type="text" maxlength="300" placeholder="e.g. Next to the school or near Mpho's shop"></label>
           <label class="field"><span>Order notes <small>(optional)</small></span><textarea name="notes" rows="4" placeholder="Anything we should know about your delivery?"></textarea></label>
         </fieldset>
 
