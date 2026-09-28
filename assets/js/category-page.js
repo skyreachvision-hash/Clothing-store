@@ -140,7 +140,7 @@ async function loadCategoryPage() {
     document.querySelector('[data-category-meta-description]')?.setAttribute('content', `Shop ${mainCategory.name} and browse its subcategories.`);
     if (titleElement) titleElement.textContent = mainCategory.name;
     if (introElement) introElement.textContent = `Browse all ${mainCategory.name} pieces or filter by subcategory.`;
-    if (statusElement) statusElement.textContent = `${activeProducts.length} ${activeProducts.length === 1 ? 'piece' : 'pieces'}`;
+    if (statusElement) statusElement.textContent = '';
 
     renderFilters();
     renderCatalogue();
