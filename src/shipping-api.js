@@ -285,7 +285,7 @@ export async function handleShippingApi(request, env, originalWorker) {
           if (!courier) return jsonResponse({ success: false, error: "This custom courier is not configured." }, 409);
 
           const rateRows = (await env.DB.prepare(
-            "SELECT id, service_name, area_name, min_weight_kg, max_weight_kg, price, estimated_delivery FROM custom_courier_rates WHERE custom_courier_id = ? AND is_enabled = 1 ORDER BY sort_order ASC, id ASC"
+            "SELECT id, service_name, area_name, packaging_type, min_weight_kg, max_weight_kg, max_length_cm, max_width_cm, max_height_cm, price, estimated_delivery FROM custom_courier_rates WHERE custom_courier_id = ? AND is_enabled = 1 ORDER BY sort_order ASC, id ASC"
           ).bind(courier.id).all()).results ?? [];
 
           const totalWeight = (packing.parcels || []).reduce((sum, parcel) => sum + Number(parcel.weight_kg || 0), 0);
@@ -297,18 +297,35 @@ export async function handleShippingApi(request, env, originalWorker) {
             const configured = String(areaName || "").trim().toLowerCase();
             return !configured || areaValues.includes(configured);
           };
-          const weightMatches = (min, max) => {
+          const weightMatches = (min, max, weight) => {
             const lower = min === null || min === undefined ? 0 : Number(min);
             const upper = max === null || max === undefined ? Infinity : Number(max);
-            return totalWeight >= lower && totalWeight <= upper;
+            return weight >= lower && weight <= upper;
           };
+          const dimensionMatches = (parcel, rate) => {
+            const configuredType = String(rate.packaging_type || "any").trim().toLowerCase();
+            const parcelType = String(parcel?.packaging_type || "").trim().toLowerCase();
+            if (configuredType !== "any" && configuredType !== parcelType) return false;
+            const length = Number(parcel?.length_cm);
+            const width = Number(parcel?.width_cm);
+            const height = Number(parcel?.height_cm);
+            if (rate.max_length_cm !== null && rate.max_length_cm !== undefined && !(Number.isFinite(length) && length <= Number(rate.max_length_cm))) return false;
+            if (rate.max_width_cm !== null && rate.max_width_cm !== undefined && !(Number.isFinite(width) && width <= Number(rate.max_width_cm))) return false;
+            if (rate.max_height_cm !== null && rate.max_height_cm !== undefined && !(Number.isFinite(height) && height <= Number(rate.max_height_cm))) return false;
+            return true;
+          };
+          const parcels = Array.isArray(packing.parcels) ? packing.parcels : [];
+          const shipmentWeight = parcels.reduce((sum, parcel) => sum + Number(parcel.weight_kg || 0), 0);
 
           const rates = rateRows.filter((rate) => {
-            if (courier.calculation_mode === "fixed") return true;
-            if (courier.calculation_mode === "weight") return weightMatches(rate.min_weight_kg, rate.max_weight_kg);
-            if (courier.calculation_mode === "area") return areaMatches(rate.area_name);
-            if (courier.calculation_mode === "weight_area") return weightMatches(rate.min_weight_kg, rate.max_weight_kg) && areaMatches(rate.area_name);
-            return false;
+            const weightOk = courier.calculation_mode === "fixed" || courier.calculation_mode === "area"
+              ? true
+              : weightMatches(rate.min_weight_kg, rate.max_weight_kg, shipmentWeight);
+            const areaOk = courier.calculation_mode === "area" || courier.calculation_mode === "weight_area"
+              ? areaMatches(rate.area_name)
+              : true;
+            const parcelOk = parcels.length > 0 && parcels.every((parcel) => dimensionMatches(parcel, rate));
+            return weightOk && areaOk && parcelOk;
           }).map((rate) => ({
             code: "custom-" + rate.id,
             name: rate.service_name + (rate.estimated_delivery ? " · " + rate.estimated_delivery : ""),
@@ -396,14 +413,25 @@ export async function handleShippingApi(request, env, originalWorker) {
           if (!serviceName) return jsonResponse({ success: false, error: `Rate ${index + 1} needs a service name.` }, 400);
           const minWeight = rate.min_weight_kg === null || rate.min_weight_kg === "" || rate.min_weight_kg === undefined ? null : nonNegative(rate.min_weight_kg, null);
           const maxWeight = rate.max_weight_kg === null || rate.max_weight_kg === "" || rate.max_weight_kg === undefined ? null : nonNegative(rate.max_weight_kg, null);
+          const maxLength = rate.max_length_cm === null || rate.max_length_cm === "" || rate.max_length_cm === undefined ? null : nonNegative(rate.max_length_cm, null);
+          const maxWidth = rate.max_width_cm === null || rate.max_width_cm === "" || rate.max_width_cm === undefined ? null : nonNegative(rate.max_width_cm, null);
+          const maxHeight = rate.max_height_cm === null || rate.max_height_cm === "" || rate.max_height_cm === undefined ? null : nonNegative(rate.max_height_cm, null);
+          const packagingType = String(rate.packaging_type ?? "any").trim().toLowerCase();
+          if (!["any", "bag", "box", "envelope", "manufacturer", "custom"].includes(packagingType)) {
+            return jsonResponse({ success: false, error: `Rate ${index + 1} has an invalid parcel type.` }, 400);
+          }
           if (minWeight !== null && maxWeight !== null && maxWeight <= minWeight) {
             return jsonResponse({ success: false, error: `Rate ${index + 1} has an invalid weight range.` }, 400);
           }
           normalizedRates.push({
             serviceName,
             areaName: String(rate.area_name ?? "").trim(),
+            packagingType,
             minWeight,
             maxWeight,
+            maxLength,
+            maxWidth,
+            maxHeight,
             price: nonNegative(rate.price),
             estimatedDelivery: String(rate.estimated_delivery ?? "").trim(),
             isEnabled: enabled(rate.is_enabled, 1),
@@ -423,11 +451,11 @@ export async function handleShippingApi(request, env, originalWorker) {
         if (normalizedRates.length) {
           await env.DB.batch(normalizedRates.map((rate) => env.DB.prepare(
             `INSERT INTO custom_courier_rates
-             (custom_courier_id, service_name, area_name, min_weight_kg, max_weight_kg, price, estimated_delivery, is_enabled, sort_order)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             (custom_courier_id, service_name, area_name, packaging_type, min_weight_kg, max_weight_kg, max_length_cm, max_width_cm, max_height_cm, price, estimated_delivery, is_enabled, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(
-            courier.id, rate.serviceName, rate.areaName, rate.minWeight, rate.maxWeight,
-            rate.price, rate.estimatedDelivery, rate.isEnabled, rate.sortOrder
+            courier.id, rate.serviceName, rate.areaName, rate.packagingType, rate.minWeight, rate.maxWeight,
+            rate.maxLength, rate.maxWidth, rate.maxHeight, rate.price, rate.estimatedDelivery, rate.isEnabled, rate.sortOrder
           )));
         }
 
@@ -508,16 +536,23 @@ export async function handleShippingApi(request, env, originalWorker) {
         if (!serviceName) return jsonResponse({ success: false, error: `Rate ${index + 1} needs a service name.` }, 400);
         const minWeight = rate.min_weight_kg === null || rate.min_weight_kg === "" || rate.min_weight_kg === undefined ? null : nonNegative(rate.min_weight_kg, null);
         const maxWeight = rate.max_weight_kg === null || rate.max_weight_kg === "" || rate.max_weight_kg === undefined ? null : nonNegative(rate.max_weight_kg, null);
+        const maxLength = rate.max_length_cm === null || rate.max_length_cm === "" || rate.max_length_cm === undefined ? null : nonNegative(rate.max_length_cm, null);
+        const maxWidth = rate.max_width_cm === null || rate.max_width_cm === "" || rate.max_width_cm === undefined ? null : nonNegative(rate.max_width_cm, null);
+        const maxHeight = rate.max_height_cm === null || rate.max_height_cm === "" || rate.max_height_cm === undefined ? null : nonNegative(rate.max_height_cm, null);
+        const packagingType = String(rate.packaging_type ?? "any").trim().toLowerCase();
+        if (!["any", "bag", "box", "envelope", "manufacturer", "custom"].includes(packagingType)) {
+          return jsonResponse({ success: false, error: `Rate ${index + 1} has an invalid parcel type.` }, 400);
+        }
         if (minWeight !== null && maxWeight !== null && maxWeight <= minWeight) {
           return jsonResponse({ success: false, error: `Rate ${index + 1} has an invalid weight range.` }, 400);
         }
         await env.DB.prepare(
           `INSERT INTO custom_courier_rates
-           (custom_courier_id, service_name, area_name, min_weight_kg, max_weight_kg, price, estimated_delivery, is_enabled, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           (custom_courier_id, service_name, area_name, packaging_type, min_weight_kg, max_weight_kg, max_length_cm, max_width_cm, max_height_cm, price, estimated_delivery, is_enabled, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
-          existing.custom_courier_id, serviceName, String(rate.area_name ?? "").trim(), minWeight, maxWeight,
-          nonNegative(rate.price), String(rate.estimated_delivery ?? "").trim(),
+          existing.custom_courier_id, serviceName, String(rate.area_name ?? "").trim(), packagingType, minWeight, maxWeight,
+          maxLength, maxWidth, maxHeight, nonNegative(rate.price), String(rate.estimated_delivery ?? "").trim(),
           enabled(rate.is_enabled, 1), nonNegative(rate.sort_order, index)
         ).run();
       }
