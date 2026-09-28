@@ -482,3 +482,13 @@ body.communications-drawer-open,body.customer-chat-drawer-open{overflow:hidden}
   .product-filter-panel-heading { align-items: start; flex-direction: column; }
   .product-filter-options { max-height: 240px; }
 }
+
+
+.shipping-option-list { display: grid; gap: var(--space-3); }
+.shipping-option-card { display: flex; align-items: center; gap: var(--space-3); border: var(--border-width) solid var(--color-border-strong); padding: var(--space-3) var(--space-4); background: var(--color-surface); cursor: pointer; }
+.shipping-option-card:has(input:checked) { outline: 2px solid currentColor; outline-offset: -2px; }
+.shipping-option-card input { width: auto; margin: 0; }
+.shipping-option-card-content { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); width: 100%; }
+.shipping-option-card-content strong { font-weight: var(--font-weight-semibold); }
+.shipping-option-card-content span { white-space: nowrap; }
+.shipping-rate-message { margin: 0; }
