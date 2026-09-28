@@ -1,16 +1,6 @@
-const menuToggle = document.querySelector('.menu-toggle');
-const navigation = document.querySelector('#primary-navigation');
 const searchPanel = document.querySelector('[data-search-panel]');
 const searchToggle = document.querySelector('[data-search-toggle]');
 const searchClose = document.querySelector('[data-search-close]');
-
-if (menuToggle && navigation) {
-  menuToggle.addEventListener('click', () => {
-    const isOpen = menuToggle.getAttribute('aria-expanded') === 'true';
-    menuToggle.setAttribute('aria-expanded', String(!isOpen));
-    navigation.classList.toggle('is-open', !isOpen);
-  });
-}
 
 const setSearchOpen = (isOpen) => {
   if (!searchPanel) return;
