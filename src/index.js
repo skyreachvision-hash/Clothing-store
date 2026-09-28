@@ -129,6 +129,44 @@ async function createCloudinarySignature(params, secret) {
   const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`${query}${secret}`));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+async function handleContentPages(request, env) {
+  const url = new URL(request.url);
+  const isAdmin = url.searchParams.get("admin") === "1";
+  try {
+    if (request.method === "GET" && !isAdmin) {
+      const slug = String(url.searchParams.get("slug") || "").trim().toLowerCase();
+      if (!slug) return jsonResponse({ success: false, error: "Page slug is required." }, 400);
+      const page = await env.DB.prepare("SELECT id, slug, title, content, is_published, sort_order, updated_at FROM content_pages WHERE slug = ? AND is_published = 1 LIMIT 1").bind(slug).first();
+      if (!page) return jsonResponse({ success: false, error: "Information page not found." }, 404);
+      return jsonResponse({ success: true, data: page });
+    }
+    const token = await verifyFirebaseIdToken(request); await requireAdminRole(token, env);
+    if (request.method === "GET") {
+      const result = await env.DB.prepare("SELECT id, slug, title, content, is_published, sort_order, created_at, updated_at FROM content_pages ORDER BY sort_order ASC, id ASC").all();
+      return jsonResponse({ success: true, data: result.results ?? [] });
+    }
+    if (request.method === "POST" || request.method === "PUT") {
+      const body = await request.json(); const title = String(body?.title ?? "").trim(); const slug = normalizeSlug(body?.slug || title); const content = String(body?.content ?? ""); const published = body?.is_published ? 1 : 0;
+      if (!title || !slug) return jsonResponse({ success: false, error: "Page title and slug are required." }, 400);
+      try {
+        if (request.method === "POST") {
+          const row = await env.DB.prepare("INSERT INTO content_pages (slug,title,content,is_published) VALUES (?,?,?,?) RETURNING id,slug,title,content,is_published,sort_order,created_at,updated_at").bind(slug,title,content,published).first();
+          return jsonResponse({ success: true, data: row }, 201);
+        }
+        const id = parseOptionalId(url.searchParams.get("id")); if (!id) return jsonResponse({ success:false,error:"Page id is required."},400);
+        const result = await env.DB.prepare("UPDATE content_pages SET slug=?,title=?,content=?,is_published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(slug,title,content,published,id).run();
+        if (!result.meta?.changes) return jsonResponse({ success:false,error:"Information page not found."},404);
+        const row = await env.DB.prepare("SELECT id,slug,title,content,is_published,sort_order,created_at,updated_at FROM content_pages WHERE id=?").bind(id).first();
+        return jsonResponse({ success:true,data:row });
+      } catch(error) { if(String(error?.message||"").includes("UNIQUE")) return jsonResponse({success:false,error:"That page slug is already in use."},409); throw error; }
+    }
+    if (request.method === "DELETE") {
+      const id = parseOptionalId(url.searchParams.get("id")); if (!id) return jsonResponse({success:false,error:"Page id is required."},400);
+      const result = await env.DB.prepare("DELETE FROM content_pages WHERE id=?").bind(id).run(); if(!result.meta?.changes)return jsonResponse({success:false,error:"Information page not found."},404); return jsonResponse({success:true,data:{id}});
+    }
+    return jsonResponse({success:false,error:"Method not allowed."},405);
+  } catch(error) { if(error?.message==="Administrator authorization required.")return jsonResponse({success:false,error:error.message},403); if(error?.message==="Authentication required.")return jsonResponse({success:false,error:error.message},401); return jsonResponse({success:false,error:"Unable to manage information pages."},500); }
+}
 async function handleImageUpload(request, env) {
   if (request.method !== "POST") return jsonResponse({ success: false, error: "Method not allowed." }, 405);
   try {
@@ -207,4 +245,4 @@ async function handleProducts(request,env){if(request.method==="GET"){try{const 
       }
     }
     if(Array.isArray(body?.images)){await env.DB.prepare(`DELETE FROM product_images WHERE product_id=?`).bind(productId).run();for(const image of body.images){const u=String(image?.image_url??"").trim();if(!u)continue;await env.DB.prepare(`INSERT INTO product_images(product_id,image_url,cloudinary_public_id,alt_text,sort_order,is_primary) VALUES(?,?,?,?,?,?)`).bind(productId,u,String(image?.cloudinary_public_id??"").trim(),String(image?.alt_text??"").trim(),parseNonNegativeInteger(image?.sort_order),parseEnabled(image?.is_primary)).run();}}return jsonResponse({success:true,data:{id:productId,uid:token.sub}},request.method==="POST"?201:200);}catch(error){if(error?.message==="Authentication required.")return jsonResponse({success:false,error:error.message},401);if(String(error?.message||"").includes("UNIQUE constraint failed"))return jsonResponse({success:false,error:"A product with that slug already exists."},409);return jsonResponse({success:false,error:`Product save failed: ${String(error?.message || "Unable to save product.")}`},500);}}
-export default { async fetch(request, env) { const url = new URL(request.url); if (url.pathname === "/api/admin-auth-check") return handleAdminAuthCheck(request, env); if (url.pathname === "/api/store-settings") return handleStoreSettings(request, env); if (url.pathname === "/api/upload-image") return handleImageUpload(request, env); if (url.pathname === "/api/categories") return handleCategories(request, env); if (url.pathname === "/api/product-groups") return handleProductGroups(request, env); if (url.pathname === "/api/products") return handleProducts(request, env); return new Response(JSON.stringify({ success: true, message: "Clothing Store Worker is online.", version: "1.0.0-test" }), { status: 200, headers: { "Content-Type": "application/json" } }); } };
+export default { async fetch(request, env) { const url = new URL(request.url); if (url.pathname === "/api/admin-auth-check") return handleAdminAuthCheck(request, env); if (url.pathname === "/api/store-settings") return handleStoreSettings(request, env); if (url.pathname === "/api/content-pages") return handleContentPages(request, env); if (url.pathname === "/api/upload-image") return handleImageUpload(request, env); if (url.pathname === "/api/categories") return handleCategories(request, env); if (url.pathname === "/api/product-groups") return handleProductGroups(request, env); if (url.pathname === "/api/products") return handleProducts(request, env); return new Response(JSON.stringify({ success: true, message: "Clothing Store Worker is online.", version: "1.0.0-test" }), { status: 200, headers: { "Content-Type": "application/json" } }); } };

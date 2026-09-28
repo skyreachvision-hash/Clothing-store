@@ -523,3 +523,6 @@ body.communications-drawer-open,body.customer-chat-drawer-open{overflow:hidden}
 .customer-sticky-chat-backdrop.is-visible{opacity:1}
 body.customer-sticky-chat-open{overflow:hidden}
 @media (max-width:700px){.customer-sticky-chat-button{right:var(--space-4);bottom:var(--space-4);padding:var(--space-3) var(--space-4)}.customer-sticky-chat-panel{right:var(--space-3);bottom:calc(var(--space-4) + 52px);width:calc(100vw - 2 * var(--space-3));max-height:calc(100vh - 96px)}.customer-sticky-chat-content{padding:var(--space-4)}}
+
+/* Managed informational pages */
+.content-page{max-width:820px;margin:0 auto}.content-page-body{display:grid;gap:var(--space-5);margin-top:var(--space-6)}.content-page-body p{max-width:75ch;white-space:pre-wrap}.content-admin-list{display:grid;gap:var(--space-3)}.content-admin-item{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:var(--space-4);border:var(--border-width) solid var(--color-border);background:var(--color-surface)}.content-admin-item h3{margin-bottom:var(--space-1)}.content-admin-item p{margin:0}@media(max-width:700px){.content-admin-item{align-items:stretch;flex-direction:column}.content-admin-item .settings-actions{justify-content:flex-start;flex-wrap:wrap}}
