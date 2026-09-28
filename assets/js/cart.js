@@ -45,6 +45,30 @@ const getProductFromCard = (button) => {
   };
 };
 
+const animateProductToCart = (source) => {
+  const target = document.querySelector('.cart-link');
+  if (!source || !target || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const sourceRect = source.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  if (!sourceRect.width || !sourceRect.height || !targetRect.width || !targetRect.height) return;
+
+  const flyer = source.cloneNode(true);
+  flyer.classList.add('cart-fly-animation');
+  flyer.setAttribute('aria-hidden', 'true');
+  flyer.removeAttribute('id');
+  flyer.querySelectorAll?.('[id]').forEach((element) => element.removeAttribute('id'));
+  flyer.style.left = sourceRect.left + 'px';
+  flyer.style.top = sourceRect.top + 'px';
+  flyer.style.width = sourceRect.width + 'px';
+  flyer.style.height = sourceRect.height + 'px';
+  flyer.style.setProperty('--cart-fly-x', (targetRect.left + targetRect.width / 2 - (sourceRect.left + sourceRect.width / 2)) + 'px');
+  flyer.style.setProperty('--cart-fly-y', (targetRect.top + targetRect.height / 2 - (sourceRect.top + sourceRect.height / 2)) + 'px');
+  document.body.appendChild(flyer);
+  window.requestAnimationFrame(() => flyer.classList.add('is-flying'));
+  window.setTimeout(() => flyer.remove(), 700);
+};
+
 const addToCart = (product) => {
   const cart = readCart();
   const existing = cart.find((item) => Number(item.product_id) === Number(product.product_id));
@@ -60,6 +84,7 @@ document.addEventListener('click', (event) => {
   const product = getProductFromCard(button);
   if (!product) return;
   addToCart(product);
+  animateProductToCart(button.closest('.product-card')?.querySelector('.product-image img, .product-image') || button);
   const originalText = button.firstChild;
   if (originalText) originalText.textContent = 'Added to cart ';
   button.setAttribute('aria-label', `${product.name} added to cart`);
