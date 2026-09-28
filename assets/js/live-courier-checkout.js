@@ -194,7 +194,6 @@
     f.addEventListener('change', (event) => {
       if (event.target?.name === 'shipping_method_id') {
         if (courier()) {
-          event.stopPropagation();
           loadRates();
         } else {
           rates = [];
