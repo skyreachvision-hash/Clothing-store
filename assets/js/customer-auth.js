@@ -60,6 +60,21 @@ function renderAuthForm() {
       <form class="settings-form" data-account-form>
         <label class="field"><span>Email address</span><input name="email" type="email" autocomplete="email" required></label>
         <label class="field"><span>Password</span><input name="password" type="password" autocomplete="${mode === "login" ? "current-password" : "new-password"}" minlength="6" required></label>
+        ${mode === "register" ? `
+        <div class="settings-group">
+          <p class="settings-readonly">Delivery address</p>
+          <label class="field"><span>Full name</span><input name="full_name" autocomplete="name" required></label>
+          <label class="field"><span>Phone number</span><input name="phone" type="tel" autocomplete="tel" required></label>
+          <label class="field"><span>Street / address</span><input name="address" autocomplete="street-address" required></label>
+          <div class="settings-fields-two">
+            <label class="field"><span>City / Town</span><input name="city" autocomplete="address-level2" required></label>
+            <label class="field"><span>Province</span><input name="province" autocomplete="address-level1" required></label>
+          </div>
+          <div class="settings-fields-two">
+            <label class="field"><span>Postal code</span><input name="postal_code" autocomplete="postal-code" required></label>
+            <label class="field"><span>Country</span><input name="country" autocomplete="country-name" value="South Africa" required></label>
+          </div>
+        </div>` : ""}
         <p class="checkout-notice" data-account-status aria-live="polite" hidden></p>
         <button class="button button-primary" type="submit">${mode === "login" ? "Sign in" : "Create account"}</button>
       </form>
@@ -72,8 +87,22 @@ function renderAuthForm() {
     const password = event.currentTarget.elements.password.value;
     setStatus(mode === "login" ? "Signing in…" : "Creating account…");
     try {
-      if (mode === "login") await signInWithEmailAndPassword(auth, email, password);
-      else await createUserWithEmailAndPassword(auth, email, password);
+      if (mode === "login") {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        const details = Object.fromEntries(new FormData(event.currentTarget).entries());
+        const token = await credential.user.getIdToken();
+        const response = await fetch("/api/customer-profile", {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(details)
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || "Your account was created, but your delivery address could not be saved. Please try again.");
+        }
+      }
       window.location.assign("account.html");
     } catch (error) { setStatus(authErrorMessage(error)); }
   });
