@@ -91,9 +91,7 @@ button { cursor: pointer; }
 .site-nav a:hover, .text-link:hover, .footer-column a:hover { color: var(--color-brand-secondary); }
 .cart-link, .account-link { display: flex; gap: var(--space-2); align-items: center; }
 .cart-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: var(--radius-pill); background: var(--color-brand-secondary); color: var(--color-text-inverse); font-size: var(--font-size-xs); }
-.header-icon, .menu-toggle { border: 0; background: transparent; color: var(--color-text); }
-.header-icon { padding: var(--space-2); font-size: 1.35rem; }
-.menu-toggle { display: none; font-size: 1.5rem; }
+.header-icon { border: 0; background: transparent; color: var(--color-text); padding: var(--space-2); font-size: 1.35rem; }
 .search-panel { padding: var(--space-5) 0; border-bottom: var(--border-width) solid var(--color-border); background: var(--color-surface); }
 .search-panel label { display: block; margin-bottom: var(--space-2); font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); letter-spacing: .1em; text-transform: uppercase; }
 .search-row { display: flex; gap: var(--space-2); }
@@ -218,11 +216,10 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .newsletter-inner, .cart-callout-inner { align-items: start; flex-direction: column; }
 }
 @media (max-width: 700px) {
-  .header-inner { min-height: 64px; }
-  .menu-toggle { display: block; }
-  .site-nav { display: none; position: absolute; left: 0; right: 0; top: 64px; flex-direction: column; align-items: stretch; padding: var(--space-4) var(--space-5); border-bottom: var(--border-width) solid var(--color-border); background: var(--color-surface); }
-  .site-nav.is-open { display: flex; }
-  .site-nav a, .header-icon { padding: var(--space-3) 0; text-align: left; }
+  .header-inner { min-height: 64px; gap: var(--space-3); }
+  .site-header .brand { flex: 0 0 auto; }
+  .site-nav { flex: 1 1 auto; min-width: 0; gap: var(--space-4); overflow-x: auto; overflow-y: hidden; padding: var(--space-2) 0; scrollbar-width: thin; white-space: nowrap; }
+  .site-nav a, .header-icon { flex: 0 0 auto; padding: var(--space-2) 0; text-align: center; }
   .section-heading { align-items: start; flex-direction: column; }
   .category-card { min-height: 170px; }
   .product-grid { gap: var(--space-8) var(--space-3); }
