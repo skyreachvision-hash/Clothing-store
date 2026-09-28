@@ -492,3 +492,34 @@ body.communications-drawer-open,body.customer-chat-drawer-open{overflow:hidden}
 .shipping-option-card-content strong { font-weight: var(--font-weight-semibold); }
 .shipping-option-card-content span { white-space: nowrap; }
 .shipping-rate-message { margin: 0; }
+
+
+/* Customer sticky live chat */
+.customer-sticky-chat-button{position:fixed;right:var(--space-5);bottom:var(--space-5);z-index:1100;display:inline-flex;align-items:center;gap:var(--space-2);border:var(--border-width) solid var(--color-brand-primary);border-radius:var(--radius-pill);padding:var(--space-3) var(--space-5);background:var(--color-brand-primary);color:var(--color-text-inverse);font-weight:var(--font-weight-bold);box-shadow:var(--shadow-lg);transition:var(--transition-standard)}
+.customer-sticky-chat-button:hover{background:var(--color-brand-primary-hover);transform:translateY(-2px)}
+.customer-sticky-chat-panel{position:fixed;z-index:1101;right:var(--space-5);bottom:calc(var(--space-5) + 56px);width:min(420px,calc(100vw - 2 * var(--space-5)));max-height:min(680px,calc(100vh - 120px));display:flex;flex-direction:column;overflow:hidden;background:var(--color-surface);border:var(--border-width) solid var(--color-border);box-shadow:var(--shadow-lg);transform:translateY(16px) scale(.98);opacity:0;pointer-events:none;transition:opacity var(--duration-normal) var(--ease-standard),transform var(--duration-normal) var(--ease-emphasis)}
+.customer-sticky-chat-panel.is-open{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
+.customer-sticky-chat-header{display:flex;align-items:start;justify-content:space-between;gap:var(--space-4);padding:var(--space-5);border-bottom:var(--border-width) solid var(--color-border);background:var(--color-surface)}
+.customer-sticky-chat-header h2{margin-bottom:var(--space-1);font-size:var(--font-size-2xl)}
+.customer-sticky-chat-header p{margin-bottom:0}
+.customer-sticky-chat-content{min-height:0;overflow:auto;padding:var(--space-5)}
+.customer-sticky-chat-empty{display:grid;gap:var(--space-3);padding:var(--space-5) 0;text-align:center}
+.customer-sticky-chat-empty h3{margin-bottom:0;font-family:var(--font-display);font-size:var(--font-size-xl)}
+.customer-sticky-chat-actions{display:flex;justify-content:flex-end;margin-bottom:var(--space-4)}
+.customer-sticky-chat-list{display:grid;gap:var(--space-2)}
+.customer-sticky-chat-conversation{display:grid;gap:var(--space-1);width:100%;padding:var(--space-4);border:var(--border-width) solid var(--color-border);background:var(--color-surface);color:var(--color-text);text-align:left}
+.customer-sticky-chat-conversation:hover{border-color:var(--color-brand-secondary);box-shadow:var(--shadow-sm)}
+.customer-sticky-chat-conversation span,.customer-sticky-chat-conversation small{color:var(--color-text-muted)}
+.customer-sticky-chat-conversation small{font-size:var(--font-size-xs)}
+.customer-sticky-chat-conversation-toolbar{margin-bottom:var(--space-4)}
+.customer-sticky-chat-messages{display:grid;gap:var(--space-3);max-height:320px;overflow:auto;padding:var(--space-1)}
+.customer-sticky-chat-message{max-width:88%;padding:var(--space-3);border:var(--border-width) solid var(--color-border);background:var(--color-surface-muted)}
+.customer-sticky-chat-message.is-customer{justify-self:end}
+.customer-sticky-chat-message.is-admin{justify-self:start}
+.customer-sticky-chat-message p{margin:var(--space-1) 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.customer-sticky-chat-form{display:grid;gap:var(--space-3);margin-top:var(--space-4)}
+.customer-sticky-chat-form textarea{width:100%;border:var(--border-width) solid var(--color-border-strong);padding:var(--space-3) var(--space-4);background:var(--color-surface);color:var(--color-text);resize:vertical}
+.customer-sticky-chat-backdrop{position:fixed;z-index:1099;inset:0;background:rgb(23 23 23 / .18);opacity:0;transition:opacity var(--duration-normal) var(--ease-standard)}
+.customer-sticky-chat-backdrop.is-visible{opacity:1}
+body.customer-sticky-chat-open{overflow:hidden}
+@media (max-width:700px){.customer-sticky-chat-button{right:var(--space-4);bottom:var(--space-4);padding:var(--space-3) var(--space-4)}.customer-sticky-chat-panel{right:var(--space-3);bottom:calc(var(--space-4) + 52px);width:calc(100vw - 2 * var(--space-3));max-height:calc(100vh - 96px)}.customer-sticky-chat-content{padding:var(--space-4)}}

@@ -284,3 +284,210 @@ if (window.location.pathname.endsWith('/checkout.html')) {
   liveCourierScript.defer = true;
   document.head.appendChild(liveCourierScript);
 }
+
+
+/* Customer sticky live chat */
+const initCustomerStickyChat = async () => {
+  if (document.body.classList.contains('admin-page') || document.querySelector('[data-customer-sticky-chat]')) return;
+
+  const root = document.createElement('div');
+  root.dataset.customerStickyChat = '';
+  root.innerHTML = `
+    <button class="customer-sticky-chat-button" type="button" data-chat-open aria-expanded="false" aria-controls="customer-sticky-chat-panel">
+      <span aria-hidden="true">💬</span><span>Chat with us</span>
+    </button>
+    <div class="customer-sticky-chat-backdrop" data-chat-backdrop hidden></div>
+    <aside class="customer-sticky-chat-panel" id="customer-sticky-chat-panel" data-chat-panel aria-hidden="true">
+      <div class="customer-sticky-chat-header">
+        <div><p class="eyebrow">Customer care</p><h2>Live Chat</h2><p class="muted" data-chat-status>Loading…</p></div>
+        <button class="button button-outline button-small" type="button" data-chat-close>Close</button>
+      </div>
+      <div class="customer-sticky-chat-content" data-chat-content></div>
+    </aside>
+  `;
+  document.body.appendChild(root);
+
+  const openButton = root.querySelector('[data-chat-open]');
+  const closeButton = root.querySelector('[data-chat-close]');
+  const backdrop = root.querySelector('[data-chat-backdrop]');
+  const panel = root.querySelector('[data-chat-panel]');
+  const content = root.querySelector('[data-chat-content]');
+  const status = root.querySelector('[data-chat-status]');
+  let user = null;
+  let conversationId = null;
+  let refreshTimer = null;
+
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[character]));
+
+  const api = async (url, options = {}) => {
+    if (!user) throw new Error('Please sign in to use live chat.');
+    const headers = new Headers(options.headers || {});
+    headers.set('Authorization', 'Bearer ' + await user.getIdToken());
+    if (options.body) headers.set('Content-Type', 'application/json');
+    const response = await fetch(url, { ...options, headers, cache: 'no-store' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) throw new Error(data.error || 'Unable to load live chat.');
+    return data;
+  };
+
+  const setOpen = (open) => {
+    panel.classList.toggle('is-open', open);
+    backdrop.hidden = !open;
+    backdrop.classList.toggle('is-visible', open);
+    panel.setAttribute('aria-hidden', String(!open));
+    openButton.setAttribute('aria-expanded', String(open));
+    document.body.classList.toggle('customer-sticky-chat-open', open);
+    if (!open) {
+      clearTimeout(refreshTimer);
+      refreshTimer = null;
+    }
+  };
+
+  const signInView = () => {
+    status.textContent = 'Customer care';
+    content.innerHTML = `
+      <div class="customer-sticky-chat-empty">
+        <h3>Sign in to chat with us</h3>
+        <p class="muted">Your conversations are saved to your customer account so you can continue them later.</p>
+        <a class="button button-primary" href="/account.html">Sign in / Create account</a>
+      </div>`;
+  };
+
+  const renderList = async () => {
+    const data = await api('/api/customer-communications');
+    const conversations = Array.isArray(data.data) ? data.data : [];
+    status.textContent = conversations.length ? conversations.length + ' conversation' + (conversations.length === 1 ? '' : 's') : 'Customer care';
+    content.innerHTML = `
+      <div class="customer-sticky-chat-actions"><button class="button button-primary" type="button" data-chat-new>New chat</button></div>
+      <div class="customer-sticky-chat-list">
+        ${conversations.length ? conversations.map((conversation) => `
+          <button class="customer-sticky-chat-conversation" type="button" data-chat-conversation="${conversation.id}">
+            <strong>Ticket #${esc(conversation.id)}</strong>
+            <span>${esc(conversation.subject || 'Customer question')}</span>
+            <small>${esc(conversation.message_count + ' message' + (conversation.message_count === 1 ? '' : 's'))} · ${esc(conversation.status)}</small>
+          </button>`).join('') : '<p class="muted">No conversations yet. Start a chat and our customer care team will reply here.</p>'}
+      </div>`;
+    content.querySelector('[data-chat-new]')?.addEventListener('click', renderNew);
+    content.querySelectorAll('[data-chat-conversation]').forEach((button) => {
+      button.addEventListener('click', () => renderConversation(Number(button.dataset.chatConversation)));
+    });
+  };
+
+  const renderNew = () => {
+    status.textContent = 'New conversation';
+    content.innerHTML = `
+      <form class="customer-sticky-chat-form" data-chat-new-form>
+        <label class="field"><span>Message</span><textarea name="body" rows="6" maxlength="4000" required placeholder="How can we help?"></textarea></label>
+        <div class="settings-actions"><span class="settings-load-status" data-chat-form-status>Ready.</span><button class="button button-primary" type="submit">Send message</button></div>
+      </form>`;
+    content.querySelector('textarea')?.focus();
+    content.querySelector('[data-chat-new-form]').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const formStatus = form.querySelector('[data-chat-form-status]');
+      formStatus.textContent = 'Sending…';
+      try {
+        const result = await api('/api/customer-communications', {
+          method: 'POST',
+          body: JSON.stringify({ body: form.elements.body.value.trim() })
+        });
+        conversationId = Number(result.data.id);
+        await renderConversation(conversationId);
+      } catch (error) {
+        formStatus.textContent = error.message;
+      }
+    });
+  };
+
+  const renderConversation = async (id) => {
+    conversationId = id;
+    const data = await api('/api/customer-communications?id=' + encodeURIComponent(id));
+    const conversation = data.data;
+    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+    status.textContent = 'Ticket #' + conversation.id + ' · ' + conversation.status;
+    content.innerHTML = `
+      <div class="customer-sticky-chat-conversation-toolbar">
+        <button class="button button-outline button-small" type="button" data-chat-back>← Conversations</button>
+      </div>
+      <div class="customer-sticky-chat-messages" data-chat-messages>
+        ${messages.map((message) => `
+          <article class="customer-sticky-chat-message ${message.sender_type === 'customer' ? 'is-customer' : 'is-admin'}">
+            <strong>${esc(message.sender_type === 'customer' ? 'You' : (message.sender_name || 'Customer care'))}</strong>
+            <p>${esc(message.body)}</p>
+          </article>`).join('')}
+      </div>
+      ${conversation.status === 'open'
+        ? `<form class="customer-sticky-chat-form" data-chat-reply>
+             <textarea name="body" rows="3" maxlength="4000" required placeholder="Write a reply…"></textarea>
+             <div class="settings-actions"><span class="settings-load-status" data-chat-reply-status>Replies appear here.</span><button class="button button-primary" type="submit">Send</button></div>
+           </form>`
+        : '<p class="settings-notice">This conversation is closed.</p>'}`;
+    content.querySelector('[data-chat-messages]')?.scrollTo({ top: content.querySelector('[data-chat-messages]').scrollHeight });
+    content.querySelector('[data-chat-back]')?.addEventListener('click', renderList);
+    content.querySelector('[data-chat-reply]')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const formStatus = form.querySelector('[data-chat-reply-status]');
+      formStatus.textContent = 'Sending…';
+      try {
+        await api('/api/customer-communications', {
+          method: 'POST',
+          body: JSON.stringify({ conversation_id: conversationId, body: form.elements.body.value.trim() })
+        });
+        form.reset();
+        await renderConversation(conversationId);
+      } catch (error) {
+        formStatus.textContent = error.message;
+      }
+    });
+  };
+
+  const refreshOpenConversation = async () => {
+    if (!panel.classList.contains('is-open') || !conversationId || !user) return;
+    try { await renderConversation(conversationId); } catch { /* Keep the current conversation visible. */ }
+    refreshTimer = setTimeout(refreshOpenConversation, 5000);
+  };
+
+  openButton.addEventListener('click', async () => {
+    setOpen(true);
+    if (!user) {
+      signInView();
+      return;
+    }
+    try {
+      conversationId = null;
+      await renderList();
+    } catch (error) {
+      status.textContent = 'Customer care';
+      content.innerHTML = '<p class="settings-notice">' + esc(error.message) + '</p>';
+    }
+  });
+  closeButton.addEventListener('click', () => setOpen(false));
+  backdrop.addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && panel.classList.contains('is-open')) setOpen(false);
+  });
+
+  try {
+    const [{ initializeApp, getApps }, { firebaseConfig }, { getAuth, onAuthStateChanged }] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js'),
+      import('/assets/js/firebase-config.js'),
+      import('https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js')
+    ]);
+    const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    onAuthStateChanged(auth, (currentUser) => {
+      user = currentUser;
+      if (!user && panel.classList.contains('is-open')) signInView();
+    });
+  } catch {
+    status.textContent = 'Customer care';
+    content.innerHTML = '<p class="settings-notice">Live chat is temporarily unavailable.</p>';
+  }
+
+  return root;
+};
+
+initCustomerStickyChat();
