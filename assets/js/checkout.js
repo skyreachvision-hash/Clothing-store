@@ -108,21 +108,30 @@ function selectedShipping() {
 
 function renderShippingOptions() {
   const methodSelect = document.querySelector('[data-shipping-method]');
-  const optionSelect = document.querySelector('[data-shipping-option]');
+  const optionList = document.querySelector('[data-shipping-option]');
   const optionField = document.querySelector('[data-shipping-option-field]');
   const landmarkField = document.querySelector('[data-landmark-field]');
   const method = shippingMethods.find((item) => Number(item.id) === Number(methodSelect?.value || 0)) || null;
 
-  if (!methodSelect || !optionSelect || !optionField) return;
-  optionSelect.innerHTML = '<option value="">Select an option</option>';
-  for (const option of method?.options || []) {
-    const item = document.createElement('option');
-    item.value = option.id;
-    item.textContent = `${option.name} — ${formatMoney(option.price, 'ZAR')}`;
-    optionSelect.append(item);
+  if (!methodSelect || !optionList || !optionField) return;
+  optionList.innerHTML = '';
+  const options = method?.options || [];
+  optionField.hidden = !options.length;
+  for (const option of options) {
+    const label = document.createElement('label');
+    label.className = 'shipping-option-card';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'shipping_option_id';
+    input.value = String(option.id);
+    input.required = true;
+    input.checked = options.length === 1;
+    const content = document.createElement('span');
+    content.className = 'shipping-option-card-content';
+    content.innerHTML = `<strong>${escapeHtml(option.name)}</strong><span>${formatMoney(option.price, 'ZAR')}</span>`;
+    label.append(input, content);
+    optionList.append(label);
   }
-  optionField.hidden = !(method?.options?.length);
-  if (method?.options?.length === 1) optionSelect.value = String(method.options[0].id);
 
   const requiresLandmark = method?.provider_type === 'local';
   if (landmarkField) {
@@ -183,7 +192,7 @@ function renderCheckout() {
         <fieldset class="checkout-section">
           <legend>Delivery</legend>
           <label class="field"><span>Shipping method</span><select name="shipping_method_id" data-shipping-method required>${methodsMarkup}</select></label>
-          <label class="field" data-shipping-option-field><span>Delivery area / option</span><select name="shipping_option_id" data-shipping-option required><option value="">Select an option</option></select></label>
+          <div class="field" data-shipping-option-field hidden><span>Delivery option rates</span><div class="shipping-option-list" data-shipping-option></div></div>
           <label class="field" data-landmark-field hidden><span>Where are you staying / what are you near?</span><input name="landmark" type="text" maxlength="300" placeholder="e.g. Next to the school or near Mpho's shop"></label>
           <div class="settings-fields-two">
             <label class="field" data-address-field><span>Street / address</span><input name="address" type="text" autocomplete="street-address" required></label>
@@ -222,7 +231,7 @@ function renderCheckout() {
   const methodSelect = document.querySelector('[data-shipping-method]');
   const optionSelect = document.querySelector('[data-shipping-option]');
   methodSelect?.addEventListener('change', renderShippingOptions);
-  optionSelect?.addEventListener('change', renderShippingOptions);
+  document.querySelector('[data-shipping-option]')?.addEventListener('change', updateTotals);
   document.querySelector('[data-checkout-form]')?.elements.city?.addEventListener('input', applyConfiguredLocalArea);
   renderShippingOptions();
 }
