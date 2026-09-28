@@ -86,7 +86,7 @@ function renderCatalogue() {
     return sortByStoreOrder(a, b);
   });
 
-  if (countElement) countElement.textContent = `${visible.length} ${visible.length === 1 ? 'product' : 'products'}`;
+  if (countElement) countElement.textContent = '';
   if (!visible.length) {
     catalogueElement.innerHTML = '<p class="muted">No products match the selected filters.</p>';
     return;
