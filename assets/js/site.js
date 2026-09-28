@@ -491,3 +491,24 @@ const initCustomerStickyChat = async () => {
 };
 
 initCustomerStickyChat();
+
+
+const informationLinkContainers = document.querySelectorAll("[data-information-links]");
+const loadPublicInformationLinks = async () => {
+  if (!informationLinkContainers.length) return;
+  try {
+    const response = await fetch("/api/content-pages", { headers: { Accept: "application/json" }, cache: "no-store" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.success) return;
+    const pages = Array.isArray(payload.data) ? payload.data : [];
+    informationLinkContainers.forEach((container) => {
+      container.innerHTML = pages.map((page) =>
+        '<a href="information.html?slug=' + encodeURIComponent(page.slug) + '">' +
+        escapeAttribute(page.title || page.slug) + '</a>'
+      ).join("");
+    });
+  } catch {
+    // Keep existing footer links if the information API is unavailable.
+  }
+};
+loadPublicInformationLinks();

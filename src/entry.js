@@ -8,6 +8,7 @@ import { handleCustomerOrders } from "./customer-orders-api.js";
 import { handlePaymentApi } from "./payment-api.js";
 import { handlePaymentSettings } from "./payment-settings-api.js";
 import { handleCustomerCommunications, handleAdminCommunications } from "./communication-api.js";
+import { handleContentPages } from "./content-pages-api.js";
 export default { async fetch(request, env, ctx) {
   const url = new URL(request.url);
   if (url.pathname === "/api/categories") return handleCategoryApi(request, env, originalWorker);
@@ -19,6 +20,7 @@ export default { async fetch(request, env, ctx) {
   if (url.pathname === "/api/payment-settings") return handlePaymentSettings(request, env);
   if (url.pathname === "/api/customer-communications") return handleCustomerCommunications(request, env);
   if (url.pathname === "/api/admin-communications") return handleAdminCommunications(request, env);
+  if (url.pathname === "/api/content-pages") return handleContentPages(request, env);
   if (url.pathname === "/api/product-groups" && request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
