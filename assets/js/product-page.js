@@ -196,6 +196,7 @@ if (addButton) {
         quantity: 1
       });
       localStorage.setItem(key, JSON.stringify(cart));
+      window.animateProductToCart?.(mainImageElement || addButton);
       document.querySelectorAll('.cart-count').forEach((element) => {
         element.textContent = String(cart.reduce((total, item) => total + Number(item.quantity || 0), 0));
       });
