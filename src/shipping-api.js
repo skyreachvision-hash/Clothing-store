@@ -1,6 +1,5 @@
 import { packOrder } from "./shipping-packing.js";
 import { getCourierGuyRates } from "./shipping-courier.js";
-import { verifyFirebaseIdToken } from "./index.js";
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 
 function jsonResponse(payload, status = 200) {
@@ -23,12 +22,12 @@ function enabled(value, fallback = 1) {
 }
 
 async function requireAdmin(request, originalWorker, env) {
-  const token = await verifyFirebaseIdToken(request);
-  const admin = await env.DB.prepare(
-    "SELECT firebase_uid, role, is_enabled FROM admin_users WHERE firebase_uid = ? AND is_enabled = 1"
-  ).bind(token.sub).first();
-  if (!admin) throw new Error("Administrator authorization required.");
-  return { success: true, data: { uid: token.sub, role: admin.role } };
+  const response = await originalWorker.fetch(new Request(new URL("/api/admin-auth-check", request.url), {
+    method: "GET",
+    headers: request.headers
+  }), env);
+  if (!response.ok) throw new Error("Authentication required.");
+  return response.json();
 }
 
 async function getShippingTypes(env, includeDisabled = false) { const where = includeDisabled ? "" : "WHERE is_enabled = 1"; return (await env.DB.prepare(`SELECT id,name,code,description,requires_weight,requires_dimensions,is_enabled,sort_order,created_at,updated_at FROM shipping_types ${where} ORDER BY sort_order ASC,id ASC`).all()).results ?? []; }
