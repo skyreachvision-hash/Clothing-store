@@ -84,6 +84,18 @@ async function validatePacking(env, lineItems) {
 async function getShipping(env, shippingMethodId, shippingOptionId, shippingRateCode = '', packing = null, customer = {}, declaredValue = 0) {
   const methodId = Number(shippingMethodId), optionId = Number(shippingOptionId);
   if (!Number.isInteger(methodId) || methodId <= 0) throw new Error("Please select a valid delivery method and option.");
+
+  const normalizeArea = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const customerCity = normalizeArea(customer?.city);
+  if (customerCity) {
+    const localOptions = (await env.DB.prepare(
+      "SELECT m.id AS method_id, m.name AS method_name, m.provider_type, m.mode, o.id AS option_id, o.name AS option_name, o.price FROM shipping_methods m JOIN shipping_options o ON o.shipping_method_id = m.id WHERE m.provider_type = 'local' AND m.is_enabled = 1 AND o.is_enabled = 1 ORDER BY m.sort_order ASC, m.id ASC, o.sort_order ASC, o.id ASC"
+    ).all()).results ?? [];
+    const localMatch = localOptions.find((option) => normalizeArea(option.option_name) === customerCity);
+    if (localMatch) {
+      return localMatch;
+    }
+  }
   if (clean(shippingRateCode) && packing?.parcels?.length) {
     const method = await env.DB.prepare("SELECT id, name, provider_type, mode FROM shipping_methods WHERE id = ? AND is_enabled = 1").bind(methodId).first();
     if (method?.provider_type === "courier_guy" && method.mode === "api") {
