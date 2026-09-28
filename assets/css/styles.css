@@ -86,8 +86,9 @@ button { cursor: pointer; }
 .skip-link:focus { top: var(--space-3); }
 .brand { font-size: var(--font-size-md); font-weight: var(--font-weight-bold); letter-spacing: .1em; text-transform: uppercase; }
 .site-header, .admin-header { position: sticky; top: 0; z-index: 10; border-bottom: var(--border-width) solid var(--color-border); background: rgb(248 247 244 / .95); backdrop-filter: blur(12px); }
-.header-inner { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); }
-.site-nav { display: flex; align-items: center; gap: var(--space-6); font-size: var(--font-size-sm); }
+.header-inner { min-height: 76px; display: flex; align-items: center; gap: var(--space-8); }
+.site-header .brand { flex: 0 0 auto; }
+.site-nav { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; gap: var(--space-6); min-width: 0; font-size: var(--font-size-sm); }
 .site-nav a:hover, .text-link:hover, .footer-column a:hover { color: var(--color-brand-secondary); }
 .cart-link, .account-link { display: flex; gap: var(--space-2); align-items: center; }
 .cart-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: var(--radius-pill); background: var(--color-brand-secondary); color: var(--color-text-inverse); font-size: var(--font-size-xs); }
@@ -216,9 +217,9 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .newsletter-inner, .cart-callout-inner { align-items: start; flex-direction: column; }
 }
 @media (max-width: 700px) {
-  .header-inner { min-height: 64px; gap: var(--space-3); }
+  .header-inner { min-height: 64px; gap: var(--space-4); overflow-x: auto; }
   .site-header .brand { flex: 0 0 auto; }
-  .site-nav { flex: 1 1 auto; min-width: 0; gap: var(--space-4); overflow-x: auto; overflow-y: hidden; padding: var(--space-2) 0; scrollbar-width: thin; white-space: nowrap; }
+  .site-nav { flex: 0 0 auto; gap: var(--space-4); overflow: visible; padding: var(--space-2) 0; white-space: nowrap; }
   .site-nav a, .header-icon { flex: 0 0 auto; padding: var(--space-2) 0; text-align: center; }
   .section-heading { align-items: start; flex-direction: column; }
   .category-card { min-height: 170px; }
