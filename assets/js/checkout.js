@@ -85,9 +85,8 @@ function applyConfiguredLocalArea() {
     methodSelect.value = String(local.method.id);
     renderShippingOptions();
   }
-  if (optionSelect) {
+  if (optionSelect && String(optionSelect.value) !== String(local.option.id)) {
     optionSelect.value = String(local.option.id);
-    optionSelect.dispatchEvent(new Event('change', { bubbles: true }));
   }
   const notice = form.querySelector('[data-checkout-notice]');
   if (notice) {
