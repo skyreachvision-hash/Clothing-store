@@ -25,8 +25,8 @@ async function api(url, options = {}) {
 
 async function load() {
   if (!id) throw new Error("A page id is required.");
-  const result = await api("/api/content-pages?id=" + encodeURIComponent(id));
-  const page = result.data;
+  const result = await api("/api/content-pages");
+  const page = (result.data || []).find((item) => String(item.id) === String(id));
   if (!page) throw new Error("Information page not found.");
   title.textContent = "Edit " + (page.title || "Information Page");
   form.elements.title.value = page.title || "";
