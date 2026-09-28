@@ -26,6 +26,7 @@
   <main id="main-content">
     <section class="section">
       <div class="container">
+        <p><button class="button button-ghost" type="button" data-context-back>← Back</button></p>
         <div class="product-detail-layout">
           <div class="product-gallery" aria-label="Product pictures">
             <div class="product-gallery-main"><img data-product-main-image src="" alt="" loading="eager"></div>
@@ -57,6 +58,14 @@
     </section>
   </main>
   <footer class="site-footer"><div class="container footer-bottom"><p>© <span data-current-year>2026</span> <span data-store-name>Clothing Store</span>. All rights reserved.</p></div></footer>
+  <script>
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-context-back]');
+      if (!button) return;
+      if (window.history.length > 1) window.history.back();
+      else window.location.href = 'shop.html';
+    });
+  </script>
   <script type="module" src="assets/js/customer-nav.js"></script>
   <script src="assets/js/product-page.js" defer></script>
 </body>
