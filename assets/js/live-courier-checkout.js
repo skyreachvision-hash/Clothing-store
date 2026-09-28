@@ -63,24 +63,22 @@
 
   async function loadRates() {
     const f = form();
-    const select = f?.elements.shipping_option_id;
+    const optionList = f?.querySelector('[data-shipping-option]');
     const optionField = f?.querySelector('[data-shipping-option-field]');
     const notice = f?.querySelector('[data-checkout-notice]');
     const m = method();
-    if (!f || !select || !m || !courier()) return;
+    if (!f || !optionList || !m || !courier()) return;
 
     if (optionField) optionField.hidden = false;
     rates = [];
     clearShippingTotal();
 
     if (!completeAddress()) {
-      select.disabled = false;
-      select.innerHTML = '<option value="">Enter your delivery address to get live courier rates</option>';
+      optionList.innerHTML = '<p class="muted shipping-rate-message">Enter your delivery address to get live courier rates.</p>';
       return;
     }
 
-    select.disabled = true;
-    select.innerHTML = '<option value="">Getting delivery rates…</option>';
+    optionList.innerHTML = '<p class="muted shipping-rate-message">Getting delivery rates…</p>';
 
     try {
       const cart = cartItems();
@@ -97,15 +95,14 @@
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to calculate delivery rates.');
       rates = Array.isArray(payload.data?.rates) ? payload.data.rates : [];
-      select.innerHTML = rates.length
-        ? rates.map((rate) => '<option value="rate:' + String(rate.code).replace(/"/g, '&quot;') + '">' + String(rate.name).replace(/[&<>]/g, '') + ' — ' + money(rate.price) + '</option>').join('')
-        : '<option value="">No courier service is available for this address</option>';
-      select.disabled = false;
-      if (rates.length) select.value = 'rate:' + rates[0].code;
+      optionList.innerHTML = rates.length
+        ? rates.map((rate, index) => '<label class="shipping-option-card"><input type="radio" name="shipping_option_id" value="rate:' + String(rate.code).replace(/"/g, '&quot;') + '" required' + (index === 0 ? ' checked' : '') + '><span class="shipping-option-card-content"><strong>' + String(rate.name).replace(/[&<>]/g, '') + '</strong><span>' + money(rate.price) + '</span></span></label>').join('')
+        : '<p class="muted shipping-rate-message">No courier service is available for this address.</p>';
+      if (rates.length) optionList.querySelectorAll('input[name="shipping_option_id"]').forEach((input) => input.addEventListener('change', updateTotals));
       updateTotals();
     } catch (error) {
       rates = [];
-      select.innerHTML = '<option value="">Delivery rate unavailable</option>';
+      optionList.innerHTML = '<p class="muted shipping-rate-message">Delivery rate unavailable.</p>';
       select.disabled = false;
       clearShippingTotal();
       if (notice) {
