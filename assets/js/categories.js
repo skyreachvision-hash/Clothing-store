@@ -116,8 +116,7 @@ async function loadMainCategoriesWithProducts() {
 
         return `<div class="category-product-section">
           <div class="section-heading">
-            <div><p class="eyebrow">Subcategory</p><h3>${escapeHtml(subcategory.name)}</h3></div>
-            <span class="muted">${subcategoryProducts.length} ${subcategoryProducts.length === 1 ? 'piece' : 'pieces'}</span>
+            <div><p class="eyebrow">Subcategory</p><h3><a href="category.html?id=${encodeURIComponent(mainCategory.id)}&subcategory=${encodeURIComponent(subcategory.id)}">${escapeHtml(subcategory.name)}</a></h3></div>
           </div>
           ${subcategoryProducts.length
             ? `<div class="product-grid">${subcategoryProducts.map(renderProductCard).join('')}</div>`
@@ -128,7 +127,6 @@ async function loadMainCategoriesWithProducts() {
       return `<section aria-labelledby="main-category-${escapeHtml(mainCategory.id)}">
         <div class="section-heading">
           <div><p class="eyebrow">Main category</p><h2 id="main-category-${escapeHtml(mainCategory.id)}"><a href="category.html?id=${encodeURIComponent(mainCategory.id)}">${escapeHtml(mainCategory.name)}</a></h2></div>
-          <span class="muted">${subcategories.length} ${subcategories.length === 1 ? 'subcategory' : 'subcategories'}</span>
         </div>
         ${subcategoryBlocks || '<p class="muted">No subcategories are available in this section yet.</p>'}
       </section>`;
