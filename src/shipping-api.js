@@ -104,7 +104,8 @@ async function getShipping(env, includeDisabled = false) {
      ORDER BY id ASC`
   ).all();
   const rates = await env.DB.prepare(
-    `SELECT id, custom_courier_id, service_name, area_name, min_weight_kg, max_weight_kg,
+    `SELECT id, custom_courier_id, service_name, area_name, packaging_type,
+            min_weight_kg, max_weight_kg, max_length_cm, max_width_cm, max_height_cm,
             price, estimated_delivery, is_enabled, sort_order, created_at, updated_at
      FROM custom_courier_rates
      ORDER BY custom_courier_id ASC, sort_order ASC, id ASC`
