@@ -85,6 +85,10 @@ function renderAuthForm() {
     event.preventDefault();
     const email = event.currentTarget.elements.email.value.trim();
     const password = event.currentTarget.elements.password.value;
+    if (!event.currentTarget.checkValidity()) {
+      event.currentTarget.reportValidity();
+      return;
+    }
     setStatus(mode === "login" ? "Signing in…" : "Creating account…");
     try {
       if (mode === "login") {
