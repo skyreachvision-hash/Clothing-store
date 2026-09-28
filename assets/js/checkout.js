@@ -47,6 +47,7 @@ function populateCustomerProfile(profile) {
     const input = form.elements[field];
     if (input && profile[field]) input.value = profile[field];
   }
+  applyConfiguredLocalArea();
 }
 
 async function saveCustomerProfile(form) {
@@ -56,6 +57,44 @@ async function saveCustomerProfile(form) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to save your details.');
   return payload.data;
+}
+
+function normalizeArea(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function findConfiguredLocalArea(city) {
+  const normalizedCity = normalizeArea(city);
+  if (!normalizedCity) return null;
+  for (const method of shippingMethods) {
+    if (method?.provider_type !== 'local' || Number(method.is_enabled) !== 1) continue;
+    const option = (method.options || []).find((item) => normalizeArea(item.name) === normalizedCity && Number(item.is_enabled) === 1);
+    if (option) return { method, option };
+  }
+  return null;
+}
+
+function applyConfiguredLocalArea() {
+  const form = document.querySelector('[data-checkout-form]');
+  if (!form) return false;
+  const local = findConfiguredLocalArea(form.elements.city?.value);
+  if (!local) return false;
+  const methodSelect = form.elements.shipping_method_id;
+  const optionSelect = form.elements.shipping_option_id;
+  if (String(methodSelect.value) !== String(local.method.id)) {
+    methodSelect.value = String(local.method.id);
+    renderShippingOptions();
+  }
+  if (optionSelect) {
+    optionSelect.value = String(local.option.id);
+    optionSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const notice = form.querySelector('[data-checkout-notice]');
+  if (notice) {
+    notice.hidden = false;
+    notice.textContent = 'Local delivery is available for your area.';
+  }
+  return true;
 }
 
 function selectedShipping() {
@@ -100,6 +139,7 @@ function renderShippingOptions() {
   }
 
   updateTotals();
+  applyConfiguredLocalArea();
 }
 
 function updateTotals() {
@@ -184,6 +224,7 @@ function renderCheckout() {
   const optionSelect = document.querySelector('[data-shipping-option]');
   methodSelect?.addEventListener('change', renderShippingOptions);
   optionSelect?.addEventListener('change', renderShippingOptions);
+  document.querySelector('[data-checkout-form]')?.elements.city?.addEventListener('input', applyConfiguredLocalArea);
   renderShippingOptions();
 }
 
