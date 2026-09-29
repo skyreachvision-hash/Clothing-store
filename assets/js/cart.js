@@ -18,7 +18,7 @@ const getCartQuantity = (cart) => cart.reduce((total, item) => total + Number(it
 const updateCartCount = () => {
   const quantity = getCartQuantity(readCart());
   document.querySelectorAll('.cart-count').forEach((element) => { element.textContent = String(quantity); });
-  document.querySelectorAll('.cart-link').forEach((link) => {
+  document.querySelectorAll('.cart-link, .sticky-cart-link').forEach((link) => {
     link.setAttribute('aria-label', `Shopping cart, currently containing ${quantity} ${quantity === 1 ? 'item' : 'items'}`);
   });
 };
@@ -46,7 +46,7 @@ const getProductFromCard = (button) => {
 };
 
 const animateProductToCart = (source) => {
-  const target = document.querySelector('.cart-link');
+  const target = document.querySelector('.sticky-cart-link, .cart-link');
   if (!source || !target || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const sourceRect = source.getBoundingClientRect();
@@ -65,8 +65,19 @@ const animateProductToCart = (source) => {
   flyer.style.setProperty('--cart-fly-x', (targetRect.left + targetRect.width / 2 - (sourceRect.left + sourceRect.width / 2)) + 'px');
   flyer.style.setProperty('--cart-fly-y', (targetRect.top + targetRect.height / 2 - (sourceRect.top + sourceRect.height / 2)) + 'px');
   document.body.appendChild(flyer);
+  flyer.getBoundingClientRect();
   window.requestAnimationFrame(() => flyer.classList.add('is-flying'));
   window.setTimeout(() => flyer.remove(), 700);
+};
+
+window.animateProductToCart = animateProductToCart;
+
+const initStickyCart = () => {
+  if (document.querySelector('[data-sticky-cart]')) return;
+  const root = document.createElement('div');
+  root.dataset.stickyCart = '';
+  root.innerHTML = '<a class="sticky-cart-link" href="cart.html" aria-label="Shopping cart, currently empty"><span class="sticky-cart-icon" aria-hidden="true">Cart</span><span>Cart</span><span class="sticky-cart-count">0</span></a>';
+  document.body.appendChild(root);
 };
 
 const addToCart = (product) => {
@@ -75,7 +86,8 @@ const addToCart = (product) => {
   if (existing) existing.quantity = Number(existing.quantity || 0) + 1;
   else cart.push(product);
   writeCart(cart);
-  updateCartCount();
+  initStickyCart();
+updateCartCount();
 };
 
 document.addEventListener('click', (event) => {
