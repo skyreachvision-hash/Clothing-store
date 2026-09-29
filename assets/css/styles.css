@@ -295,6 +295,9 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .product-info h3 { font-size: var(--font-size-md); }
 .product-info h3 a:hover { color: var(--color-brand-secondary); }
 .price { white-space: nowrap; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); letter-spacing: .01em; }
+.product-page-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-6); }
+.product-page-actions .button { width: 100%; }
+.product-buy-now-large { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
 .product-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-4); }
 .product-actions .product-action { margin-top: 0; }
 .product-buy-now { display: flex; width: 100%; justify-content: center; align-items: center; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-brand-primary); border-radius: 999px; background: var(--color-brand-primary); color: var(--color-text-inverse); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer; transition: var(--transition-standard); }
