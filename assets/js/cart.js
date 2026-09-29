@@ -76,7 +76,7 @@ const initStickyCart = () => {
   if (document.querySelector('[data-sticky-cart]')) return;
   const root = document.createElement('div');
   root.dataset.stickyCart = '';
-  root.innerHTML = '<a class="sticky-cart-link" href="cart.html" aria-label="Shopping cart, currently empty"><span class="sticky-cart-icon" aria-hidden="true">Cart</span><span>Cart</span><span class="sticky-cart-count">0</span></a>';
+  root.innerHTML = '<a class="sticky-cart-link" href="cart.html" aria-label="Shopping cart, currently containing 0 items"><span class="sticky-cart-icon" aria-hidden="true">🛒</span><span class="sticky-cart-count">0</span></a>';
   document.body.appendChild(root);
 };
 
