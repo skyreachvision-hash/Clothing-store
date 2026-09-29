@@ -52,7 +52,7 @@ const renderProductCard = (product) => {
           ${colorOptions.map((item) => {
             const value = item.product_group_value || item.product_group_option_value || item.name;
             const active = String(item.id) === String(product.id);
-            return `<span class="product-color-swatch\${active ? ' is-active' : ''}" role="img" aria-label="\${escapeHtml(value)}" title="\${escapeHtml(value)}" style="--swatch-color:\${escapeHtml(getGroupColorHex(value))};"><span aria-hidden="true"></span></span>`;
+            return `<span class="product-color-swatch${active ? ' is-active' : ''}" role="img" aria-label="${escapeHtml(value)}" title="${escapeHtml(value)}" style="--swatch-color:${escapeHtml(getGroupColorHex(value))};"><span aria-hidden="true"></span></span>`;
           }).join('')}
         </div>
       </div>`
