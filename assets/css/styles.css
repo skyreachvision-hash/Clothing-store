@@ -305,36 +305,36 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 }
 .product-color-options {
   position: absolute;
-  top: .75rem;
-  left: .75rem;
+  top: .7rem;
+  left: .7rem;
   z-index: 4;
   pointer-events: none;
 }
 .product-color-swatches {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
-  gap: .25rem;
-  padding: .28rem .38rem;
+  gap: .3rem;
+  padding: .3rem .4rem;
   border-radius: 999px;
   background: rgb(255 255 255 / .82);
-  box-shadow: 0 4px 14px rgb(23 23 23 / .1);
+  box-shadow: 0 3px 12px rgb(23 23 23 / .1);
   backdrop-filter: blur(7px);
 }
 .product-color-swatch {
   display: block;
-  width: 14px !important;
-  min-width: 14px;
-  max-width: 14px;
-  height: 14px !important;
-  min-height: 14px;
-  max-height: 14px;
-  flex: 0 0 14px;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px;
+  max-width: 12px;
+  min-height: 12px;
+  max-height: 12px;
+  margin: 0;
   padding: 0;
+  flex: none;
   border: 1px solid rgb(255 255 255 / .95);
-  border-radius: 50%;
+  border-radius: 50% !important;
   background: var(--swatch-color);
-  box-shadow: 0 0 0 1px rgb(23 23 23 / .12);
+  box-shadow: 0 0 0 1px rgb(23 23 23 / .14);
   box-sizing: border-box;
 }
 .product-color-swatch span {
