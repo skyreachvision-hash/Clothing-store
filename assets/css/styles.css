@@ -295,6 +295,11 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .product-info h3 { font-size: var(--font-size-md); }
 .product-info h3 a:hover { color: var(--color-brand-secondary); }
 .price { white-space: nowrap; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); letter-spacing: .01em; }
+.product-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-4); }
+.product-actions .product-action { margin-top: 0; }
+.product-buy-now { display: flex; width: 100%; justify-content: center; align-items: center; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-brand-primary); border-radius: 999px; background: var(--color-brand-primary); color: var(--color-text-inverse); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer; transition: var(--transition-standard); }
+.product-buy-now:hover { background: var(--color-brand-secondary); border-color: var(--color-brand-secondary); transform: translateY(-1px); }
+.product-buy-now:disabled { cursor: not-allowed; opacity: .5; transform: none; }
 .product-action { display: flex; width: 100%; justify-content: space-between; margin-top: var(--space-4); padding: var(--space-3) 0; border: 0; border-bottom: 1px solid var(--color-border); background: transparent; color: var(--color-text); font-size: var(--font-size-sm); text-align: left; transition: var(--transition-standard); }
 .product-action:hover { border-color: var(--color-brand-secondary); color: var(--color-brand-secondary); transform: translateX(2px); }
 .catalogue-status { display: flex; justify-content: center; align-items: center; gap: var(--space-2); min-height: 72px; margin-top: var(--space-10); color: var(--color-text-muted); font-size: var(--font-size-sm); }
