@@ -43,12 +43,22 @@ const socialIconColors = {
 
 const applyPublicStoreSettings = (store = {}, socialLinks = []) => {
   const storeNameElements = document.querySelectorAll('[data-store-name]');
+  const logoElements = document.querySelectorAll('[data-store-logo]');
+  const favicon = document.querySelector('[data-store-favicon]');
   const taglineElements = document.querySelectorAll('[data-store-tagline]');
   const heroHeadlineElements = document.querySelectorAll('[data-store-hero-headline]');
   const descriptionElements = document.querySelectorAll('[data-store-description]');
   const secondaryDescriptionElements = document.querySelectorAll('[data-store-description-secondary]');
   const metaDescription = document.querySelector('[data-store-meta-description]');
   const socialLinkContainers = document.querySelectorAll('[data-social-links]');
+
+  if (store.logo_url) {
+    logoElements.forEach((element) => { element.src = store.logo_url; element.hidden = false; });
+    if (favicon) favicon.href = store.logo_url;
+  } else {
+    logoElements.forEach((element) => { element.hidden = true; });
+    if (favicon) favicon.removeAttribute('href');
+  }
 
   if (store.store_name) {
     storeNameElements.forEach((element) => {
@@ -136,6 +146,11 @@ loadPublicStoreSettings();
 const settingsForm = document.querySelector('[data-settings-form]');
 const socialList = document.querySelector('[data-social-list]');
 const settingsStatus = document.querySelector('[data-settings-status]');
+const logoFileInput = settingsForm?.elements.namedItem('logo_file');
+const logoUrlField = settingsForm?.elements.namedItem('logo_url');
+const logoPreview = document.querySelector('[data-store-logo-preview]');
+const logoPreviewImage = document.querySelector('[data-store-logo-preview-image]');
+const removeLogoButton = document.querySelector('[data-remove-logo]');
 const supportedPlatforms = [
   { platform: 'facebook', label: 'Facebook' },
   { platform: 'instagram', label: 'Instagram' },
@@ -164,12 +179,20 @@ const renderSocialLinks = (links = []) => {
   }).join('');
 };
 
+const updateLogoPreview = (url) => {
+  if (!logoPreview || !logoPreviewImage) return;
+  if (url) { logoPreviewImage.src = url; logoPreview.hidden = false; }
+  else { logoPreviewImage.removeAttribute('src'); logoPreview.hidden = true; }
+};
+
 const populateSettings = (store = {}) => {
   if (!settingsForm) return;
   ['store_name', 'logo_url', 'tagline', 'description', 'contact_email', 'contact_phone', 'whatsapp_url', 'address'].forEach((name) => {
     const field = settingsForm.elements.namedItem(name);
     if (field) field.value = store[name] || '';
   });
+  updateLogoPreview(store.logo_url || '');
+  if (logoFileInput) logoFileInput.value = '';
   const heroHeadlineField = settingsForm.elements.namedItem('hero_headline');
   if (heroHeadlineField) heroHeadlineField.value = store.additional_settings?.hero_headline || '';
   const email = store.additional_settings?.email || {};
@@ -233,6 +256,20 @@ if (settingsForm) {
     })
     .catch(() => setSettingsStatus('Unable to load settings. Check the API connection and try again.'));
 
+  logoFileInput?.addEventListener('change', () => {
+    const file = logoFileInput.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setSettingsStatus('Please choose an image file.'); logoFileInput.value = ''; return; }
+    if (file.size > 10 * 1024 * 1024) { setSettingsStatus('Logo is too large. Maximum size is 10 MB.'); logoFileInput.value = ''; return; }
+    updateLogoPreview(URL.createObjectURL(file));
+  });
+
+  removeLogoButton?.addEventListener('click', () => {
+    if (logoUrlField) logoUrlField.value = '';
+    if (logoFileInput) logoFileInput.value = '';
+    updateLogoPreview('');
+  });
+
   settingsForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!window.getAdminIdToken) {
@@ -248,6 +285,17 @@ if (settingsForm) {
 
     try {
       const idToken = await window.getAdminIdToken();
+      const logoFile = logoFileInput?.files?.[0];
+      if (logoFile) {
+        setSettingsStatus('Uploading store logo…');
+        const uploadForm = new FormData();
+        uploadForm.append('file', logoFile, logoFile.name);
+        uploadForm.append('purpose', 'logo');
+        const uploadResponse = await fetch('/api/upload-image', { method: 'POST', headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/json' }, body: uploadForm });
+        const uploadPayload = await uploadResponse.json().catch(() => ({}));
+        if (!uploadResponse.ok || !uploadPayload?.success) throw new Error(uploadPayload?.error || 'Logo upload failed');
+        if (logoUrlField) logoUrlField.value = uploadPayload.data.image_url;
+      }
       const response = await fetch('/api/store-settings', {
         method: 'PUT',
         headers: {
