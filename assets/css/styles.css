@@ -314,8 +314,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  gap: .35rem;
-  padding: .35rem .45rem;
+  gap: .25rem;
+  padding: .28rem .38rem;
   border-radius: 999px;
   background: rgb(255 255 255 / .82);
   box-shadow: 0 4px 14px rgb(23 23 23 / .1);
@@ -323,8 +323,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 }
 .product-color-swatch {
   display: inline-grid;
-  width: 13px;
-  height: 13px;
+  width: 10px;
+  height: 10px;
   place-items: center;
   padding: 1px;
   border: 1px solid rgb(255 255 255 / .95);
