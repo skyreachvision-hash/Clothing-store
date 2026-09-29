@@ -36,9 +36,12 @@ const getImages = (product) => {
 };
 
 const formatPrice = (product) => {
-  const amount = Number(product?.price);
+  const amount = Number(product?.effective_price ?? product?.price);
+  const regular = Number(product?.price);
   const currency = String(product?.currency || 'ZAR').toUpperCase();
-  return Number.isFinite(amount) ? currency + ' ' + amount.toFixed(2) : currency + ' 0.00';
+  if (!Number.isFinite(amount)) return currency + ' 0.00';
+  if (Number(product?.promotion_enabled) === 1 && Number.isFinite(regular) && regular !== amount) return '<span class="price-original">' + currency + ' ' + regular.toFixed(2) + '</span> ' + currency + ' ' + amount.toFixed(2);
+  return currency + ' ' + amount.toFixed(2);
 };
 
 function getPrimaryImage(product) {
@@ -181,7 +184,7 @@ if (buyNowButton) {
       const item = {
         product_id: loadedProduct.id,
         name: loadedProduct.name,
-        price: Number(loadedProduct.price) || 0,
+        price: Number(loadedProduct.effective_price ?? loadedProduct.price) || 0,
         currency: String(loadedProduct.currency || 'ZAR').toUpperCase(),
         image_url: getImages(loadedProduct)[0]?.image_url || null,
         quantity: 1
@@ -210,7 +213,7 @@ if (addButton) {
       else cart.push({
         product_id: loadedProduct.id,
         name: loadedProduct.name,
-        price: Number(loadedProduct.price) || 0,
+        price: Number(loadedProduct.effective_price ?? loadedProduct.price) || 0,
         currency: String(loadedProduct.currency || 'ZAR').toUpperCase(),
         image_url: getImages(loadedProduct)[0]?.image_url || null,
         quantity: 1

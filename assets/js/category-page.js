@@ -20,9 +20,12 @@ const getPrimaryImage = (product) => {
 };
 
 const formatPrice = (product) => {
-  const amount = Number(product?.price);
+  const amount = Number(product?.effective_price ?? product?.price);
+  const regular = Number(product?.price);
   const currency = String(product?.currency || 'ZAR').toUpperCase();
-  return Number.isFinite(amount) ? `${escapeHtml(currency)} ${amount.toFixed(2)}` : `${escapeHtml(currency)} 0.00`;
+  if (!Number.isFinite(amount)) return `${escapeHtml(currency)} 0.00`;
+  if (Number(product?.promotion_enabled) === 1 && Number.isFinite(regular) && regular !== amount) return '<span class="price-original">' + escapeHtml(currency) + ' ' + regular.toFixed(2) + '</span> ' + escapeHtml(currency) + ' ' + amount.toFixed(2);
+  return `${escapeHtml(currency)} ${amount.toFixed(2)}`;
 };
 
 const renderProductCard = (product) => {
@@ -30,7 +33,10 @@ const renderProductCard = (product) => {
   const imageContent = imageUrl
     ? `<span data-product-image style="display:block;width:100%;height:100%;min-height:340px;background-image:url('${escapeHtml(imageUrl).replace(/'/g, '%27')}');background-size:cover;background-position:center;" aria-hidden="true"></span>`
     : '<span>No image</span>';
-  const badge = product.status === 'active' && product.is_new ? '<span class="product-badge">New</span>' : '';
+  const badges = [];
+  if (product.status === 'active' && product.is_new) badges.push('<span class="product-badge">New</span>');
+  if (product.status === 'active' && product.promotion_enabled) badges.push('<span class="product-badge">Sale</span>');
+  const badge = badges.join('');
 
   return `<article class="product-card">
     <a class="product-image" href="/product.html?id=${encodeURIComponent(product.id)}" aria-label="View ${escapeHtml(product.name)}">

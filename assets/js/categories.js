@@ -19,9 +19,12 @@ const getPrimaryImage = (product) => {
 };
 
 const formatPrice = (product) => {
-  const amount = Number(product?.price);
+  const amount = Number(product?.effective_price ?? product?.price);
+  const regular = Number(product?.price);
   const currency = String(product?.currency || 'ZAR').toUpperCase();
-  return Number.isFinite(amount) ? `${escapeHtml(currency)} ${amount.toFixed(2)}` : `${escapeHtml(currency)} 0.00`;
+  if (!Number.isFinite(amount)) return `${escapeHtml(currency)} 0.00`;
+  if (Number(product?.promotion_enabled) === 1 && Number.isFinite(regular) && regular !== amount) return '<span class="price-original">' + escapeHtml(currency) + ' ' + regular.toFixed(2) + '</span> ' + escapeHtml(currency) + ' ' + amount.toFixed(2);
+  return `${escapeHtml(currency)} ${amount.toFixed(2)}`;
 };
 
 const renderProductCard = (product) => {
@@ -29,7 +32,10 @@ const renderProductCard = (product) => {
   const imageContent = imageUrl
     ? `<span data-product-image style="display:block;width:100%;height:100%;min-height:340px;background-image:url('${escapeHtml(imageUrl).replace(/'/g, '%27')}');background-size:contain;background-position:center;background-repeat:no-repeat;" aria-hidden="true"></span>`
     : '<span>No image</span>';
-  const badge = product.status === 'active' && product.is_new ? '<span class="product-badge">New</span>' : '';
+  const badges = [];
+  if (product.status === 'active' && product.is_new) badges.push('<span class="product-badge">New</span>');
+  if (product.status === 'active' && product.promotion_enabled) badges.push('<span class="product-badge">Sale</span>');
+  const badge = badges.join('');
 
   return `<article class="product-card">
     <a class="product-image" href="/product.html?id=${encodeURIComponent(product.id)}" aria-label="View ${escapeHtml(product.name)}">
@@ -47,6 +53,16 @@ const renderProductCard = (product) => {
 };
 
 const sortByStoreOrder = (a, b) => Number(a.sort_order) - Number(b.sort_order) || Number(a.id) - Number(b.id);
+
+function renderMerchandisingSections(products) {
+  const newArrivalsElement = document.querySelector('[data-new-arrivals]');
+  const promotionsElement = document.querySelector('[data-promotions]');
+  const render = (items, emptyText) => items.length
+    ? `<div class="product-grid">${items.slice(0, 8).map(renderProductCard).join('')}</div>`
+    : `<p class="muted">${emptyText}</p>`;
+  if (newArrivalsElement) newArrivalsElement.innerHTML = render(products.filter((product) => Number(product.is_new) === 1), 'No new arrivals are currently available.');
+  if (promotionsElement) promotionsElement.innerHTML = render(products.filter((product) => Number(product.promotion_enabled) === 1), 'No promotions are currently available.');
+}
 
 function renderSubcategoryShowcase(categories) {
   if (!subcategoryShowcase) return;
@@ -101,6 +117,7 @@ async function loadMainCategoriesWithProducts() {
         ? productPayload.data
         : [];
 
+    renderMerchandisingSections(products);
     renderSubcategoryShowcase(categories);
 
     const mainCategories = categories
