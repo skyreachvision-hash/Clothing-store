@@ -186,6 +186,17 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   border-radius: 50%;
   content: '';
 }
+.category-link-card {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.category-link-card:hover {
+  color: inherit;
+}
 .section-heading > div {
   position: relative;
   z-index: 1;
