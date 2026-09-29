@@ -111,9 +111,9 @@ button { cursor: pointer; }
   opacity: 0;
 }
 
-.sticky-cart-link { position: fixed; right: var(--space-5); bottom: var(--space-5); z-index: 1098; display: inline-flex; align-items: center; gap: var(--space-2); min-height: 52px; padding: var(--space-3) var(--space-4); border: var(--border-width) solid var(--color-brand-primary); border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-lg); font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); transition: var(--transition-standard); }
-.sticky-cart-link:hover { background: var(--color-brand-primary); color: var(--color-text-inverse); transform: translateY(-2px); }
-.sticky-cart-icon { font-size: var(--font-size-xs); letter-spacing: .08em; text-transform: uppercase; }
+.sticky-cart-link { position: fixed; right: var(--space-5); bottom: var(--space-5); z-index: 1098; display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border: 0; border-radius: 50%; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-lg); font-size: 1.35rem; transition: var(--transition-standard); }
+.sticky-cart-link:hover { background: var(--color-surface-muted); color: var(--color-text); transform: translateY(-2px); }
+.sticky-cart-icon { display: block; line-height: 1; }
 .sticky-cart-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding-inline: var(--space-1); border-radius: var(--radius-pill); background: var(--color-brand-secondary); color: var(--color-text-inverse); font-size: var(--font-size-xs); }
 .cart-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: var(--radius-pill); background: var(--color-brand-secondary); color: var(--color-text-inverse); font-size: var(--font-size-xs); }
 .header-icon { border: 0; background: transparent; color: var(--color-text); padding: var(--space-2); font-size: 1.35rem; }
