@@ -300,49 +300,6 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .product-page-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-6); }
 .product-page-actions .button { width: 100%; }
 .product-buy-now-large { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
-.product-card {
-  position: relative;
-}
-.product-color-options {
-  position: absolute;
-  top: .7rem;
-  left: .7rem;
-  z-index: 4;
-  pointer-events: none;
-}
-.product-color-swatches {
-  display: flex;
-  align-items: center;
-  gap: .3rem;
-  padding: .3rem .4rem;
-  border-radius: 999px;
-  background: rgb(255 255 255 / .82);
-  box-shadow: 0 3px 12px rgb(23 23 23 / .1);
-  backdrop-filter: blur(7px);
-}
-.product-color-swatch {
-  display: block;
-  width: 12px !important;
-  height: 12px !important;
-  min-width: 12px;
-  max-width: 12px;
-  min-height: 12px;
-  max-height: 12px;
-  margin: 0;
-  padding: 0;
-  flex: none;
-  border: 1px solid rgb(255 255 255 / .95);
-  border-radius: 50% !important;
-  background: var(--swatch-color);
-  box-shadow: 0 0 0 1px rgb(23 23 23 / .14);
-  box-sizing: border-box;
-}
-.product-color-swatch span {
-  display: none;
-}
-.product-color-swatch.is-active {
-  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-text);
-}
 .product-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
