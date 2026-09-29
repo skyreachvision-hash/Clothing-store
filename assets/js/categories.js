@@ -48,7 +48,6 @@ const renderProductCard = (product) => {
     : [];
   const colorSwatches = colorOptions.length > 1
     ? `<div class="product-color-options" aria-label="Available colours">
-        <span class="product-color-label">Colour</span>
         <div class="product-color-swatches">
           ${colorOptions.map((item) => {
             const value = item.product_group_value || item.product_group_option_value || item.name;
