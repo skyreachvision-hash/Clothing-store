@@ -298,13 +298,94 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .product-page-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-6); }
 .product-page-actions .button { width: 100%; }
 .product-buy-now-large { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
-.product-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-4); }
-.product-actions .product-action { margin-top: 0; }
-.product-buy-now { display: flex; width: 100%; justify-content: center; align-items: center; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-brand-primary); border-radius: 999px; background: var(--color-brand-primary); color: var(--color-text-inverse); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); cursor: pointer; transition: var(--transition-standard); }
-.product-buy-now:hover { background: var(--color-brand-secondary); border-color: var(--color-brand-secondary); transform: translateY(-1px); }
-.product-buy-now:disabled { cursor: not-allowed; opacity: .5; transform: none; }
-.product-action { display: flex; width: 100%; justify-content: space-between; margin-top: var(--space-4); padding: var(--space-3) 0; border: 0; border-bottom: 1px solid var(--color-border); background: transparent; color: var(--color-text); font-size: var(--font-size-sm); text-align: left; transition: var(--transition-standard); }
-.product-action:hover { border-color: var(--color-brand-secondary); color: var(--color-brand-secondary); transform: translateX(2px); }
+.product-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .65rem;
+  margin-top: var(--space-4);
+}
+.product-actions .product-action {
+  margin-top: 0;
+  padding: .72rem .8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  justify-content: center;
+  gap: .4rem;
+  font-size: .78rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: .01em;
+  text-align: center;
+}
+.product-actions .product-action:hover {
+  border-color: var(--color-brand-primary);
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgb(23 23 23 / .08);
+}
+.product-buy-now {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  gap: .4rem;
+  padding: .72rem .8rem;
+  border: 1px solid var(--color-brand-primary);
+  border-radius: 999px;
+  background: var(--color-brand-primary);
+  color: var(--color-text-inverse);
+  font-size: .78rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: .01em;
+  cursor: pointer;
+  transition: var(--transition-standard);
+}
+.product-buy-now:hover {
+  border-color: var(--color-brand-secondary);
+  background: var(--color-brand-secondary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgb(154 118 85 / .18);
+}
+.product-buy-now:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+  transform: none;
+  box-shadow: none;
+}
+.product-page-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+.product-page-actions .button {
+  width: 100%;
+}
+.product-page-actions .button,
+.product-buy-now-large {
+  min-height: 48px;
+  border-radius: 999px;
+}
+.product-page-actions .button-primary {
+  border: 1px solid var(--color-brand-primary);
+}
+.product-buy-now-large {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-brand-secondary);
+  background: var(--color-brand-secondary);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-semibold);
+}
+.product-buy-now-large:hover {
+  background: var(--color-brand-secondary-hover);
+  border-color: var(--color-brand-secondary-hover);
+  transform: translateY(-1px);
+}
 .catalogue-status { display: flex; justify-content: center; align-items: center; gap: var(--space-2); min-height: 72px; margin-top: var(--space-10); color: var(--color-text-muted); font-size: var(--font-size-sm); }
 .loading-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-brand-secondary); }
 .catalogue-status.is-ready .loading-dot { box-shadow: 0 0 0 5px var(--color-brand-secondary-soft); }
