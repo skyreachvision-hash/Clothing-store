@@ -1,3 +1,4 @@
+import { handleProductMerchandising } from "./product-merchandising.js";
 import { getEmailSettings } from "./email-service.js";
 
 const JSON_HEADERS = {
