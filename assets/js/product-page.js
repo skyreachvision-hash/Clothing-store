@@ -9,6 +9,7 @@ const thumbnailsElement = document.querySelector('[data-product-thumbnails]');
 const statusElement = document.querySelector('[data-product-status]');
 const attributesElement = document.querySelector('[data-product-attributes]');
 const addButton = document.querySelector('[data-add-to-cart]');
+const buyNowButton = document.querySelector('[data-buy-now]');
 const relatedSection = document.querySelector('[data-related-products-section]');
 const groupColorPalette = [
   ['Black', '#000000'], ['White', '#ffffff'], ['Red', '#dc2626'], ['Blue', '#2563eb'],
@@ -120,6 +121,7 @@ async function loadProduct(id = currentProductId, updateHistory = false) {
     addButton.dataset.productId = product.id;
     addButton.setAttribute('aria-label', 'Add ' + product.name + ' to cart');
     addButton.disabled = Boolean(product.track_stock && Number(product.stock_quantity) <= 0);
+    if (buyNowButton) { buyNowButton.dataset.productId = product.id; buyNowButton.disabled = Boolean(product.track_stock && Number(product.stock_quantity) <= 0); }
     addButton.firstChild.textContent = 'Add to cart ';
   }
   renderGallery(product);
@@ -169,6 +171,24 @@ function renderGroupOptions(product) {
         groupValuesElement.querySelectorAll('button').forEach((item) => item.disabled = false);
       }
     });
+  });
+}
+
+if (buyNowButton) {
+  buyNowButton.addEventListener('click', () => {
+    if (!loadedProduct || buyNowButton.disabled) return;
+    try {
+      const item = {
+        product_id: loadedProduct.id,
+        name: loadedProduct.name,
+        price: Number(loadedProduct.price) || 0,
+        currency: String(loadedProduct.currency || 'ZAR').toUpperCase(),
+        image_url: getImages(loadedProduct)[0]?.image_url || null,
+        quantity: 1
+      };
+      localStorage.setItem('clothing-store-cart', JSON.stringify([item]));
+      window.location.href = 'checkout.html';
+    } catch {}
   });
 }
 
