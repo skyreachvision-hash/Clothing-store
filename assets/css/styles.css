@@ -457,6 +457,36 @@ body.communications-drawer-open,body.customer-chat-drawer-open{overflow:hidden}
 .product-gallery-thumb img { display:block; width:100%; height:100%; object-fit:cover; }
 .product-gallery-empty { display:flex; align-items:center; justify-content:center; min-height:360px; background:var(--color-surface-muted); color:var(--color-text-muted); }
 .product-detail-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr); gap:clamp(2rem,6vw,5rem); align-items:start; }
+.product-gallery-main { border:0; border-radius:var(--radius-lg); box-shadow:var(--shadow-md); background:var(--color-surface); }
+.product-gallery-main img { transition:transform var(--duration-slow) var(--ease-emphasis); }
+.product-gallery-main:hover img { transform:scale(1.012); }
+.product-gallery-thumbs { gap:var(--space-3); }
+.product-gallery-thumb { border-radius:var(--radius-md); transition:var(--transition-standard); }
+.product-gallery-thumb:hover { border-color:var(--color-brand-secondary); transform:translateY(-2px); }
+.product-gallery-thumb.is-active { border-color:var(--color-brand-secondary); box-shadow:0 0 0 2px var(--color-brand-secondary-soft); }
+.product-detail-copy { position:sticky; top:calc(76px + var(--space-6)); padding:clamp(1.5rem,3vw,2.5rem); border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); box-shadow:var(--shadow-sm); }
+.product-detail-copy h1 { margin-top:var(--space-2); margin-bottom:var(--space-4); font-size:clamp(2.5rem,5vw,4.25rem); }
+.product-detail-price { font-size:1.35rem; font-weight:var(--font-weight-semibold); margin:0 0 var(--space-3); }
+.product-detail-copy > .muted { color:var(--color-text-muted); }
+.product-detail-copy .settings-group { margin:var(--space-6) 0; padding:var(--space-5); border:0; border-top:1px solid var(--color-border); border-bottom:1px solid var(--color-border); background:transparent; }
+.product-option-selector { margin:var(--space-6) 0; }
+.product-option-list { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+.product-option-list .button { min-width:44px; }
+.product-detail-copy .button-primary { width:100%; min-height:50px; margin-top:var(--space-2); }
+.product-detail-copy > p:last-child { margin:var(--space-3) 0 0; }
+.product-detail-copy > p:last-child .button { width:100%; border-color:var(--color-border); color:var(--color-text); background:transparent; }
+.product-detail-copy > p:last-child .button:hover { border-color:var(--color-brand-secondary); color:var(--color-brand-secondary); background:var(--color-brand-secondary-soft); }
+.product-grid[data-related-products] .product-card { display:flex; min-width:0; flex-direction:column; }
+.product-grid[data-related-products] .product-image { min-height:0; aspect-ratio:4 / 5; padding:0; border-radius:var(--radius-lg); background:var(--color-surface-muted); }
+.product-grid[data-related-products] .product-image img { display:block; width:100%; height:100%; object-fit:cover; position:relative; z-index:1; transition:transform var(--duration-slow) var(--ease-emphasis); }
+.product-grid[data-related-products] .product-image::before { display:none; }
+.product-grid[data-related-products] .product-image:hover img { transform:scale(1.025); }
+.product-grid[data-related-products] .product-info { flex:1; padding:var(--space-4) var(--space-1) 0; }
+.product-grid[data-related-products] .product-info h3 { margin:0; font-size:var(--font-size-md); line-height:1.35; }
+.product-grid[data-related-products] .price { font-size:var(--font-size-sm); }
+.product-grid[data-related-products] .product-card::after { content:'View product  →'; display:block; margin:var(--space-4) var(--space-1) 0; padding-top:var(--space-3); border-top:1px solid var(--color-border); color:var(--color-text-muted); font-size:var(--font-size-xs); letter-spacing:.04em; transition:var(--transition-colors); }
+.product-grid[data-related-products] .product-card:hover::after { color:var(--color-brand-secondary); }
+
 .product-detail-copy { position:sticky; top:var(--space-6); }
 .product-detail-copy h1 { margin-top:var(--space-2); }
 .product-detail-price { font-size:1.25rem; margin:var(--space-4) 0; }
