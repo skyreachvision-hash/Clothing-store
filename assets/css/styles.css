@@ -865,3 +865,10 @@ body.customer-sticky-chat-open{overflow:hidden}
   color: var(--color-text-inverse);
   background: var(--color-brand-secondary);
 }
+
+/* Keep the product gallery full-width on mobile while shortening only its height */
+@media (max-width:700px) {
+  .product-gallery-main {
+    aspect-ratio: 1 / 1;
+  }
+}
