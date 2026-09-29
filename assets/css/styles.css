@@ -244,15 +244,6 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   margin-top: var(--space-6);
   padding-left: var(--space-6);
 }
-.category-product-section::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 1px;
-  background: linear-gradient(180deg, var(--color-brand-secondary), var(--color-border));
-  content: '';
-}
 .category-product-section .section-heading {
   margin-bottom: var(--space-6);
   padding: var(--space-3) var(--space-4);
