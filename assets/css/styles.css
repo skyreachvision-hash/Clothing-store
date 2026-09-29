@@ -865,11 +865,3 @@ body.customer-sticky-chat-open{overflow:hidden}
   color: var(--color-text-inverse);
   background: var(--color-brand-secondary);
 }
-
-/* Reduce only the customer product image area */
-.product-gallery-main {
-  aspect-ratio: 5 / 5;
-}
-.product-gallery {
-  grid-template-columns: minmax(0, 1fr) 84px;
-}
