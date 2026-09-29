@@ -163,7 +163,7 @@ h3 { margin-bottom: var(--space-1); font-size: var(--font-size-md); }
 }
 #new-arrivals .product-image > [data-product-image],
 #promotions .product-image > [data-product-image] {
-  min-height: 0 !important;
+  min-height: 320px !important;
 }
 
 .section-heading .button-ghost {
