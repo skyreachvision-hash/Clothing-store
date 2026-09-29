@@ -147,6 +147,25 @@ h3 { margin-bottom: var(--space-1); font-size: var(--font-size-md); }
 .button-secondary { background: var(--color-brand-primary); color: var(--color-text-inverse); }
 .button-ghost { border-color: rgb(255 255 255 / .35); color: var(--color-text-inverse); }
 .button-ghost:hover { border-color: var(--color-text-inverse); background: rgb(255 255 255 / .1); }
+/* Compact merchandising sections */
+#new-arrivals.section,
+#promotions.section {
+  padding-block: clamp(3rem, 6vw, 4.5rem);
+}
+#new-arrivals .section-heading,
+#promotions .section-heading {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+}
+#new-arrivals .product-image,
+#promotions .product-image {
+  min-height: 320px;
+}
+#new-arrivals .product-image > [data-product-image],
+#promotions .product-image > [data-product-image] {
+  min-height: 0 !important;
+}
+
 .section-heading .button-ghost {
   border-color: var(--color-brand-secondary);
   color: var(--color-brand-secondary);
