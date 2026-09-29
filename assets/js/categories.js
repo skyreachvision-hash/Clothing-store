@@ -24,39 +24,12 @@ const formatPrice = (product) => {
   return Number.isFinite(amount) ? `${escapeHtml(currency)} ${amount.toFixed(2)}` : `${escapeHtml(currency)} 0.00`;
 };
 
-const groupColorPalette = [
-  ['Black', '#111827'], ['White', '#f8fafc'], ['Red', '#dc2626'], ['Blue', '#2563eb'],
-  ['Green', '#16a34a'], ['Yellow', '#eab308'], ['Orange', '#f97316'], ['Pink', '#ec4899'],
-  ['Purple', '#9333ea'], ['Brown', '#92400e'], ['Grey', '#6b7280'], ['Beige', '#d6c3a5'],
-  ['Navy', '#1e3a8a'], ['Maroon', '#7f1d1d'], ['Burgundy', '#800020'], ['Cream', '#fff7d6'],
-  ['Khaki', '#c3b091'], ['Olive', '#808000'], ['Teal', '#0f766e'], ['Turquoise', '#14b8a6'],
-  ['Gold', '#d4af37'], ['Silver', '#c0c0c0']
-];
-const getGroupColorHex = (value) =>
-  groupColorPalette.find(([name]) => name.toLowerCase() === String(value || '').trim().toLowerCase())?.[1] || '#9ca3af';
-
 const renderProductCard = (product) => {
   const imageUrl = getPrimaryImage(product);
   const imageContent = imageUrl
     ? `<span data-product-image style="display:block;width:100%;height:100%;min-height:340px;background-image:url('${escapeHtml(imageUrl).replace(/'/g, '%27')}');background-size:contain;background-position:center;background-repeat:no-repeat;" aria-hidden="true"></span>`
     : '<span>No image</span>';
   const badge = product.status === 'active' && product.is_new ? '<span class="product-badge">New</span>' : '';
-  const related = Array.isArray(product.related_products) ? product.related_products : [];
-  const isColorGroup = String(product.product_group_relationship_type || '').toLowerCase() === 'color';
-  const colorOptions = isColorGroup
-    ? [product, ...related].filter((item, index, array) => array.findIndex((candidate) => String(candidate.id) === String(item.id)) === index)
-    : [];
-  const colorSwatches = colorOptions.length > 1
-    ? `<div class="product-color-options" aria-label="Available colours">
-        <div class="product-color-swatches">
-          ${colorOptions.map((item) => {
-            const value = item.product_group_value || item.product_group_option_value || item.name;
-            const active = String(item.id) === String(product.id);
-            return `<span class="product-color-swatch${active ? ' is-active' : ''}" role="img" aria-label="${escapeHtml(value)}" title="${escapeHtml(value)}" style="--swatch-color:${escapeHtml(getGroupColorHex(value))};"><span aria-hidden="true"></span></span>`;
-          }).join('')}
-        </div>
-      </div>`
-    : '';
 
   return `<article class="product-card">
     <a class="product-image" href="/product.html?id=${encodeURIComponent(product.id)}" aria-label="View ${escapeHtml(product.name)}">
@@ -66,7 +39,6 @@ const renderProductCard = (product) => {
       <div><p class="product-category">${escapeHtml(product.category_name || 'Uncategorized')}</p><h3><a href="/product.html?id=${encodeURIComponent(product.id)}">${escapeHtml(product.name)}</a></h3></div>
       <strong class="price">${formatPrice(product)}</strong>
     </div>
-    ${colorSwatches}
     <div class="product-actions">
       <button class="product-action" type="button" data-add-to-cart data-product-id="${escapeHtml(product.id)}" aria-label="Add ${escapeHtml(product.name)} to cart">Add to cart <span aria-hidden="true">+</span></button>
       <button class="product-buy-now" type="button" data-buy-now data-product-id="${escapeHtml(product.id)}" aria-label="Buy ${escapeHtml(product.name)} now">Buy now <span aria-hidden="true">↗</span></button>
