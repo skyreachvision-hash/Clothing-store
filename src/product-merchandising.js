@@ -1,5 +1,3 @@
-import { verifyFirebaseIdToken } from "./index.js";
-
 const headers = {"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"};
 const json = (payload,status=200) => new Response(JSON.stringify(payload),{status,headers});
 const idOf = value => { const n=Number(value); return Number.isInteger(n)&&n>0?n:null; };
@@ -23,7 +21,7 @@ async function getMerchandising(env,productId){
   return result.results??[];
 }
 
-export async function handleProductMerchandising(request,env){
+export async function handleProductMerchandising(request,env,verifyFirebaseIdToken){
   try{
     const token=await verifyFirebaseIdToken(request);
     await requireAdmin(token,env);
