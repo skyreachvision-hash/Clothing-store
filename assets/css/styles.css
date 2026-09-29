@@ -854,3 +854,14 @@ body.customer-sticky-chat-open{overflow:hidden}
   opacity: .62;
   font-weight: 500;
 }
+
+.product-context-back {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-brand-secondary);
+  background: var(--color-surface);
+}
+.product-context-back:hover {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-text-inverse);
+  background: var(--color-brand-secondary);
+}
