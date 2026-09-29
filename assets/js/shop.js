@@ -25,7 +25,7 @@ const formatPrice = (product) => {
 const renderProductCard = (product) => {
   const imageUrl = getPrimaryImage(product);
   const imageContent = imageUrl
-    ? `<span data-product-image style="display:block;width:100%;height:100%;min-height:340px;background-image:url('${escapeHtml(imageUrl).replace(/'/g, '%27')}');background-size:cover;background-position:center;" aria-hidden="true"></span>`
+    ? `<span data-product-image style="display:block;width:100%;height:100%;min-height:340px;background-image:url('${escapeHtml(imageUrl).replace(/'/g, '%27')}');background-size:contain;background-position:center;background-repeat:no-repeat;" aria-hidden="true"></span>`
     : '<span>No image</span>';
   const badge = product.status === 'active' && product.is_new ? '<span class="product-badge">New</span>' : '';
   return `<article class="product-card">
