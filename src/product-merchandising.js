@@ -11,7 +11,7 @@ async function requireAdmin(token,env){
 
 async function getMerchandising(env,productId){
   const result=await env.DB.prepare(`SELECT p.id,p.name,p.sku,p.price,p.currency,p.status,p.stock_quantity,p.category_id,p.created_at,p.updated_at,
-    COALESCE(na.is_enabled,0) AS new_arrival_enabled,na.duration_days AS new_arrival_duration_days,na.starts_at AS new_arrival_starts_at,na.expires_at AS new_arrival_expires_at,
+    CASE WHEN na.is_enabled=1 AND na.expires_at IS NOT NULL AND julianday(na.expires_at)>julianday('now') THEN 1 ELSE 0 END AS new_arrival_enabled,na.duration_days AS new_arrival_duration_days,na.starts_at AS new_arrival_starts_at,na.expires_at AS new_arrival_expires_at,
     COALESCE(pr.is_enabled,0) AS promotion_enabled,pr.promotion_price
     FROM products p
     LEFT JOIN product_new_arrivals na ON na.product_id=p.id
