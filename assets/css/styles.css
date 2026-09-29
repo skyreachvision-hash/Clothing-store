@@ -810,6 +810,16 @@ body.customer-sticky-chat-open{overflow:hidden}
 .shop-filter-grid .field { margin: 0; }
 .shop-filter-grid select, .shop-filter-grid input { width: 100%; }
 .shop-filter-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-5); }
+.shop-filter-actions .button-ghost {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-brand-secondary);
+  background: transparent;
+}
+.shop-filter-actions .button-ghost:hover {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-text-inverse);
+  background: var(--color-brand-secondary);
+}
 @media (max-width: 900px) { .shop-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .shop-filter-grid { grid-template-columns: 1fr; } .shop-filter-actions { align-items: stretch; flex-direction: column; } }
 
