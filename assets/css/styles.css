@@ -322,24 +322,23 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   backdrop-filter: blur(7px);
 }
 .product-color-swatch {
-  display: inline-grid;
-  width: 14px;
-  height: 14px;
+  display: block;
+  width: 14px !important;
+  min-width: 14px;
+  max-width: 14px;
+  height: 14px !important;
+  min-height: 14px;
+  max-height: 14px;
   flex: 0 0 14px;
-  place-items: center;
   padding: 0;
   border: 1px solid rgb(255 255 255 / .95);
   border-radius: 50%;
-  background: var(--color-surface);
+  background: var(--swatch-color);
   box-shadow: 0 0 0 1px rgb(23 23 23 / .12);
+  box-sizing: border-box;
 }
 .product-color-swatch span {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: var(--swatch-color);
-  border: 1px solid rgb(23 23 23 / .1);
+  display: none;
 }
 .product-color-swatch.is-active {
   box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-text);
