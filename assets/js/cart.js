@@ -99,6 +99,16 @@ const addToCart = (product) => {
 };
 
 document.addEventListener('click', (event) => {
+  const buyNowButton = event.target.closest('[data-buy-now]');
+  if (buyNowButton) {
+    const product = getProductFromCard(buyNowButton);
+    if (product) {
+      writeCart([product]);
+      window.location.href = 'checkout.html';
+    }
+    return;
+  }
+
   const button = event.target.closest('[data-add-to-cart]');
   if (!button) return;
   const product = getProductFromCard(button);
