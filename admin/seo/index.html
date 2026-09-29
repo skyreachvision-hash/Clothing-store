@@ -17,13 +17,24 @@
       <div><p class="eyebrow">Search visibility</p><h1>SEO / Search Engine</h1><p class="muted">All search-engine controls will live here. Existing Store Settings, Shipping, and Information Pages remain unchanged.</p></div>
       <a class="button button-outline" href="../">Back to dashboard</a>
     </div>
-    <section class="settings-panel">
-      <div class="admin-panel">
-        <div class="panel-icon">01</div>
-        <div><h2>Search engine settings</h2><p class="muted">This page is the dedicated home for storefront SEO configuration. Settings will be stored and loaded through the existing Pages API → Worker → D1 path.</p></div>
-      </div>
+    <section class="settings-panel" aria-labelledby="seo-settings-title">
+      <div class="settings-heading"><div><h2 id="seo-settings-title">Search engine settings</h2><p class="muted">These settings control the basic information search engines use when discovering and displaying your storefront.</p></div><span class="settings-readonly">Admin access</span></div>
+      <form class="settings-form" data-seo-form>
+        <fieldset class="settings-group"><legend>Search appearance</legend><div class="settings-fields settings-fields-two">
+          <label class="field field-wide"><span>Site title</span><input name="site_title" type="text" maxlength="160" placeholder="Your store name"></label>
+          <label class="field field-wide"><span>Meta description</span><textarea name="meta_description" rows="4" maxlength="320" placeholder="Describe your store for search results"></textarea></label>
+          <label class="field field-wide"><span>Canonical URL</span><input name="canonical_url" type="url" placeholder="https://your-store.example"></label>
+        </div></fieldset>
+        <fieldset class="settings-group"><legend>Indexing</legend><div class="settings-fields settings-fields-two">
+          <label class="field"><span>Allow search engines to index the site</span><input name="robots_index" type="checkbox" checked></label>
+          <label class="field"><span>Allow search engines to follow links</span><input name="robots_follow" type="checkbox" checked></label>
+        </div><p class="group-help muted">Keep both enabled for a normal public storefront. Disable indexing only when the storefront should not appear in search results.</p></fieldset>
+        <div class="settings-actions"><span class="settings-load-status" data-seo-status aria-live="polite">Loading current SEO settings…</span><button class="button button-primary" type="submit" disabled>Save SEO settings</button></div>
+      </form>
     </section>
   </div></main>
   <footer class="site-footer"><div class="container footer-inner"><a class="brand" href="../../index.html">Clothing Store</a><p>© <span data-current-year>2026</span> Clothing Store</p><a href="../../index.html">View storefront</a></div></footer>
 </body>
 </html>
+
+  <script type="module" src="../../assets/js/seo-settings.js"></script>
