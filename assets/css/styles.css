@@ -147,6 +147,16 @@ h3 { margin-bottom: var(--space-1); font-size: var(--font-size-md); }
 .button-secondary { background: var(--color-brand-primary); color: var(--color-text-inverse); }
 .button-ghost { border-color: rgb(255 255 255 / .35); color: var(--color-text-inverse); }
 .button-ghost:hover { border-color: var(--color-text-inverse); background: rgb(255 255 255 / .1); }
+.section-heading .button-ghost {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-brand-secondary);
+  background: transparent;
+}
+.section-heading .button-ghost:hover {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-text-inverse);
+  background: var(--color-brand-secondary);
+}
 .button-outline { border-color: var(--color-border); background: transparent; color: var(--color-text); }
 .button-small { padding: var(--space-2) var(--space-3); font-size: var(--font-size-xs); }
 button:disabled { cursor: not-allowed; opacity: .55; }
