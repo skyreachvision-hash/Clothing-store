@@ -62,14 +62,20 @@ const animateProductToCart = (source) => {
   flyer.style.top = sourceRect.top + 'px';
   flyer.style.width = sourceRect.width + 'px';
   flyer.style.height = sourceRect.height + 'px';
-  flyer.style.setProperty('--cart-fly-x', (targetRect.left + targetRect.width / 2 - (sourceRect.left + sourceRect.width / 2)) + 'px');
-  flyer.style.setProperty('--cart-fly-y', (targetRect.top + targetRect.height / 2 - (sourceRect.top + sourceRect.height / 2)) + 'px');
   document.body.appendChild(flyer);
-  flyer.getBoundingClientRect();
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => flyer.classList.add('is-flying'));
-  });
-  window.setTimeout(() => flyer.remove(), 700);
+
+  const deltaX = targetRect.left + targetRect.width / 2 - (sourceRect.left + sourceRect.width / 2);
+  const deltaY = targetRect.top + targetRect.height / 2 - (sourceRect.top + sourceRect.height / 2);
+
+  const animation = flyer.animate(
+    [
+      { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 0.96 },
+      { transform: 'translate3d(' + deltaX + 'px, ' + deltaY + 'px, 0) scale(.18)', opacity: 0 }
+    ],
+    { duration: 700, easing: 'cubic-bezier(.16, 1, .3, 1)', fill: 'forwards' }
+  );
+
+  animation.onfinish = () => flyer.remove();
 };
 
 window.animateProductToCart = animateProductToCart;
@@ -89,8 +95,7 @@ const addToCart = (product) => {
   else cart.push(product);
   writeCart(cart);
   initStickyCart();
-  initStickyCart();
-updateCartCount();
+  updateCartCount();
 };
 
 document.addEventListener('click', (event) => {
@@ -110,4 +115,5 @@ document.addEventListener('click', (event) => {
   }, 1200);
 });
 
+initStickyCart();
 updateCartCount();

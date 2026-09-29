@@ -197,7 +197,7 @@ if (addButton) {
       });
       localStorage.setItem(key, JSON.stringify(cart));
       window.animateProductToCart?.(mainImageElement || addButton);
-      document.querySelectorAll('.cart-count').forEach((element) => {
+      document.querySelectorAll('.cart-count, .sticky-cart-count').forEach((element) => {
         element.textContent = String(cart.reduce((total, item) => total + Number(item.quantity || 0), 0));
       });
       addButton.firstChild.textContent = 'Added to cart ';
