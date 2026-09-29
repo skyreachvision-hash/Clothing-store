@@ -341,7 +341,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .panel-icon { display: grid; place-items: center; width: 52px; height: 52px; background: var(--color-surface-muted); font-family: var(--font-mono); font-size: var(--font-size-xs); }
 .muted { color: var(--color-text-muted); }
 .subcategory-showcase { display: flex; gap: clamp(1rem, 2.5vw, 1.75rem); margin-bottom: var(--space-16); padding: var(--space-2) var(--space-1) var(--space-5); overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scrollbar-width: thin; }
-.subcategory-showcase-card { flex: 0 0 112px; scroll-snap-align: start; text-align: center; }
+.subcategory-showcase-card { position: relative; z-index: 2; display: block; flex: 0 0 112px; scroll-snap-align: start; text-align: center; cursor: pointer; pointer-events: auto; }
 .subcategory-showcase-image { position: relative; display: block; width: 112px; height: 112px; overflow: hidden; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-surface); box-shadow: 0 10px 28px rgb(23 23 23 / .08); transition: var(--transition-standard); }
 .subcategory-showcase-image::after { position: absolute; inset: 7px; border: 1px solid rgb(255 255 255 / .42); border-radius: 50%; content: ''; pointer-events: none; }
 .subcategory-showcase-image img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform var(--duration-slow) var(--ease-emphasis); }
