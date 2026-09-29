@@ -124,7 +124,7 @@ async function loadMainCategoriesWithProducts() {
         </div>`;
       }).join('');
 
-      return `<section aria-labelledby="main-category-${escapeHtml(mainCategory.id)}">
+      return `<section class="category-main-section" aria-labelledby="main-category-${escapeHtml(mainCategory.id)}">
         <div class="section-heading">
           <div><p class="eyebrow">Main category</p><h2 id="main-category-${escapeHtml(mainCategory.id)}"><a href="category.html?id=${encodeURIComponent(mainCategory.id)}">${escapeHtml(mainCategory.name)}</a></h2></div>
         </div>
