@@ -17,7 +17,7 @@ const getCartQuantity = (cart) => cart.reduce((total, item) => total + Number(it
 
 const updateCartCount = () => {
   const quantity = getCartQuantity(readCart());
-  document.querySelectorAll('.cart-count').forEach((element) => { element.textContent = String(quantity); });
+  document.querySelectorAll('.cart-count, .sticky-cart-count').forEach((element) => { element.textContent = String(quantity); });
   document.querySelectorAll('.cart-link, .sticky-cart-link').forEach((link) => {
     link.setAttribute('aria-label', `Shopping cart, currently containing ${quantity} ${quantity === 1 ? 'item' : 'items'}`);
   });
@@ -66,7 +66,9 @@ const animateProductToCart = (source) => {
   flyer.style.setProperty('--cart-fly-y', (targetRect.top + targetRect.height / 2 - (sourceRect.top + sourceRect.height / 2)) + 'px');
   document.body.appendChild(flyer);
   flyer.getBoundingClientRect();
-  window.requestAnimationFrame(() => flyer.classList.add('is-flying'));
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => flyer.classList.add('is-flying'));
+  });
   window.setTimeout(() => flyer.remove(), 700);
 };
 
@@ -86,6 +88,7 @@ const addToCart = (product) => {
   if (existing) existing.quantity = Number(existing.quantity || 0) + 1;
   else cart.push(product);
   writeCart(cart);
+  initStickyCart();
   initStickyCart();
 updateCartCount();
 };
